@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import { signupFamily } from "@/app/actions";
+import { useCurrentFamily } from "@/hooks/use-current-family";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -10,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { MapPin, Calendar, Users, CheckCircle2 } from "lucide-react";
 import { formatDateRange } from "@/lib/utils";
+import Link from "next/link";
 
 type EventInfo = {
   id: number;
@@ -26,6 +28,7 @@ type EventInfo = {
 
 export default function JoinPage() {
   const { inviteCode } = useParams<{ inviteCode: string }>();
+  const { setCurrentFamily } = useCurrentFamily();
   const [event, setEvent] = useState<EventInfo | null>(null);
   const [notFound, setNotFound] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -55,11 +58,12 @@ export default function JoinPage() {
     e.preventDefault();
     if (!event || !familyName.trim() || !contactName.trim()) return;
     setLoading(true);
-    await signupFamily(
+    const result = await signupFamily(
       event.id,
       { name: familyName.trim(), contactName: contactName.trim(), phone: phone || undefined, email: email || undefined },
       { adults, kids, elderly, vegetarians, notes: notes || undefined }
     );
+    setCurrentFamily(result.family.id, result.family.name);
     setSuccess(true);
     setLoading(false);
   }
@@ -88,9 +92,9 @@ export default function JoinPage() {
           <p className="text-sm text-muted-foreground">
             {familyName} has been signed up for {event.title}.
           </p>
-          <p className="text-xs text-muted-foreground mt-4">
-            To manage the trip details, log in to Camp Planner.
-          </p>
+          <Button asChild variant="outline" size="sm" className="mt-4">
+            <Link href="/login">Log in to manage the trip</Link>
+          </Button>
         </CardContent>
       </Card>
     );

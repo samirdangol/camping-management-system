@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { formatDateRange } from "@/lib/utils";
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -34,11 +35,18 @@ export default function EventsPage() {
   const { familyId, isLoaded } = useCurrentFamily();
   const [events, setEvents] = useState<EventWithOrganizer[]>([]);
   const [loading, setLoading] = useState(true);
+  const router = useRouter();
+
+  // Redirect to family selection if no family is set
+  useEffect(() => {
+    if (isLoaded && !familyId) {
+      router.push("/select-family");
+    }
+  }, [isLoaded, familyId, router]);
 
   useEffect(() => {
-    if (!isLoaded) return;
-    const url = familyId ? `/api/events?familyId=${familyId}` : "/api/events";
-    fetch(url)
+    if (!isLoaded || !familyId) return;
+    fetch(`/api/events?familyId=${familyId}`)
       .then((r) => r.json())
       .then(setEvents)
       .finally(() => setLoading(false));
@@ -65,12 +73,8 @@ export default function EventsPage() {
       {events.length === 0 ? (
         <EmptyState
           icon={Tent}
-          title={familyId ? "No camping trips yet" : "Select your family"}
-          description={
-            familyId
-              ? "Create your first camping trip to get started!"
-              : "Select your family from the header to see your trips, or create a new one."
-          }
+          title="No camping trips yet"
+          description="Create your first camping trip or join one via an invite link!"
         >
           <Button asChild>
             <Link href="/events/new">

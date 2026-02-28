@@ -27,7 +27,7 @@ export default function LoginPage() {
       });
 
       if (res.ok) {
-        router.push("/events");
+        router.push("/select-family");
       } else {
         setError("Invalid passcode. Please try again.");
       }
