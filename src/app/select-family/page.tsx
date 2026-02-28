@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { Suspense, useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCurrentFamily } from "@/hooks/use-current-family";
 import {
@@ -16,7 +16,7 @@ import { Label } from "@/components/ui/label";
 import { Tent, Plus, Users, Check } from "lucide-react";
 import type { Family } from "@/types";
 
-export default function SelectFamilyPage() {
+function SelectFamilyContent() {
   const [families, setFamilies] = useState<Family[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
@@ -206,5 +206,19 @@ export default function SelectFamilyPage() {
         </Card>
       </div>
     </div>
+  );
+}
+
+export default function SelectFamilyPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 to-emerald-100">
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      }
+    >
+      <SelectFamilyContent />
+    </Suspense>
   );
 }
