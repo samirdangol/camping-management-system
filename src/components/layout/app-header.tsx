@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, usePathname } from "next/navigation";
-import { Tent, LogOut, Users, ArrowLeftRight } from "lucide-react";
+import { Tent, LogOut, Users, ArrowLeftRight, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useCurrentFamily } from "@/hooks/use-current-family";
 import Link from "next/link";
@@ -46,8 +46,20 @@ export function AppHeader() {
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-7 px-2 text-xs text-muted-foreground"
+                className="h-7 px-1.5 text-xs text-muted-foreground"
                 asChild
+                title="Edit family"
+              >
+                <Link href="/select-family?switch=true">
+                  <Pencil className="h-3 w-3" />
+                </Link>
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 px-1.5 text-xs text-muted-foreground"
+                asChild
+                title="Switch family"
               >
                 <Link href="/select-family?switch=true">
                   <ArrowLeftRight className="h-3 w-3" />

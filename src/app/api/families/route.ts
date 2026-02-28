@@ -17,6 +17,51 @@ export async function GET() {
   return NextResponse.json(result);
 }
 
+export async function PUT(request: NextRequest) {
+  const body = await request.json();
+  const { id, name, contactName, contactName2, phone, email, pin } = body;
+
+  if (!id) {
+    return NextResponse.json({ error: "Family ID is required" }, { status: 400 });
+  }
+
+  if (!name?.trim() || !contactName?.trim()) {
+    return NextResponse.json(
+      { error: "Name and contact name are required" },
+      { status: 400 }
+    );
+  }
+
+  if (pin !== undefined && pin !== null && pin !== "") {
+    if (!/^\d{4}$/.test(String(pin))) {
+      return NextResponse.json(
+        { error: "PIN must be exactly 4 digits" },
+        { status: 400 }
+      );
+    }
+  }
+
+  const family = await prisma.family.update({
+    where: { id: Number(id) },
+    data: {
+      name: name.trim(),
+      contactName: contactName.trim(),
+      contactName2: contactName2?.trim() || null,
+      phone: phone?.trim() || null,
+      email: email?.trim() || null,
+      // Only update PIN if explicitly provided (empty string = remove PIN)
+      ...(pin !== undefined ? { pin: pin || null } : {}),
+    },
+    omit: { pin: false },
+  });
+
+  const { pin: familyPin, ...safeFamily } = family;
+  return NextResponse.json({
+    ...safeFamily,
+    hasPin: familyPin !== null && familyPin !== "",
+  });
+}
+
 export async function POST(request: NextRequest) {
   const body = await request.json();
   const { name, contactName, contactName2, pin } = body;

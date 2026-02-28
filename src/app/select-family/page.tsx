@@ -10,10 +10,18 @@ import {
   CardTitle,
   CardDescription,
 } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Tent, Plus, Users, Check, Lock } from "lucide-react";
+import { Tent, Plus, Users, Check, Lock, Pencil } from "lucide-react";
 import type { FamilyPublic } from "@/types";
 
 function SelectFamilyContent() {
@@ -34,6 +42,16 @@ function SelectFamilyContent() {
   const [verifyError, setVerifyError] = useState("");
   const [verifying, setVerifying] = useState(false);
 
+  // Edit family state
+  const [editingFamily, setEditingFamily] = useState<FamilyPublic | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editContact, setEditContact] = useState("");
+  const [editContact2, setEditContact2] = useState("");
+  const [editPhone, setEditPhone] = useState("");
+  const [editEmail, setEditEmail] = useState("");
+  const [editPin, setEditPin] = useState("");
+  const [editSaving, setEditSaving] = useState(false);
+
   const { familyId, setCurrentFamily, isLoaded } = useCurrentFamily();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -46,11 +64,15 @@ function SelectFamilyContent() {
     }
   }, [isLoaded, familyId, isSwitch, router]);
 
-  useEffect(() => {
+  const fetchFamilies = () => {
     fetch("/api/families")
       .then((r) => r.json())
       .then(setFamilies)
       .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    fetchFamilies();
   }, []);
 
   function handleSelect(family: FamilyPublic) {
@@ -112,6 +134,54 @@ function SelectFamilyContent() {
       router.push("/events");
     } catch {
       setCreating(false);
+    }
+  }
+
+  // --- Edit family ---
+
+  async function openEdit(family: FamilyPublic, e: React.MouseEvent) {
+    e.stopPropagation();
+    const res = await fetch(`/api/families/${family.id}`);
+    const data = await res.json();
+    setEditingFamily(family);
+    setEditName(data.name || "");
+    setEditContact(data.contactName || "");
+    setEditContact2(data.contactName2 || "");
+    setEditPhone(data.phone || "");
+    setEditEmail(data.email || "");
+    setEditPin("");
+  }
+
+  async function handleEditSave(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editingFamily || !editName.trim() || !editContact.trim()) return;
+    setEditSaving(true);
+    try {
+      const res = await fetch("/api/families", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: editingFamily.id,
+          name: editName.trim(),
+          contactName: editContact.trim(),
+          contactName2: editContact2.trim() || null,
+          phone: editPhone.trim() || null,
+          email: editEmail.trim() || null,
+          ...(editPin ? { pin: editPin } : {}),
+        }),
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        if (familyId === editingFamily.id) {
+          setCurrentFamily(updated.id, updated.name);
+        }
+        setEditingFamily(null);
+        fetchFamilies();
+      }
+    } catch {
+      // silently fail
+    } finally {
+      setEditSaving(false);
     }
   }
 
@@ -213,29 +283,41 @@ function SelectFamilyContent() {
                 </CardHeader>
                 <CardContent className="space-y-2">
                   {families.map((family) => (
-                    <button
-                      key={family.id}
-                      onClick={() => handleSelect(family)}
-                      className="w-full flex items-center gap-3 rounded-lg border p-3 text-left transition-colors hover:bg-green-50 hover:border-green-300 focus:outline-none focus:ring-2 focus:ring-green-500"
-                    >
-                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-green-100">
-                        <Users className="h-4 w-4 text-green-700" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="font-medium text-sm truncate">
-                          {family.name}
-                        </p>
-                        <p className="text-xs text-muted-foreground truncate">
-                          {family.contactName}
-                        </p>
-                      </div>
-                      {family.hasPin && (
-                        <Lock className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                      )}
+                    <div key={family.id} className="flex items-center gap-1">
+                      <button
+                        onClick={() => handleSelect(family)}
+                        className="flex-1 flex items-center gap-3 rounded-lg border p-3 text-left transition-colors hover:bg-green-50 hover:border-green-300 focus:outline-none focus:ring-2 focus:ring-green-500"
+                      >
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-green-100">
+                          <Users className="h-4 w-4 text-green-700" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium text-sm truncate">
+                            {family.name}
+                          </p>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {family.contactName}
+                          </p>
+                        </div>
+                        {family.hasPin && (
+                          <Lock className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                        )}
+                        {familyId === family.id && (
+                          <Check className="h-4 w-4 text-green-600 shrink-0" />
+                        )}
+                      </button>
                       {familyId === family.id && (
-                        <Check className="h-4 w-4 text-green-600 shrink-0" />
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-9 w-9 shrink-0"
+                          onClick={(e) => openEdit(family, e)}
+                          title="Edit family"
+                        >
+                          <Pencil className="h-4 w-4 text-muted-foreground" />
+                        </Button>
                       )}
-                    </button>
+                    </div>
                   ))}
                 </CardContent>
               </Card>
@@ -345,6 +427,100 @@ function SelectFamilyContent() {
             </Card>
           </>
         )}
+
+        {/* Edit Family Dialog */}
+        <Dialog open={!!editingFamily} onOpenChange={(open) => !open && setEditingFamily(null)}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Edit Family</DialogTitle>
+              <DialogDescription>
+                Update your family details below.
+              </DialogDescription>
+            </DialogHeader>
+            <form onSubmit={handleEditSave} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-name">Family Name</Label>
+                <Input
+                  id="edit-name"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-contact">Contact Person</Label>
+                <Input
+                  id="edit-contact"
+                  value={editContact}
+                  onChange={(e) => setEditContact(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-contact2">Second Contact (optional)</Label>
+                <Input
+                  id="edit-contact2"
+                  value={editContact2}
+                  onChange={(e) => setEditContact2(e.target.value)}
+                  placeholder="e.g. Sita Dangol"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-phone">Phone</Label>
+                  <Input
+                    id="edit-phone"
+                    value={editPhone}
+                    onChange={(e) => setEditPhone(e.target.value)}
+                    placeholder="Phone number"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-email">Email</Label>
+                  <Input
+                    id="edit-email"
+                    type="email"
+                    value={editEmail}
+                    onChange={(e) => setEditEmail(e.target.value)}
+                    placeholder="Email"
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-pin">
+                  Change PIN {editingFamily?.hasPin ? "(leave blank to keep current)" : "(optional)"}
+                </Label>
+                <Input
+                  id="edit-pin"
+                  type="password"
+                  inputMode="numeric"
+                  pattern="\d{4}"
+                  maxLength={4}
+                  placeholder={editingFamily?.hasPin ? "Enter new 4-digit PIN" : "Set a 4-digit PIN"}
+                  value={editPin}
+                  onChange={(e) =>
+                    setEditPin(e.target.value.replace(/\D/g, "").slice(0, 4))
+                  }
+                />
+              </div>
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setEditingFamily(null)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={editSaving || !editName.trim() || !editContact.trim()}
+                >
+                  {editSaving ? "Saving..." : "Save Changes"}
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
