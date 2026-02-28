@@ -7,7 +7,7 @@ import { revalidatePath } from "next/cache";
 
 export async function signupFamily(
   eventId: number,
-  familyData: { name: string; contactName: string; phone?: string; email?: string; pin?: string },
+  familyData: { name: string; contactName: string; contactName2?: string; phone?: string; email?: string; pin?: string },
   headcount: { adults: number; kids: number; elderly: number; vegetarians: number; notes?: string }
 ) {
   if (familyData.pin && !/^\d{4}$/.test(familyData.pin)) {
@@ -19,12 +19,14 @@ export async function signupFamily(
       where: { name: familyData.name },
       update: {
         contactName: familyData.contactName,
+        contactName2: familyData.contactName2 || null,
         phone: familyData.phone || null,
         email: familyData.email || null,
       },
       create: {
         name: familyData.name,
         contactName: familyData.contactName,
+        contactName2: familyData.contactName2 || null,
         phone: familyData.phone || null,
         email: familyData.email || null,
         pin: familyData.pin || null,
@@ -55,6 +57,7 @@ export async function createEvent(formData: FormData) {
   const endDate = new Date(formData.get("endDate") as string);
   const familyName = formData.get("familyName") as string;
   const contactName = formData.get("contactName") as string;
+  const contactName2 = (formData.get("contactName2") as string) || null;
   const pin = (formData.get("pin") as string) || null;
 
   if (pin && !/^\d{4}$/.test(pin)) {
@@ -64,8 +67,8 @@ export async function createEvent(formData: FormData) {
   const result = await prisma.$transaction(async (tx) => {
     const family = await tx.family.upsert({
       where: { name: familyName },
-      update: { contactName },
-      create: { name: familyName, contactName, pin },
+      update: { contactName, contactName2 },
+      create: { name: familyName, contactName, contactName2, pin },
     });
 
     const event = await tx.campingEvent.create({
@@ -285,8 +288,12 @@ export async function removeActivityVolunteer(activityId: number, eventId: numbe
 
 export async function createGroceryItem(
   eventId: number,
-  data: { name: string; category?: string; quantity?: string; estimatedCost?: number; assignedFamilyId?: number; notes?: string }
+  data: { name: string; category?: string; quantity?: string; estimatedCost?: number; assignedFamilyId?: number; mealTag?: string; notes?: string }
 ) {
+  // Auto-assign sortOrder at the end
+  const maxSort = await prisma.groceryItem.aggregate({ where: { eventId }, _max: { sortOrder: true } });
+  const nextSort = (maxSort._max.sortOrder ?? 0) + 10;
+
   await prisma.groceryItem.create({
     data: {
       eventId,
@@ -295,6 +302,8 @@ export async function createGroceryItem(
       quantity: data.quantity || null,
       estimatedCost: data.estimatedCost || null,
       assignedFamilyId: data.assignedFamilyId || null,
+      mealTag: data.mealTag || null,
+      sortOrder: nextSort,
       notes: data.notes || null,
     },
   });
@@ -304,7 +313,7 @@ export async function createGroceryItem(
 export async function updateGroceryItem(
   itemId: number,
   eventId: number,
-  data: { name?: string; category?: string; quantity?: string; estimatedCost?: number | null; assignedFamilyId?: number | null; isPurchased?: boolean; notes?: string }
+  data: { name?: string; category?: string; quantity?: string; estimatedCost?: number | null; assignedFamilyId?: number | null; isPurchased?: boolean; mealTag?: string | null; notes?: string }
 ) {
   await prisma.groceryItem.update({
     where: { id: itemId },
@@ -336,16 +345,25 @@ export async function toggleGroceryPurchased(itemId: number, eventId: number, is
 
 export async function bulkCreateGroceryItems(
   eventId: number,
-  items: Array<{ name: string; category?: string; quantity?: string; estimatedCost?: number }>
+  items: Array<{ name: string; category?: string; quantity?: string; estimatedCost?: number; mealTag?: string }>
 ) {
+  const maxSort = await prisma.groceryItem.aggregate({ where: { eventId }, _max: { sortOrder: true } });
+  let nextSort = (maxSort._max.sortOrder ?? 0) + 10;
+
   await prisma.groceryItem.createMany({
-    data: items.map((item) => ({
-      eventId,
-      name: item.name,
-      category: item.category || null,
-      quantity: item.quantity || null,
-      estimatedCost: item.estimatedCost || null,
-    })),
+    data: items.map((item) => {
+      const sortOrder = nextSort;
+      nextSort += 10;
+      return {
+        eventId,
+        name: item.name,
+        category: item.category || null,
+        quantity: item.quantity || null,
+        estimatedCost: item.estimatedCost || null,
+        mealTag: item.mealTag || null,
+        sortOrder,
+      };
+    }),
   });
   revalidatePath(`/events/${eventId}`);
 }
@@ -356,6 +374,9 @@ export async function createEquipment(
   eventId: number,
   data: { name: string; category?: string; quantity?: number; ownerFamilyId?: number; notes?: string }
 ) {
+  const maxSort = await prisma.equipment.aggregate({ where: { eventId }, _max: { sortOrder: true } });
+  const nextSort = (maxSort._max.sortOrder ?? 0) + 10;
+
   await prisma.equipment.create({
     data: {
       eventId,
@@ -363,6 +384,7 @@ export async function createEquipment(
       category: data.category || null,
       quantity: data.quantity || 1,
       ownerFamilyId: data.ownerFamilyId || null,
+      sortOrder: nextSort,
       notes: data.notes || null,
     },
   });
@@ -390,14 +412,22 @@ export async function bulkCreateEquipment(
   eventId: number,
   items: Array<{ name: string; category?: string; quantity?: number; notes?: string }>
 ) {
+  const maxSort = await prisma.equipment.aggregate({ where: { eventId }, _max: { sortOrder: true } });
+  let nextSort = (maxSort._max.sortOrder ?? 0) + 10;
+
   await prisma.equipment.createMany({
-    data: items.map((item) => ({
-      eventId,
-      name: item.name,
-      category: item.category || null,
-      quantity: item.quantity || 1,
-      notes: item.notes || null,
-    })),
+    data: items.map((item) => {
+      const sortOrder = nextSort;
+      nextSort += 10;
+      return {
+        eventId,
+        name: item.name,
+        category: item.category || null,
+        quantity: item.quantity || 1,
+        notes: item.notes || null,
+        sortOrder,
+      };
+    }),
   });
   revalidatePath(`/events/${eventId}`);
 }
@@ -407,6 +437,81 @@ export async function claimEquipment(itemId: number, eventId: number, familyId: 
     where: { id: itemId },
     data: { ownerFamilyId: familyId },
   });
+  revalidatePath(`/events/${eventId}`);
+}
+
+// ============ GROCERY VOLUNTEER ACTIONS ============
+
+export async function addGroceryVolunteer(groceryItemId: number, eventId: number, familyId: number) {
+  await prisma.groceryVolunteer.create({
+    data: { groceryItemId, familyId },
+  });
+  revalidatePath(`/events/${eventId}`);
+}
+
+export async function removeGroceryVolunteer(groceryItemId: number, eventId: number, familyId: number) {
+  await prisma.groceryVolunteer.delete({
+    where: { groceryItemId_familyId: { groceryItemId, familyId } },
+  });
+  revalidatePath(`/events/${eventId}`);
+}
+
+// ============ EQUIPMENT VOLUNTEER ACTIONS ============
+
+export async function addEquipmentVolunteer(equipmentId: number, eventId: number, familyId: number) {
+  await prisma.equipmentVolunteer.create({
+    data: { equipmentId, familyId },
+  });
+  revalidatePath(`/events/${eventId}`);
+}
+
+export async function removeEquipmentVolunteer(equipmentId: number, eventId: number, familyId: number) {
+  await prisma.equipmentVolunteer.delete({
+    where: { equipmentId_familyId: { equipmentId, familyId } },
+  });
+  revalidatePath(`/events/${eventId}`);
+}
+
+// ============ REORDER ACTIONS ============
+
+export async function reorderGroceryItem(itemId: number, eventId: number, direction: "up" | "down") {
+  const items = await prisma.groceryItem.findMany({
+    where: { eventId },
+    orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
+    select: { id: true, sortOrder: true },
+  });
+
+  const idx = items.findIndex((i) => i.id === itemId);
+  if (idx === -1) return;
+
+  const swapIdx = direction === "up" ? idx - 1 : idx + 1;
+  if (swapIdx < 0 || swapIdx >= items.length) return;
+
+  // Swap sortOrder values
+  await prisma.$transaction([
+    prisma.groceryItem.update({ where: { id: items[idx].id }, data: { sortOrder: items[swapIdx].sortOrder } }),
+    prisma.groceryItem.update({ where: { id: items[swapIdx].id }, data: { sortOrder: items[idx].sortOrder } }),
+  ]);
+  revalidatePath(`/events/${eventId}`);
+}
+
+export async function reorderEquipment(itemId: number, eventId: number, direction: "up" | "down") {
+  const items = await prisma.equipment.findMany({
+    where: { eventId },
+    orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
+    select: { id: true, sortOrder: true },
+  });
+
+  const idx = items.findIndex((i) => i.id === itemId);
+  if (idx === -1) return;
+
+  const swapIdx = direction === "up" ? idx - 1 : idx + 1;
+  if (swapIdx < 0 || swapIdx >= items.length) return;
+
+  await prisma.$transaction([
+    prisma.equipment.update({ where: { id: items[idx].id }, data: { sortOrder: items[swapIdx].sortOrder } }),
+    prisma.equipment.update({ where: { id: items[swapIdx].id }, data: { sortOrder: items[idx].sortOrder } }),
+  ]);
   revalidatePath(`/events/${eventId}`);
 }
 

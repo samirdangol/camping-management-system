@@ -69,6 +69,11 @@ export default function NewEventPage() {
             </div>
 
             <div className="space-y-2">
+              <Label htmlFor="contactName2">Second Contact (optional)</Label>
+              <Input id="contactName2" name="contactName2" placeholder="e.g. Sita Dangol" />
+            </div>
+
+            <div className="space-y-2">
               <Label htmlFor="pin">Family PIN (optional)</Label>
               <Input
                 id="pin"

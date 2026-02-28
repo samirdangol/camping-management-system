@@ -19,7 +19,7 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
-  const { name, contactName, pin } = body;
+  const { name, contactName, contactName2, pin } = body;
 
   if (!name?.trim() || !contactName?.trim()) {
     return NextResponse.json(
@@ -39,10 +39,11 @@ export async function POST(request: NextRequest) {
 
   const family = await prisma.family.upsert({
     where: { name: name.trim() },
-    update: { contactName: contactName.trim() },
+    update: { contactName: contactName.trim(), contactName2: contactName2?.trim() || null },
     create: {
       name: name.trim(),
       contactName: contactName.trim(),
+      contactName2: contactName2?.trim() || null,
       pin: pin || null,
     },
     omit: { pin: false },

@@ -7,6 +7,9 @@ import {
   updateEquipment,
   deleteEquipment,
   claimEquipment,
+  addEquipmentVolunteer,
+  removeEquipmentVolunteer,
+  reorderEquipment,
 } from "@/app/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,6 +32,9 @@ import {
   Check,
   X,
   Save,
+  ChevronUp,
+  ChevronDown,
+  HandHelping,
 } from "lucide-react";
 import { useIsOrganizer } from "@/hooks/use-is-organizer";
 import type { Family, EquipmentWithOwner } from "@/types";
@@ -135,6 +141,23 @@ export default function EquipmentPage() {
     await fetchData();
   }
 
+  async function handleVolunteer(itemId: number) {
+    if (!familyId) return;
+    await addEquipmentVolunteer(itemId, parseInt(eventId, 10), familyId);
+    await fetchData();
+  }
+
+  async function handleUnvolunteer(itemId: number) {
+    if (!familyId) return;
+    await removeEquipmentVolunteer(itemId, parseInt(eventId, 10), familyId);
+    await fetchData();
+  }
+
+  async function handleReorder(itemId: number, direction: "up" | "down") {
+    await reorderEquipment(itemId, parseInt(eventId, 10), direction);
+    await fetchData();
+  }
+
   // --- New row actions ---
 
   function updateNewRow(id: string, field: keyof NewRow, value: string) {
@@ -193,11 +216,11 @@ export default function EquipmentPage() {
                 Category
               </th>
               <th className="px-3 py-2 text-left font-medium w-[70px]">Qty</th>
-              <th className="px-3 py-2 text-left font-medium w-[120px]">
-                Owner
+              <th className="px-3 py-2 text-left font-medium w-[180px]">
+                Owner / Volunteers
               </th>
               <th className="px-3 py-2 text-left font-medium">Notes</th>
-              <th className="px-3 py-2 text-right font-medium w-[100px]">
+              <th className="px-3 py-2 text-right font-medium w-[120px]">
                 Actions
               </th>
             </tr>
@@ -215,8 +238,12 @@ export default function EquipmentPage() {
                 </td>
               </tr>
             ) : (
-              items.map((item) => {
+              items.map((item, idx) => {
                 const isEditing = editingRowId === item.id;
+                const isVolunteered = item.volunteers?.some(
+                  (v) => v.familyId === familyId
+                );
+                const isPrimaryOwner = item.ownerFamilyId === familyId;
                 return (
                   <tr key={item.id} className="border-b last:border-0">
                     {isEditing ? (
@@ -318,26 +345,76 @@ export default function EquipmentPage() {
                           {item.quantity}
                         </td>
                         <td className="px-3 py-2">
-                          {item.owner ? (
-                            <span className="text-xs text-green-700">
-                              {item.owner.name}
-                            </span>
-                          ) : (
-                            <Button
-                              variant="link"
-                              size="sm"
-                              className="h-auto p-0 text-xs text-blue-600"
-                              onClick={() => handleClaim(item.id)}
-                            >
-                              Claim
-                            </Button>
-                          )}
+                          <div className="flex flex-wrap items-center gap-1">
+                            {item.owner ? (
+                              <span className="text-xs text-green-700 font-medium">
+                                {item.owner.name}
+                              </span>
+                            ) : (
+                              <Button
+                                variant="link"
+                                size="sm"
+                                className="h-auto p-0 text-xs text-blue-600"
+                                onClick={() => handleClaim(item.id)}
+                              >
+                                Claim
+                              </Button>
+                            )}
+                            {/* Volunteer badges */}
+                            {item.volunteers?.map((v) => (
+                              <Badge key={v.id} variant="outline" className="text-xs">
+                                {v.family.name}
+                              </Badge>
+                            ))}
+                            {/* Volunteer/Leave toggle */}
+                            {!isPrimaryOwner && (
+                              isVolunteered ? (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-6 text-xs px-2"
+                                  onClick={() => handleUnvolunteer(item.id)}
+                                >
+                                  Leave
+                                </Button>
+                              ) : (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-6 text-xs px-2"
+                                  onClick={() => handleVolunteer(item.id)}
+                                >
+                                  <HandHelping className="mr-1 h-3 w-3" />
+                                  Help
+                                </Button>
+                              )
+                            )}
+                          </div>
                         </td>
                         <td className="px-3 py-2 text-muted-foreground text-xs">
                           {item.notes || "—"}
                         </td>
                         <td className="px-3 py-2 text-right">
-                          <div className="flex items-center justify-end gap-1">
+                          <div className="flex items-center justify-end gap-0.5">
+                            {/* Reorder buttons */}
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              onClick={() => handleReorder(item.id, "up")}
+                              disabled={idx === 0}
+                            >
+                              <ChevronUp className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              onClick={() => handleReorder(item.id, "down")}
+                              disabled={idx === items.length - 1}
+                            >
+                              <ChevronDown className="h-3.5 w-3.5" />
+                            </Button>
                             <Button
                               variant="ghost"
                               size="icon"

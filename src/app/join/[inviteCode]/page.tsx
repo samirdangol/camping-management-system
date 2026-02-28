@@ -36,6 +36,7 @@ export default function JoinPage() {
 
   const [familyName, setFamilyName] = useState("");
   const [contactName, setContactName] = useState("");
+  const [contactName2, setContactName2] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [adults, setAdults] = useState(1);
@@ -61,7 +62,7 @@ export default function JoinPage() {
     setLoading(true);
     const result = await signupFamily(
       event.id,
-      { name: familyName.trim(), contactName: contactName.trim(), phone: phone || undefined, email: email || undefined, pin: pin || undefined },
+      { name: familyName.trim(), contactName: contactName.trim(), contactName2: contactName2.trim() || undefined, phone: phone || undefined, email: email || undefined, pin: pin || undefined },
       { adults, kids, elderly, vegetarians, notes: notes || undefined }
     );
     setCurrentFamily(result.family.id, result.family.name);
@@ -150,6 +151,15 @@ export default function JoinPage() {
                 onChange={(e) => setContactName(e.target.value)}
                 placeholder="e.g. Suman Dangol"
                 required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Second Contact (optional)</Label>
+              <Input
+                value={contactName2}
+                onChange={(e) => setContactName2(e.target.value)}
+                placeholder="e.g. Sita Dangol"
               />
             </div>
 

@@ -8,6 +8,9 @@ import {
   deleteGroceryItem,
   claimGroceryItem,
   toggleGroceryPurchased,
+  addGroceryVolunteer,
+  removeGroceryVolunteer,
+  reorderGroceryItem,
 } from "@/app/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,6 +34,9 @@ import {
   Check,
   X,
   Save,
+  ChevronUp,
+  ChevronDown,
+  HandHelping,
 } from "lucide-react";
 import { useIsOrganizer } from "@/hooks/use-is-organizer";
 import type { Family, GroceryWithFamily } from "@/types";
@@ -43,6 +49,7 @@ interface NewRow {
   category: string;
   quantity: string;
   estimatedCost: string;
+  mealTag: string;
 }
 
 interface EditValues {
@@ -50,6 +57,7 @@ interface EditValues {
   category: string;
   quantity: string;
   estimatedCost: string;
+  mealTag: string;
 }
 
 function createEmptyRow(): NewRow {
@@ -59,6 +67,7 @@ function createEmptyRow(): NewRow {
     category: "",
     quantity: "",
     estimatedCost: "",
+    mealTag: "",
   };
 }
 
@@ -79,6 +88,7 @@ export default function GroceriesPage() {
     category: "",
     quantity: "",
     estimatedCost: "",
+    mealTag: "",
   });
 
   // New rows for bulk add
@@ -111,6 +121,7 @@ export default function GroceriesPage() {
       category: item.category || "",
       quantity: item.quantity || "",
       estimatedCost: item.estimatedCost ? String(item.estimatedCost) : "",
+      mealTag: item.mealTag || "",
     });
   }
 
@@ -126,6 +137,7 @@ export default function GroceriesPage() {
       estimatedCost: editValues.estimatedCost
         ? parseFloat(editValues.estimatedCost)
         : null,
+      mealTag: editValues.mealTag || null,
     });
     setEditingRowId(null);
     await fetchData();
@@ -144,6 +156,23 @@ export default function GroceriesPage() {
 
   async function handleTogglePurchased(itemId: number, current: boolean) {
     await toggleGroceryPurchased(itemId, parseInt(eventId, 10), !current);
+    await fetchData();
+  }
+
+  async function handleVolunteer(itemId: number) {
+    if (!familyId) return;
+    await addGroceryVolunteer(itemId, parseInt(eventId, 10), familyId);
+    await fetchData();
+  }
+
+  async function handleUnvolunteer(itemId: number) {
+    if (!familyId) return;
+    await removeGroceryVolunteer(itemId, parseInt(eventId, 10), familyId);
+    await fetchData();
+  }
+
+  async function handleReorder(itemId: number, direction: "up" | "down") {
+    await reorderGroceryItem(itemId, parseInt(eventId, 10), direction);
     await fetchData();
   }
 
@@ -175,6 +204,7 @@ export default function GroceriesPage() {
         category: r.category || undefined,
         quantity: r.quantity || undefined,
         estimatedCost: r.estimatedCost ? parseFloat(r.estimatedCost) : undefined,
+        mealTag: r.mealTag || undefined,
       }))
     );
     setNewRows([createEmptyRow(), createEmptyRow(), createEmptyRow()]);
@@ -231,14 +261,17 @@ export default function GroceriesPage() {
               <th className="px-3 py-2 text-left font-medium w-[130px]">
                 Category
               </th>
-              <th className="px-3 py-2 text-left font-medium w-[90px]">Qty</th>
-              <th className="px-3 py-2 text-left font-medium w-[90px]">
+              <th className="px-3 py-2 text-left font-medium w-[100px]">
+                Meal/Tag
+              </th>
+              <th className="px-3 py-2 text-left font-medium w-[80px]">Qty</th>
+              <th className="px-3 py-2 text-left font-medium w-[80px]">
                 Cost
               </th>
-              <th className="px-3 py-2 text-left font-medium w-[120px]">
-                Assigned
+              <th className="px-3 py-2 text-left font-medium w-[180px]">
+                Assigned / Volunteers
               </th>
-              <th className="px-3 py-2 text-right font-medium w-[100px]">
+              <th className="px-3 py-2 text-right font-medium w-[120px]">
                 Actions
               </th>
             </tr>
@@ -247,7 +280,7 @@ export default function GroceriesPage() {
             {/* Existing items */}
             {filtered.length === 0 && newRows.length === 0 ? (
               <tr>
-                <td colSpan={7} className="py-8">
+                <td colSpan={8} className="py-8">
                   <EmptyState
                     icon={ShoppingCart}
                     title="No grocery items"
@@ -260,8 +293,12 @@ export default function GroceriesPage() {
                 </td>
               </tr>
             ) : (
-              filtered.map((item) => {
+              filtered.map((item, idx) => {
                 const isEditing = editingRowId === item.id;
+                const isVolunteered = item.volunteers?.some(
+                  (v) => v.familyId === familyId
+                );
+                const isPrimaryOwner = item.assignedFamilyId === familyId;
                 return (
                   <tr
                     key={item.id}
@@ -309,6 +346,19 @@ export default function GroceriesPage() {
                               ))}
                             </SelectContent>
                           </Select>
+                        </td>
+                        <td className="px-3 py-1.5">
+                          <Input
+                            value={editValues.mealTag}
+                            onChange={(e) =>
+                              setEditValues((v) => ({
+                                ...v,
+                                mealTag: e.target.value,
+                              }))
+                            }
+                            className="h-8 text-sm"
+                            placeholder="e.g. dinner"
+                          />
                         </td>
                         <td className="px-3 py-1.5">
                           <Input
@@ -377,6 +427,13 @@ export default function GroceriesPage() {
                             </Badge>
                           )}
                         </td>
+                        <td className="px-3 py-2">
+                          {item.mealTag && (
+                            <Badge className="text-xs bg-purple-100 text-purple-700 hover:bg-purple-100">
+                              {item.mealTag}
+                            </Badge>
+                          )}
+                        </td>
                         <td className="px-3 py-2 text-muted-foreground">
                           {item.quantity || "—"}
                         </td>
@@ -386,23 +443,73 @@ export default function GroceriesPage() {
                             : "—"}
                         </td>
                         <td className="px-3 py-2">
-                          {item.assignedTo ? (
-                            <span className="text-xs text-green-700">
-                              {item.assignedTo.name}
-                            </span>
-                          ) : (
-                            <Button
-                              variant="link"
-                              size="sm"
-                              className="h-auto p-0 text-xs text-blue-600"
-                              onClick={() => handleClaim(item.id)}
-                            >
-                              Claim
-                            </Button>
-                          )}
+                          <div className="flex flex-wrap items-center gap-1">
+                            {item.assignedTo ? (
+                              <span className="text-xs text-green-700 font-medium">
+                                {item.assignedTo.name}
+                              </span>
+                            ) : (
+                              <Button
+                                variant="link"
+                                size="sm"
+                                className="h-auto p-0 text-xs text-blue-600"
+                                onClick={() => handleClaim(item.id)}
+                              >
+                                Claim
+                              </Button>
+                            )}
+                            {/* Volunteer badges */}
+                            {item.volunteers?.map((v) => (
+                              <Badge key={v.id} variant="outline" className="text-xs">
+                                {v.family.name}
+                              </Badge>
+                            ))}
+                            {/* Volunteer/Leave toggle */}
+                            {!isPrimaryOwner && (
+                              isVolunteered ? (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-6 text-xs px-2"
+                                  onClick={() => handleUnvolunteer(item.id)}
+                                >
+                                  Leave
+                                </Button>
+                              ) : (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-6 text-xs px-2"
+                                  onClick={() => handleVolunteer(item.id)}
+                                >
+                                  <HandHelping className="mr-1 h-3 w-3" />
+                                  Help
+                                </Button>
+                              )
+                            )}
+                          </div>
                         </td>
                         <td className="px-3 py-2 text-right">
-                          <div className="flex items-center justify-end gap-1">
+                          <div className="flex items-center justify-end gap-0.5">
+                            {/* Reorder buttons */}
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              onClick={() => handleReorder(item.id, "up")}
+                              disabled={idx === 0}
+                            >
+                              <ChevronUp className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              onClick={() => handleReorder(item.id, "down")}
+                              disabled={idx === filtered.length - 1}
+                            >
+                              <ChevronDown className="h-3.5 w-3.5" />
+                            </Button>
                             <Button
                               variant="ghost"
                               size="icon"
@@ -434,7 +541,7 @@ export default function GroceriesPage() {
             {filtered.length > 0 && newRows.length > 0 && (
               <tr>
                 <td
-                  colSpan={7}
+                  colSpan={8}
                   className="px-3 py-2 text-xs font-medium text-muted-foreground bg-muted/30"
                 >
                   Add new items
@@ -474,6 +581,16 @@ export default function GroceriesPage() {
                       ))}
                     </SelectContent>
                   </Select>
+                </td>
+                <td className="px-3 py-1.5">
+                  <Input
+                    value={row.mealTag}
+                    onChange={(e) =>
+                      updateNewRow(row.id, "mealTag", e.target.value)
+                    }
+                    className="h-8 text-sm"
+                    placeholder="e.g. dinner"
+                  />
                 </td>
                 <td className="px-3 py-1.5">
                   <Input

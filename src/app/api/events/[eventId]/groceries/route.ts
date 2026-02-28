@@ -8,8 +8,8 @@ export async function GET(
   const { eventId } = await params;
   const groceries = await prisma.groceryItem.findMany({
     where: { eventId: parseInt(eventId, 10) },
-    include: { assignedTo: true },
-    orderBy: [{ isPurchased: "asc" }, { category: "asc" }, { name: "asc" }],
+    include: { assignedTo: true, volunteers: { include: { family: true } } },
+    orderBy: [{ isPurchased: "asc" }, { sortOrder: "asc" }, { id: "asc" }],
   });
   return NextResponse.json(groceries);
 }

@@ -9,25 +9,28 @@ datasource db {
 }
 
 model Family {
-  id          Int      @id @default(autoincrement())
-  name        String   @unique
-  contactName String
-  phone       String?
-  email       String?
-  pin         String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id           Int      @id @default(autoincrement())
+  name         String   @unique
+  contactName  String
+  contactName2 String?
+  phone        String?
+  email        String?
+  pin          String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-  organizedEvents    CampingEvent[]      @relation("EventOrganizer")
-  signups            EventSignup[]
-  headChefMeals      Meal[]              @relation("MealHeadChef")
-  mealVolunteers     MealVolunteer[]
-  suggestedFoods     FoodItem[]
-  ledActivities      Activity[]          @relation("ActivityLeader")
-  activityVolunteers ActivityVolunteer[]
-  assignedGroceries  GroceryItem[]
-  ownedEquipment     Equipment[]
-  paidExpenses       Expense[]
+  organizedEvents      CampingEvent[]        @relation("EventOrganizer")
+  signups              EventSignup[]
+  headChefMeals        Meal[]                @relation("MealHeadChef")
+  mealVolunteers       MealVolunteer[]
+  suggestedFoods       FoodItem[]
+  ledActivities        Activity[]            @relation("ActivityLeader")
+  activityVolunteers   ActivityVolunteer[]
+  assignedGroceries    GroceryItem[]
+  groceryVolunteers    GroceryVolunteer[]
+  ownedEquipment       Equipment[]
+  equipmentVolunteers  EquipmentVolunteer[]
+  paidExpenses         Expense[]
 }
 
 model CampingEvent {
@@ -151,12 +154,27 @@ model GroceryItem {
   estimatedCost    Float?
   assignedFamilyId Int?
   isPurchased      Boolean  @default(false)
+  mealTag          String?
+  sortOrder        Int      @default(0)
   notes            String?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
-  event      CampingEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  assignedTo Family?      @relation(fields: [assignedFamilyId], references: [id])
+  event      CampingEvent       @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  assignedTo Family?            @relation(fields: [assignedFamilyId], references: [id])
+  volunteers GroceryVolunteer[]
+}
+
+model GroceryVolunteer {
+  id            Int      @id @default(autoincrement())
+  groceryItemId Int
+  familyId      Int
+  createdAt     DateTime @default(now())
+
+  groceryItem GroceryItem @relation(fields: [groceryItemId], references: [id], onDelete: Cascade)
+  family      Family      @relation(fields: [familyId], references: [id])
+
+  @@unique([groceryItemId, familyId])
 }
 
 model Equipment {
@@ -166,12 +184,26 @@ model Equipment {
   category      String?
   quantity      Int      @default(1)
   ownerFamilyId Int?
+  sortOrder     Int      @default(0)
   notes         String?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  event CampingEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  owner Family?      @relation(fields: [ownerFamilyId], references: [id])
+  event      CampingEvent         @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  owner      Family?              @relation(fields: [ownerFamilyId], references: [id])
+  volunteers EquipmentVolunteer[]
+}
+
+model EquipmentVolunteer {
+  id          Int      @id @default(autoincrement())
+  equipmentId Int
+  familyId    Int
+  createdAt   DateTime @default(now())
+
+  equipment Equipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+  family    Family    @relation(fields: [familyId], references: [id])
+
+  @@unique([equipmentId, familyId])
 }
 
 model Expense {

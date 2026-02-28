@@ -22,6 +22,7 @@ function SelectFamilyContent() {
   const [showCreate, setShowCreate] = useState(false);
   const [familyNameInput, setFamilyNameInput] = useState("");
   const [contactNameInput, setContactNameInput] = useState("");
+  const [contactName2Input, setContactName2Input] = useState("");
   const [pinInput, setPinInput] = useState("");
   const [creating, setCreating] = useState(false);
 
@@ -102,6 +103,7 @@ function SelectFamilyContent() {
         body: JSON.stringify({
           name: familyNameInput.trim(),
           contactName: contactNameInput.trim(),
+          contactName2: contactName2Input.trim() || null,
           pin: pinInput || null,
         }),
       });
@@ -283,6 +285,15 @@ function SelectFamilyContent() {
                           value={contactNameInput}
                           onChange={(e) => setContactNameInput(e.target.value)}
                           required
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="contactName2">Second Contact (optional)</Label>
+                        <Input
+                          id="contactName2"
+                          placeholder="e.g. Sita Dangol"
+                          value={contactName2Input}
+                          onChange={(e) => setContactName2Input(e.target.value)}
                         />
                       </div>
                       <div className="space-y-2">
