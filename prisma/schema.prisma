@@ -1,0 +1,190 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model Family {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  contactName String
+  phone       String?
+  email       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  organizedEvents    CampingEvent[]      @relation("EventOrganizer")
+  signups            EventSignup[]
+  headChefMeals      Meal[]              @relation("MealHeadChef")
+  mealVolunteers     MealVolunteer[]
+  suggestedFoods     FoodItem[]
+  ledActivities      Activity[]          @relation("ActivityLeader")
+  activityVolunteers ActivityVolunteer[]
+  assignedGroceries  GroceryItem[]
+  ownedEquipment     Equipment[]
+  paidExpenses       Expense[]
+}
+
+model CampingEvent {
+  id                Int      @id @default(autoincrement())
+  title             String
+  location          String
+  locationUrl       String?
+  description       String?
+  startDate         DateTime
+  endDate           DateTime
+  organizerFamilyId Int
+  inviteCode        String   @unique @default(uuid())
+  status            String   @default("upcoming")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  organizer    Family        @relation("EventOrganizer", fields: [organizerFamilyId], references: [id])
+  signups      EventSignup[]
+  meals        Meal[]
+  activities   Activity[]
+  groceryItems GroceryItem[]
+  equipment    Equipment[]
+  expenses     Expense[]
+}
+
+model EventSignup {
+  id          Int      @id @default(autoincrement())
+  eventId     Int
+  familyId    Int
+  adults      Int      @default(0)
+  kids        Int      @default(0)
+  elderly     Int      @default(0)
+  vegetarians Int      @default(0)
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  event  CampingEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  family Family       @relation(fields: [familyId], references: [id])
+
+  @@unique([eventId, familyId])
+}
+
+model Meal {
+  id               Int      @id @default(autoincrement())
+  eventId          Int
+  date             DateTime
+  mealType         String
+  name             String?
+  headChefFamilyId Int?
+  notes            String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  event      CampingEvent    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  headChef   Family?         @relation("MealHeadChef", fields: [headChefFamilyId], references: [id])
+  volunteers MealVolunteer[]
+  foodItems  FoodItem[]
+}
+
+model MealVolunteer {
+  id        Int      @id @default(autoincrement())
+  mealId    Int
+  familyId  Int
+  role      String?
+  createdAt DateTime @default(now())
+
+  meal   Meal   @relation(fields: [mealId], references: [id], onDelete: Cascade)
+  family Family @relation(fields: [familyId], references: [id])
+
+  @@unique([mealId, familyId])
+}
+
+model FoodItem {
+  id                  Int      @id @default(autoincrement())
+  mealId              Int
+  name                String
+  suggestedByFamilyId Int?
+  isVegetarian        Boolean  @default(false)
+  createdAt           DateTime @default(now())
+
+  meal        Meal    @relation(fields: [mealId], references: [id], onDelete: Cascade)
+  suggestedBy Family? @relation(fields: [suggestedByFamilyId], references: [id])
+}
+
+model Activity {
+  id             Int       @id @default(autoincrement())
+  eventId        Int
+  name           String
+  description    String?
+  targetGroup    String    @default("all")
+  date           DateTime?
+  leaderFamilyId Int?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  event      CampingEvent      @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  leader     Family?           @relation("ActivityLeader", fields: [leaderFamilyId], references: [id])
+  volunteers ActivityVolunteer[]
+}
+
+model ActivityVolunteer {
+  id         Int      @id @default(autoincrement())
+  activityId Int
+  familyId   Int
+  role       String?
+  createdAt  DateTime @default(now())
+
+  activity Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  family   Family   @relation(fields: [familyId], references: [id])
+
+  @@unique([activityId, familyId])
+}
+
+model GroceryItem {
+  id               Int      @id @default(autoincrement())
+  eventId          Int
+  name             String
+  category         String?
+  quantity         String?
+  estimatedCost    Float?
+  assignedFamilyId Int?
+  isPurchased      Boolean  @default(false)
+  notes            String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  event      CampingEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  assignedTo Family?      @relation(fields: [assignedFamilyId], references: [id])
+}
+
+model Equipment {
+  id            Int      @id @default(autoincrement())
+  eventId       Int
+  name          String
+  category      String?
+  quantity      Int      @default(1)
+  ownerFamilyId Int?
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  event CampingEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  owner Family?      @relation(fields: [ownerFamilyId], references: [id])
+}
+
+model Expense {
+  id             Int      @id @default(autoincrement())
+  eventId        Int
+  description    String
+  amount         Float
+  paidByFamilyId Int
+  category       String?
+  date           DateTime @default(now())
+  receiptNote    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  event  CampingEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  paidBy Family       @relation(fields: [paidByFamilyId], references: [id])
+}
