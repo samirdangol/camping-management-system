@@ -69,6 +69,22 @@ export default function NewEventPage() {
             </div>
 
             <div className="space-y-2">
+              <Label htmlFor="pin">Family PIN (optional)</Label>
+              <Input
+                id="pin"
+                name="pin"
+                type="password"
+                inputMode="numeric"
+                pattern="\d{4}"
+                maxLength={4}
+                placeholder="4-digit PIN"
+              />
+              <p className="text-xs text-muted-foreground">
+                Protect your family from being selected by others
+              </p>
+            </div>
+
+            <div className="space-y-2">
               <Label htmlFor="description">Description (optional)</Label>
               <Textarea
                 id="description"

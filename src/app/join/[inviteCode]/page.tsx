@@ -43,6 +43,7 @@ export default function JoinPage() {
   const [elderly, setElderly] = useState(0);
   const [vegetarians, setVegetarians] = useState(0);
   const [notes, setNotes] = useState("");
+  const [pin, setPin] = useState("");
 
   useEffect(() => {
     fetch(`/api/join/${inviteCode}`)
@@ -60,7 +61,7 @@ export default function JoinPage() {
     setLoading(true);
     const result = await signupFamily(
       event.id,
-      { name: familyName.trim(), contactName: contactName.trim(), phone: phone || undefined, email: email || undefined },
+      { name: familyName.trim(), contactName: contactName.trim(), phone: phone || undefined, email: email || undefined, pin: pin || undefined },
       { adults, kids, elderly, vegetarians, notes: notes || undefined }
     );
     setCurrentFamily(result.family.id, result.family.name);
@@ -161,6 +162,22 @@ export default function JoinPage() {
                 <Label>Email (optional)</Label>
                 <Input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" type="email" />
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Family PIN (optional)</Label>
+              <Input
+                type="password"
+                inputMode="numeric"
+                pattern="\d{4}"
+                maxLength={4}
+                placeholder="Set a 4-digit PIN"
+                value={pin}
+                onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 4))}
+              />
+              <p className="text-xs text-muted-foreground">
+                Protect your family identity with a 4-digit PIN
+              </p>
             </div>
 
             <div className="grid grid-cols-2 gap-4">

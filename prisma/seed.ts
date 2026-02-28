@@ -12,11 +12,11 @@ async function main() {
 
   // Create organizer family (upsert via raw SQL)
   const familyResult = await pool.query(
-    `INSERT INTO "Family" (name, "contactName", "createdAt", "updatedAt")
-     VALUES ($1, $2, NOW(), NOW())
+    `INSERT INTO "Family" (name, "contactName", pin, "createdAt", "updatedAt")
+     VALUES ($1, $2, $3, NOW(), NOW())
      ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name
      RETURNING id, name`,
-    ["Dangol Family", "Suman Dangol"]
+    ["Dangol Family", "Suman Dangol", null]
   );
   const organizer = familyResult.rows[0];
   console.log(`  Created family: ${organizer.name}`);

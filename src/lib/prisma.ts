@@ -13,7 +13,12 @@ const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
 function createPrismaClient() {
   const connectionString = process.env.DATABASE_URL;
   const adapter = new PrismaNeon({ connectionString });
-  return new PrismaClient({ adapter });
+  return new PrismaClient({
+    adapter,
+    omit: {
+      family: { pin: true },
+    },
+  });
 }
 
 export const prisma = globalForPrisma.prisma || createPrismaClient();

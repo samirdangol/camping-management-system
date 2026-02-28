@@ -7,9 +7,13 @@ import { revalidatePath } from "next/cache";
 
 export async function signupFamily(
   eventId: number,
-  familyData: { name: string; contactName: string; phone?: string; email?: string },
+  familyData: { name: string; contactName: string; phone?: string; email?: string; pin?: string },
   headcount: { adults: number; kids: number; elderly: number; vegetarians: number; notes?: string }
 ) {
+  if (familyData.pin && !/^\d{4}$/.test(familyData.pin)) {
+    throw new Error("PIN must be exactly 4 digits");
+  }
+
   const result = await prisma.$transaction(async (tx) => {
     const family = await tx.family.upsert({
       where: { name: familyData.name },
@@ -23,6 +27,7 @@ export async function signupFamily(
         contactName: familyData.contactName,
         phone: familyData.phone || null,
         email: familyData.email || null,
+        pin: familyData.pin || null,
       },
     });
 
@@ -50,12 +55,17 @@ export async function createEvent(formData: FormData) {
   const endDate = new Date(formData.get("endDate") as string);
   const familyName = formData.get("familyName") as string;
   const contactName = formData.get("contactName") as string;
+  const pin = (formData.get("pin") as string) || null;
+
+  if (pin && !/^\d{4}$/.test(pin)) {
+    throw new Error("PIN must be exactly 4 digits");
+  }
 
   const result = await prisma.$transaction(async (tx) => {
     const family = await tx.family.upsert({
       where: { name: familyName },
       update: { contactName },
-      create: { name: familyName, contactName },
+      create: { name: familyName, contactName, pin },
     });
 
     const event = await tx.campingEvent.create({

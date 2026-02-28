@@ -12,6 +12,11 @@ import type {
   Expense,
 } from "@prisma/client";
 
+// Family as returned by the public API (pin excluded, hasPin flag added)
+export type FamilyPublic = Omit<Family, "pin"> & {
+  hasPin: boolean;
+};
+
 // Event with organizer info
 export type EventWithOrganizer = CampingEvent & {
   organizer: Family;
