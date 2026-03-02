@@ -72,6 +72,7 @@ export function EventDashboardClient({ event }: { event: EventDashboardData }) {
 
   const [editing, setEditing] = useState(false);
   const [deletingDialog, setDeletingDialog] = useState(false);
+  const [imagePreview, setImagePreview] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editImageUrl, setEditImageUrl] = useState(event.imageUrl || "");
   const [uploading, setUploading] = useState(false);
@@ -210,7 +211,10 @@ export function EventDashboardClient({ event }: { event: EventDashboardData }) {
             )}
             {event.imageUrl && (
               <div className="pt-1">
-                <img src={blobUrl(event.imageUrl)} alt="Campsite info" className="rounded-lg border max-w-full" />
+                <button type="button" onClick={() => setImagePreview(true)} className="block cursor-zoom-in">
+                  <img src={blobUrl(event.imageUrl)} alt="Campsite info" className="rounded-lg border h-24 w-auto object-cover" />
+                  <span className="text-xs text-muted-foreground mt-0.5 block">Click to enlarge</span>
+                </button>
               </div>
             )}
           </CardContent>
@@ -420,6 +424,19 @@ export function EventDashboardClient({ event }: { event: EventDashboardData }) {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Image Preview Lightbox */}
+      {event.imageUrl && (
+        <Dialog open={imagePreview} onOpenChange={setImagePreview}>
+          <DialogContent className="max-w-3xl p-2">
+            <DialogHeader className="sr-only">
+              <DialogTitle>Campsite Image</DialogTitle>
+              <DialogDescription>Full size campsite screenshot</DialogDescription>
+            </DialogHeader>
+            <img src={blobUrl(event.imageUrl)} alt="Campsite info" className="rounded-lg w-full h-auto" />
+          </DialogContent>
+        </Dialog>
+      )}
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={deletingDialog} onOpenChange={setDeletingDialog}>
