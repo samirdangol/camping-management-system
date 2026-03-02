@@ -51,6 +51,8 @@ function SelectFamilyContent() {
   const [editEmail, setEditEmail] = useState("");
   const [editPin, setEditPin] = useState("");
   const [editSaving, setEditSaving] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
+  const [deleting, setDeleting] = useState(false);
 
   const { familyId, setCurrentFamily, isLoaded } = useCurrentFamily();
   const router = useRouter();
@@ -150,6 +152,7 @@ function SelectFamilyContent() {
     setEditPhone(data.phone || "");
     setEditEmail(data.email || "");
     setEditPin("");
+    setDeleteError("");
   }
 
   async function handleEditSave(e: React.FormEvent) {
@@ -182,6 +185,34 @@ function SelectFamilyContent() {
       // silently fail
     } finally {
       setEditSaving(false);
+    }
+  }
+
+  async function handleDelete() {
+    if (!editingFamily) return;
+    if (!confirm(`Delete "${editingFamily.name}"? This cannot be undone.`)) return;
+    setDeleting(true);
+    setDeleteError("");
+    try {
+      const res = await fetch(`/api/families/${editingFamily.id}`, { method: "DELETE" });
+      if (res.ok) {
+        if (familyId === editingFamily.id) {
+          setCurrentFamily(0, "");
+        }
+        setEditingFamily(null);
+        fetchFamilies();
+      } else {
+        const data = await res.json();
+        if (data.reasons) {
+          setDeleteError(data.reasons.join(", "));
+        } else {
+          setDeleteError(data.error || "Failed to delete");
+        }
+      }
+    } catch {
+      setDeleteError("Something went wrong");
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -503,20 +534,41 @@ function SelectFamilyContent() {
                   }
                 />
               </div>
-              <DialogFooter>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setEditingFamily(null)}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="submit"
-                  disabled={editSaving || !editName.trim() || !editContact.trim()}
-                >
-                  {editSaving ? "Saving..." : "Save Changes"}
-                </Button>
+              <DialogFooter className="flex-col gap-3 sm:flex-col">
+                <div className="flex gap-2 w-full">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="flex-1"
+                    onClick={() => setEditingFamily(null)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="submit"
+                    className="flex-1"
+                    disabled={editSaving || !editName.trim() || !editContact.trim()}
+                  >
+                    {editSaving ? "Saving..." : "Save Changes"}
+                  </Button>
+                </div>
+                <div className="w-full border-t pt-3">
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="sm"
+                    className="w-full"
+                    disabled={deleting}
+                    onClick={handleDelete}
+                  >
+                    {deleting ? "Deleting..." : "Delete Family"}
+                  </Button>
+                  {deleteError && (
+                    <p className="text-xs text-red-600 mt-2">
+                      Cannot delete: {deleteError}
+                    </p>
+                  )}
+                </div>
               </DialogFooter>
             </form>
           </DialogContent>
