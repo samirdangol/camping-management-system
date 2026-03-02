@@ -306,9 +306,11 @@ export default function JoinPage() {
                         <p className="font-medium text-sm">{selectedFamily.name}</p>
                         <p className="text-xs text-muted-foreground">{selectedFamily.contactName}</p>
                       </div>
-                      <Button type="button" variant="ghost" size="sm" onClick={() => { setSelectedFamily(null); setPinVerified(false); }}>
-                        Change
-                      </Button>
+                      {!familyId && (
+                        <Button type="button" variant="ghost" size="sm" onClick={() => { setSelectedFamily(null); setPinVerified(false); }}>
+                          Change
+                        </Button>
+                      )}
                     </div>
                     <div className="space-y-2">
                       <Label>Enter your family PIN</Label>
@@ -341,9 +343,11 @@ export default function JoinPage() {
                           </p>
                         </div>
                       </div>
-                      <Button type="button" variant="ghost" size="sm" onClick={() => { setSelectedFamily(null); setPinVerified(false); }}>
-                        Change
-                      </Button>
+                      {!familyId && (
+                        <Button type="button" variant="ghost" size="sm" onClick={() => { setSelectedFamily(null); setPinVerified(false); }}>
+                          Change
+                        </Button>
+                      )}
                     </div>
                   </div>
                 )}
