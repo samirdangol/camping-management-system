@@ -2,6 +2,13 @@ import { NextResponse } from "next/server";
 import { put } from "@vercel/blob";
 
 export async function POST(request: Request) {
+  if (!process.env.BLOB_READ_WRITE_TOKEN) {
+    return NextResponse.json(
+      { error: "Image storage is not configured. Set BLOB_READ_WRITE_TOKEN in environment variables." },
+      { status: 500 }
+    );
+  }
+
   const formData = await request.formData();
   const file = formData.get("file") as File | null;
 
@@ -14,9 +21,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "File too large (max 5MB)" }, { status: 400 });
   }
 
-  const blob = await put(file.name, file, {
-    access: "public",
-  });
-
-  return NextResponse.json({ url: blob.url });
+  try {
+    const blob = await put(file.name, file, {
+      access: "public",
+    });
+    return NextResponse.json({ url: blob.url });
+  } catch {
+    return NextResponse.json({ error: "Upload failed. Please try again." }, { status: 500 });
+  }
 }

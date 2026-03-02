@@ -75,6 +75,7 @@ export function EventDashboardClient({ event }: { event: EventDashboardData }) {
   const [saving, setSaving] = useState(false);
   const [editImageUrl, setEditImageUrl] = useState(event.imageUrl || "");
   const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const totalAdults = event.signups.reduce((sum, s) => sum + s.adults, 0);
@@ -87,6 +88,7 @@ export function EventDashboardClient({ event }: { event: EventDashboardData }) {
     const file = e.target.files?.[0];
     if (!file) return;
     setUploading(true);
+    setUploadError("");
     try {
       const form = new FormData();
       form.append("file", file);
@@ -94,9 +96,12 @@ export function EventDashboardClient({ event }: { event: EventDashboardData }) {
       if (res.ok) {
         const data = await res.json();
         setEditImageUrl(data.url);
+      } else {
+        const data = await res.json().catch(() => null);
+        setUploadError(data?.error || "Upload failed");
       }
     } catch {
-      // silently fail
+      setUploadError("Upload failed. Check your connection.");
     } finally {
       setUploading(false);
     }
@@ -126,6 +131,7 @@ export function EventDashboardClient({ event }: { event: EventDashboardData }) {
 
   function openEditDialog() {
     setEditImageUrl(event.imageUrl || "");
+    setUploadError("");
     setEditing(true);
   }
 
@@ -379,6 +385,7 @@ export function EventDashboardClient({ event }: { event: EventDashboardData }) {
                     <Upload className="h-4 w-4 mr-2" />
                     {uploading ? "Uploading..." : "Upload Image"}
                   </Button>
+                  {uploadError && <p className="text-xs text-red-600 mt-1">{uploadError}</p>}
                 </div>
               )}
             </div>

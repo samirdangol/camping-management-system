@@ -16,6 +16,7 @@ export default function NewEventPage() {
   const [loading, setLoading] = useState(false);
   const [imageUrl, setImageUrl] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
   const { familyId, familyName, isLoaded } = useCurrentFamily();
@@ -31,6 +32,7 @@ export default function NewEventPage() {
     const file = e.target.files?.[0];
     if (!file) return;
     setUploading(true);
+    setUploadError("");
     try {
       const form = new FormData();
       form.append("file", file);
@@ -38,9 +40,12 @@ export default function NewEventPage() {
       if (res.ok) {
         const data = await res.json();
         setImageUrl(data.url);
+      } else {
+        const data = await res.json().catch(() => null);
+        setUploadError(data?.error || "Upload failed");
       }
     } catch {
-      // silently fail
+      setUploadError("Upload failed. Check your connection.");
     } finally {
       setUploading(false);
     }
@@ -164,6 +169,7 @@ export default function NewEventPage() {
                     <Upload className="h-4 w-4 mr-2" />
                     {uploading ? "Uploading..." : "Upload Image"}
                   </Button>
+                  {uploadError && <p className="text-xs text-red-600 mt-1">{uploadError}</p>}
                 </div>
               )}
             </div>
