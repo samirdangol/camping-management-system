@@ -240,25 +240,27 @@ export default function JoinPage() {
         </CardContent>
       </Card>
 
-      {/* Mode Toggle */}
-      <div className="flex gap-2">
-        <Button
-          variant={mode === "new" ? "default" : "outline"}
-          size="sm"
-          className="flex-1"
-          onClick={() => { setMode("new"); setSelectedFamily(null); setPinVerified(false); }}
-        >
-          New Family
-        </Button>
-        <Button
-          variant={mode === "existing" ? "default" : "outline"}
-          size="sm"
-          className="flex-1"
-          onClick={() => setMode("existing")}
-        >
-          Returning Family
-        </Button>
-      </div>
+      {/* Mode Toggle - hide for logged-in users since their family is auto-selected */}
+      {!familyId && (
+        <div className="flex gap-2">
+          <Button
+            variant={mode === "new" ? "default" : "outline"}
+            size="sm"
+            className="flex-1"
+            onClick={() => { setMode("new"); setSelectedFamily(null); setPinVerified(false); }}
+          >
+            New Family
+          </Button>
+          <Button
+            variant={mode === "existing" ? "default" : "outline"}
+            size="sm"
+            className="flex-1"
+            onClick={() => setMode("existing")}
+          >
+            Returning Family
+          </Button>
+        </div>
+      )}
 
       {/* Signup Form */}
       <Card>
