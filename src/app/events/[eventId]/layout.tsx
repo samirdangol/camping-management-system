@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { formatDateRange } from "@/lib/utils";
 import { notFound } from "next/navigation";
-import { MapPin, Calendar } from "lucide-react";
+import { MapPin, Calendar, ExternalLink } from "lucide-react";
 import { EventTabs } from "@/components/layout/event-tabs";
 import { EventAccessGuard } from "@/components/shared/event-access-guard";
 
@@ -26,7 +26,13 @@ export default async function EventLayout({
         <div className="flex flex-wrap gap-4 mt-1 text-sm text-muted-foreground">
           <span className="flex items-center gap-1">
             <MapPin className="h-3.5 w-3.5" />
-            {event.location}
+            {event.locationUrl ? (
+              <a href={event.locationUrl} target="_blank" rel="noopener noreferrer" className="hover:underline inline-flex items-center gap-1">
+                {event.location} <ExternalLink className="h-3 w-3" />
+              </a>
+            ) : (
+              event.location
+            )}
           </span>
           <span className="flex items-center gap-1">
             <Calendar className="h-3.5 w-3.5" />

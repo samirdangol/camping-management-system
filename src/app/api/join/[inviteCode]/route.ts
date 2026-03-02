@@ -25,6 +25,7 @@ export async function GET(
     title: event.title,
     location: event.location,
     locationUrl: event.locationUrl,
+    campsiteUrl: event.campsiteUrl,
     description: event.description,
     startDate: event.startDate,
     endDate: event.endDate,

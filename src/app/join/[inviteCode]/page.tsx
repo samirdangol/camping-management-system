@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { MapPin, Calendar, Users, CheckCircle2, ShieldCheck } from "lucide-react";
+import { MapPin, Calendar, Users, CheckCircle2, ShieldCheck, ExternalLink } from "lucide-react";
 import { formatDateRange } from "@/lib/utils";
 import Link from "next/link";
 
@@ -18,6 +18,7 @@ type EventInfo = {
   title: string;
   location: string;
   locationUrl: string | null;
+  campsiteUrl: string | null;
   description: string | null;
   startDate: string;
   endDate: string;
@@ -224,17 +225,30 @@ export default function JoinPage() {
         </CardHeader>
         <CardContent className="space-y-1.5 text-sm text-muted-foreground">
           <div className="flex items-center gap-2">
-            <MapPin className="h-4 w-4" />
-            {event.location}
+            <MapPin className="h-4 w-4 shrink-0" />
+            {event.locationUrl ? (
+              <a href={event.locationUrl} target="_blank" rel="noopener noreferrer" className="hover:underline inline-flex items-center gap-1">
+                {event.location} <ExternalLink className="h-3 w-3" />
+              </a>
+            ) : (
+              event.location
+            )}
           </div>
           <div className="flex items-center gap-2">
-            <Calendar className="h-4 w-4" />
+            <Calendar className="h-4 w-4 shrink-0" />
             {formatDateRange(new Date(event.startDate), new Date(event.endDate))}
           </div>
           <div className="flex items-center gap-2">
-            <Users className="h-4 w-4" />
+            <Users className="h-4 w-4 shrink-0" />
             {event.signupCount} {event.signupCount === 1 ? "family" : "families"} signed up
           </div>
+          {event.campsiteUrl && (
+            <div>
+              <a href={event.campsiteUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline inline-flex items-center gap-1">
+                Campsite Official Page <ExternalLink className="h-3 w-3" />
+              </a>
+            </div>
+          )}
           {event.description && <p className="pt-1">{event.description}</p>}
           <p className="text-xs">Organized by {event.organizerName}</p>
         </CardContent>
