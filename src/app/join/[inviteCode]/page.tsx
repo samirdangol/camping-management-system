@@ -23,6 +23,7 @@ type EventInfo = {
   endDate: string;
   organizerName: string;
   signupCount: number;
+  signupFamilyIds: number[];
   status: string;
 };
 
@@ -38,7 +39,7 @@ type FamilyPublic = {
 
 export default function JoinPage() {
   const { inviteCode } = useParams<{ inviteCode: string }>();
-  const { setCurrentFamily } = useCurrentFamily();
+  const { familyId, setCurrentFamily } = useCurrentFamily();
   const [event, setEvent] = useState<EventInfo | null>(null);
   const [notFound, setNotFound] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -82,15 +83,26 @@ export default function JoinPage() {
       .catch(() => setNotFound(true));
   }, [inviteCode]);
 
-  // Fetch families when switching to existing mode
+  // Fetch families when switching to existing mode or when logged in
   useEffect(() => {
-    if (mode === "existing" && families.length === 0) {
+    if ((mode === "existing" || familyId) && families.length === 0) {
       fetch("/api/families")
         .then((r) => r.json())
         .then(setFamilies)
         .catch(() => {});
     }
-  }, [mode, families.length]);
+  }, [mode, familyId, families.length]);
+
+  // Auto-select current family for logged-in users
+  useEffect(() => {
+    if (familyId && families.length > 0 && !selectedFamily && !success) {
+      const myFamily = families.find((f) => f.id === familyId);
+      if (myFamily) {
+        setMode("existing");
+        selectFamily(myFamily);
+      }
+    }
+  }, [familyId, families, selectedFamily, success]);
 
   function selectFamily(family: FamilyPublic) {
     setSelectedFamily(family);
@@ -157,6 +169,25 @@ export default function JoinPage() {
 
   if (!event) {
     return <div className="text-center py-12 text-muted-foreground">Loading...</div>;
+  }
+
+  const alreadySignedUp = familyId && event.signupFamilyIds?.includes(familyId);
+
+  if (alreadySignedUp) {
+    return (
+      <Card>
+        <CardContent className="py-12 text-center space-y-3">
+          <CheckCircle2 className="h-12 w-12 text-green-600 mx-auto" />
+          <p className="text-lg font-medium">You&apos;re already signed up!</p>
+          <p className="text-sm text-muted-foreground">
+            Your family is already part of {event.title}.
+          </p>
+          <Button asChild size="sm">
+            <Link href={`/events/${event.id}`}>Go to Trip Page</Link>
+          </Button>
+        </CardContent>
+      </Card>
+    );
   }
 
   if (success) {

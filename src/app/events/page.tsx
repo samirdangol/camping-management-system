@@ -20,6 +20,8 @@ type EventWithOrganizer = {
   startDate: string;
   endDate: string;
   status: string;
+  description: string | null;
+  inviteCode: string;
   organizer: Family;
   _count: { signups: number };
 };
@@ -34,6 +36,7 @@ const statusColors: Record<string, string> = {
 export default function EventsPage() {
   const { familyId, isLoaded } = useCurrentFamily();
   const [events, setEvents] = useState<EventWithOrganizer[]>([]);
+  const [communityEvents, setCommunityEvents] = useState<EventWithOrganizer[]>([]);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
@@ -46,9 +49,21 @@ export default function EventsPage() {
 
   useEffect(() => {
     if (!isLoaded || !familyId) return;
-    fetch(`/api/events?familyId=${familyId}`)
-      .then((r) => r.json())
-      .then(setEvents)
+    Promise.all([
+      fetch(`/api/events?familyId=${familyId}`).then((r) => r.json()),
+      fetch(`/api/events`).then((r) => r.json()),
+    ])
+      .then(([myEvents, allEvents]) => {
+        setEvents(myEvents);
+        const myEventIds = new Set(myEvents.map((e: EventWithOrganizer) => e.id));
+        setCommunityEvents(
+          allEvents.filter(
+            (e: EventWithOrganizer) =>
+              !myEventIds.has(e.id) &&
+              (e.status === "upcoming" || e.status === "active")
+          )
+        );
+      })
       .finally(() => setLoading(false));
   }, [familyId, isLoaded]);
 
@@ -74,7 +89,7 @@ export default function EventsPage() {
         </Button>
       </PageHeader>
 
-      {events.length === 0 ? (
+      {events.length === 0 && communityEvents.length === 0 ? (
         <EmptyState
           icon={Tent}
           title="No camping trips yet"
@@ -122,6 +137,46 @@ export default function EventsPage() {
                     </Card>
                   </Link>
                 ))}
+              </div>
+            </section>
+          )}
+
+          {communityEvents.length > 0 && (
+            <section className="space-y-3">
+              <h2 className="text-lg font-semibold">Community Trips</h2>
+              <p className="text-sm text-muted-foreground">Upcoming trips from the community — sign up to join!</p>
+              <div className="grid gap-3">
+                {communityEvents
+                  .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())
+                  .map((event) => (
+                    <Link key={event.id} href={`/join/${event.inviteCode}`}>
+                      <Card className="hover:shadow-md transition-shadow cursor-pointer border-dashed">
+                        <CardHeader className="pb-2">
+                          <div className="flex items-start justify-between">
+                            <CardTitle className="text-lg">{event.title}</CardTitle>
+                            <Badge className="bg-amber-100 text-amber-800" variant="secondary">
+                              open
+                            </Badge>
+                          </div>
+                        </CardHeader>
+                        <CardContent className="space-y-2 text-sm text-muted-foreground">
+                          <div className="flex items-center gap-2">
+                            <MapPin className="h-4 w-4" />
+                            {event.location}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Calendar className="h-4 w-4" />
+                            {formatDateRange(new Date(event.startDate), new Date(event.endDate))}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Users className="h-4 w-4" />
+                            {event._count.signups} {event._count.signups === 1 ? "family" : "families"} signed up
+                          </div>
+                          <div className="text-xs">Organized by {event.organizer.name}</div>
+                        </CardContent>
+                      </Card>
+                    </Link>
+                  ))}
               </div>
             </section>
           )}

@@ -11,6 +11,7 @@ export async function GET(
     where: { inviteCode },
     include: {
       organizer: { select: { name: true } },
+      signups: { select: { familyId: true } },
       _count: { select: { signups: true } },
     },
   });
@@ -29,6 +30,7 @@ export async function GET(
     endDate: event.endDate,
     organizerName: event.organizer.name,
     signupCount: event._count.signups,
+    signupFamilyIds: event.signups.map((s) => s.familyId),
     status: event.status,
   });
 }
