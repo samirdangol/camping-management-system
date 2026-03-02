@@ -20,7 +20,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Users, UtensilsCrossed, DollarSign, UserCheck, Pencil, Trash2, ExternalLink, Upload, X } from "lucide-react";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, blobUrl } from "@/lib/utils";
 import { EVENT_STATUSES } from "@/lib/constants";
 import type { Family } from "@/types";
 
@@ -210,7 +210,7 @@ export function EventDashboardClient({ event }: { event: EventDashboardData }) {
             )}
             {event.imageUrl && (
               <div className="pt-1">
-                <img src={event.imageUrl} alt="Campsite info" className="rounded-lg border max-w-full" />
+                <img src={blobUrl(event.imageUrl)} alt="Campsite info" className="rounded-lg border max-w-full" />
               </div>
             )}
           </CardContent>
@@ -355,7 +355,7 @@ export function EventDashboardClient({ event }: { event: EventDashboardData }) {
               <Label>Campsite Screenshot / Info</Label>
               {editImageUrl ? (
                 <div className="relative inline-block">
-                  <img src={editImageUrl} alt="Campsite" className="rounded-lg border max-h-40 object-cover" />
+                  <img src={blobUrl(editImageUrl)} alt="Campsite" className="rounded-lg border max-h-40 object-cover" />
                   <Button
                     type="button"
                     variant="destructive"

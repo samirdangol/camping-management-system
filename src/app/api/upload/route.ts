@@ -22,11 +22,11 @@ export async function POST(request: Request) {
   }
 
   try {
-    const blob = await put(file.name, file, {
-      access: "public",
-    });
+    const blob = await put(file.name, file, { access: "private" });
     return NextResponse.json({ url: blob.url });
-  } catch {
-    return NextResponse.json({ error: "Upload failed. Please try again." }, { status: 500 });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Unknown error";
+    console.error("Blob upload error:", message);
+    return NextResponse.json({ error: `Upload failed: ${message}` }, { status: 500 });
   }
 }

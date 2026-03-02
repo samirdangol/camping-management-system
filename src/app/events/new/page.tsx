@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Users, Upload, X } from "lucide-react";
+import { blobUrl } from "@/lib/utils";
 
 export default function NewEventPage() {
   const [loading, setLoading] = useState(false);
@@ -139,7 +140,7 @@ export default function NewEventPage() {
               <Label>Campsite Screenshot / Info (optional)</Label>
               {imageUrl ? (
                 <div className="relative inline-block">
-                  <img src={imageUrl} alt="Campsite" className="rounded-lg border max-h-40 object-cover" />
+                  <img src={blobUrl(imageUrl)} alt="Campsite" className="rounded-lg border max-h-40 object-cover" />
                   <Button
                     type="button"
                     variant="destructive"

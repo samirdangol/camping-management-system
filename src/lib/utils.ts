@@ -29,3 +29,11 @@ export function formatCurrency(amount: number | string) {
     currency: "USD",
   }).format(Number(amount));
 }
+
+/** Convert a blob URL to a proxied URL for private blob stores */
+export function blobUrl(url: string): string {
+  if (url.includes(".private.blob.vercel-storage.com")) {
+    return `/api/blob?url=${encodeURIComponent(url)}`;
+  }
+  return url;
+}
