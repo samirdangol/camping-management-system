@@ -46,6 +46,24 @@ export async function signupFamily(
   return result;
 }
 
+export async function signupExistingFamily(
+  eventId: number,
+  familyId: number,
+  headcount: { adults: number; kids: number; elderly: number; vegetarians: number; notes?: string }
+) {
+  const family = await prisma.family.findUnique({ where: { id: familyId } });
+  if (!family) throw new Error("Family not found");
+
+  await prisma.eventSignup.upsert({
+    where: { eventId_familyId: { eventId, familyId } },
+    update: headcount,
+    create: { eventId, familyId, ...headcount },
+  });
+
+  revalidatePath(`/events/${eventId}`);
+  return { family };
+}
+
 // ============ EVENT ACTIONS ============
 
 export async function createEvent(formData: FormData) {
