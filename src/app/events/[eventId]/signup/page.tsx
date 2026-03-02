@@ -18,6 +18,7 @@ export default function SignupPage() {
   const [signups, setSignups] = useState<SignupWithFamily[]>([]);
   const [familyName, setFamilyName] = useState("");
   const [contactName, setContactName] = useState("");
+  const [contactName2, setContactName2] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [adults, setAdults] = useState(1);
@@ -73,6 +74,7 @@ export default function SignupPage() {
   function selectSuggestion(family: Family) {
     setFamilyName(family.name);
     setContactName(family.contactName);
+    setContactName2(family.contactName2 || "");
     setPhone(family.phone || "");
     setEmail(family.email || "");
     setShowSuggestions(false);
@@ -92,6 +94,7 @@ export default function SignupPage() {
   function handleEdit(signup: SignupWithFamily) {
     setFamilyName(signup.family.name);
     setContactName(signup.family.contactName);
+    setContactName2(signup.family.contactName2 || "");
     setPhone(signup.family.phone || "");
     setEmail(signup.family.email || "");
     setAdults(signup.adults);
@@ -106,6 +109,7 @@ export default function SignupPage() {
   function resetForm() {
     setFamilyName("");
     setContactName("");
+    setContactName2("");
     setPhone("");
     setEmail("");
     setAdults(1);
@@ -124,7 +128,7 @@ export default function SignupPage() {
     setLoading(true);
     await signupFamily(
       parseInt(eventId, 10),
-      { name: familyName.trim(), contactName: contactName.trim(), phone: phone || undefined, email: email || undefined },
+      { name: familyName.trim(), contactName: contactName.trim(), contactName2: contactName2.trim() || undefined, phone: phone || undefined, email: email || undefined },
       { adults, kids, elderly, vegetarians, notes: notes || undefined }
     );
     await fetchSignups();
@@ -205,21 +209,31 @@ export default function SignupPage() {
                       onClick={() => selectSuggestion(f)}
                     >
                       <div className="font-medium">{f.name}</div>
-                      <div className="text-xs text-muted-foreground">{f.contactName}</div>
+                      <div className="text-xs text-muted-foreground">{f.contactName}{f.contactName2 ? ` & ${f.contactName2}` : ""}</div>
                     </button>
                   ))}
                 </div>
               )}
             </div>
 
-            <div className="space-y-2">
-              <Label>Contact Person</Label>
-              <Input
-                value={contactName}
-                onChange={(e) => setContactName(e.target.value)}
-                placeholder="e.g. Suman Dangol"
-                required
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Contact Person</Label>
+                <Input
+                  value={contactName}
+                  onChange={(e) => setContactName(e.target.value)}
+                  placeholder="e.g. Suman Dangol"
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Second Contact (optional)</Label>
+                <Input
+                  value={contactName2}
+                  onChange={(e) => setContactName2(e.target.value)}
+                  placeholder="e.g. Sita Dangol"
+                />
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -292,6 +306,7 @@ export default function SignupPage() {
                 <div key={s.id} className="flex items-center justify-between border-b pb-3 last:border-0 last:pb-0">
                   <div>
                     <div className="font-medium">{s.family.name}</div>
+                    <div className="text-xs text-muted-foreground">{s.family.contactName}{s.family.contactName2 ? ` & ${s.family.contactName2}` : ""}</div>
                     <div className="text-sm text-muted-foreground">
                       {s.adults} adults, {s.kids} kids, {s.elderly} elderly
                       {s.vegetarians > 0 && ` (${s.vegetarians} veg)`}
