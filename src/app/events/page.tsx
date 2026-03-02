@@ -122,18 +122,26 @@ export default function EventsPage() {
                         </div>
                       </CardHeader>
                       <CardContent className="space-y-2 text-sm text-muted-foreground">
+                        <a href={locationLink(event.location, event.locationUrl)} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 hover:underline" onClick={(e) => e.stopPropagation()}>
+                          <MapPin className="h-4 w-4 shrink-0" />
+                          {event.location} <ExternalLink className="h-3 w-3" />
+                        </a>
                         <div className="flex items-center gap-2">
-                          <MapPin className="h-4 w-4" />
-                          {event.location}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Calendar className="h-4 w-4" />
+                          <Calendar className="h-4 w-4 shrink-0" />
                           {formatDateRange(new Date(event.startDate), new Date(event.endDate))}
                         </div>
                         <div className="flex items-center gap-2">
-                          <Users className="h-4 w-4" />
+                          <Users className="h-4 w-4 shrink-0" />
                           {event._count.signups} {event._count.signups === 1 ? "family" : "families"} signed up
                         </div>
+                        {event.campsiteUrl && (
+                          <div>
+                            <a href={event.campsiteUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline inline-flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                              Campsite Official Page <ExternalLink className="h-3 w-3" />
+                            </a>
+                          </div>
+                        )}
+                        {event.description && <p className="text-xs">{event.description}</p>}
                         <div className="text-xs">Organized by {event.organizer.name}</div>
                       </CardContent>
                     </Card>
