@@ -52,8 +52,12 @@ export default function EventsPage() {
       .finally(() => setLoading(false));
   }, [familyId, isLoaded]);
 
-  const upcoming = events.filter((e) => e.status === "upcoming" || e.status === "active");
-  const past = events.filter((e) => e.status === "completed" || e.status === "cancelled");
+  const upcoming = events
+    .filter((e) => e.status === "upcoming" || e.status === "active")
+    .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
+  const past = events
+    .filter((e) => e.status === "completed" || e.status === "cancelled")
+    .sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime());
 
   if (!isLoaded || loading) {
     return <div className="text-center py-12 text-muted-foreground">Loading...</div>;
