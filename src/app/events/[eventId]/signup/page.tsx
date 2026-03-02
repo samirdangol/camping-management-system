@@ -187,7 +187,10 @@ export default function SignupPage() {
       {/* Signup Form */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">{isEditing ? "Update Signup" : "Sign Up Your Family"}</CardTitle>
+          <CardTitle className="text-lg">{isEditing ? "Update Signup" : "Sign Up a Family"}</CardTitle>
+          {!isEditing && (
+            <p className="text-sm text-muted-foreground">Register a family on their behalf. Families can also sign up themselves using the invite link.</p>
+          )}
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -286,7 +289,7 @@ export default function SignupPage() {
 
             <div className="flex gap-2">
               <Button type="submit" disabled={loading || !familyName.trim() || !contactName.trim()}>
-                {loading ? "Saving..." : isEditing ? "Update" : "Sign Up"}
+                {loading ? "Saving..." : isEditing ? "Update" : "Register"}
               </Button>
               {isEditing && (
                 <Button type="button" variant="outline" onClick={resetForm}>
