@@ -269,14 +269,15 @@ export default function SignupPage() {
                 <Label>Elderly</Label>
                 <Input type="number" min={0} value={elderly} onChange={(e) => setElderly(parseInt(e.target.value) || 0)} />
               </div>
-              <div className="space-y-2">
-                <Label>Vegetarians</Label>
-                <Input type="number" min={0} value={vegetarians} onChange={(e) => setVegetarians(parseInt(e.target.value) || 0)} />
-              </div>
             </div>
-            <p className="text-xs text-muted-foreground -mt-2">
-              How many of the above members are vegetarian? (e.g. 2 adults, 2 kids, 1 elderly = 5 members. If the elderly person is vegetarian, enter 1 here)
-            </p>
+
+            <div className="space-y-2">
+              <Label>Vegetarians</Label>
+              <Input type="number" min={0} value={vegetarians} onChange={(e) => setVegetarians(parseInt(e.target.value) || 0)} />
+              <p className="text-xs text-muted-foreground">
+                If any of the above members are vegetarian, enter the count here. This does not add to the headcount.
+              </p>
+            </div>
 
             <div className="space-y-2">
               <Label>Notes (optional)</Label>
