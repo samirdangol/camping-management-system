@@ -20,7 +20,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" translate="no">
+      <head>
+        <meta name="google" content="notranslate" />
+      </head>
       <body className={`${geistSans.variable} font-sans antialiased bg-gray-50 min-h-screen`}>
         <AppHeader />
         <main className="mx-auto max-w-4xl px-4 py-6">
