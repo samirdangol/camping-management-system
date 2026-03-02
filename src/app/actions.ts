@@ -75,8 +75,8 @@ export async function createEvent(formData: FormData) {
   const endDate = new Date(formData.get("endDate") as string);
   const familyId = parseInt(formData.get("familyId") as string, 10);
   const reservationNo = (formData.get("reservationNo") as string) || null;
-  const checkInStr = formData.get("checkIn") as string;
-  const checkOutStr = formData.get("checkOut") as string;
+  const checkIn = (formData.get("checkIn") as string) || null;
+  const checkOut = (formData.get("checkOut") as string) || null;
   const campsiteUrl = (formData.get("campsiteUrl") as string) || null;
   const imageUrl = (formData.get("imageUrl") as string) || null;
 
@@ -89,8 +89,8 @@ export async function createEvent(formData: FormData) {
         title, location, locationUrl, description, startDate, endDate,
         organizerFamilyId: familyId,
         reservationNo,
-        checkIn: checkInStr ? new Date(checkInStr) : null,
-        checkOut: checkOutStr ? new Date(checkOutStr) : null,
+        checkIn,
+        checkOut,
         campsiteUrl,
         imageUrl,
       },
@@ -115,8 +115,8 @@ export async function updateEvent(eventId: number, formData: FormData) {
   const startDate = new Date(formData.get("startDate") as string);
   const endDate = new Date(formData.get("endDate") as string);
   const reservationNo = (formData.get("reservationNo") as string) || null;
-  const checkInStr = formData.get("checkIn") as string;
-  const checkOutStr = formData.get("checkOut") as string;
+  const checkIn = (formData.get("checkIn") as string) || null;
+  const checkOut = (formData.get("checkOut") as string) || null;
   const campsiteUrl = (formData.get("campsiteUrl") as string) || null;
   const imageUrl = (formData.get("imageUrl") as string) || null;
   const organizerFamilyIdStr = formData.get("organizerFamilyId") as string;
@@ -126,8 +126,8 @@ export async function updateEvent(eventId: number, formData: FormData) {
     data: {
       title, location, locationUrl, description, startDate, endDate,
       reservationNo,
-      checkIn: checkInStr ? new Date(checkInStr) : null,
-      checkOut: checkOutStr ? new Date(checkOutStr) : null,
+      checkIn,
+      checkOut,
       campsiteUrl,
       imageUrl,
       ...(organizerFamilyIdStr ? { organizerFamilyId: parseInt(organizerFamilyIdStr, 10) } : {}),

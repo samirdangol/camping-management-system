@@ -115,12 +115,12 @@ export default function NewEventPage() {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="checkIn">Check-in (optional)</Label>
-                <Input id="checkIn" name="checkIn" type="datetime-local" />
+                <Label htmlFor="checkIn">Check-in Time (optional)</Label>
+                <Input id="checkIn" name="checkIn" type="time" />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="checkOut">Check-out (optional)</Label>
-                <Input id="checkOut" name="checkOut" type="datetime-local" />
+                <Label htmlFor="checkOut">Check-out Time (optional)</Label>
+                <Input id="checkOut" name="checkOut" type="time" />
               </div>
             </div>
 

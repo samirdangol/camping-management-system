@@ -42,8 +42,8 @@ model CampingEvent {
   startDate         DateTime
   endDate           DateTime
   reservationNo     String?
-  checkIn           DateTime?
-  checkOut          DateTime?
+  checkIn           String?
+  checkOut          String?
   campsiteUrl       String?
   imageUrl          String?
   organizerFamilyId Int

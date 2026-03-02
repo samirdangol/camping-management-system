@@ -19,7 +19,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Users, UtensilsCrossed, DollarSign, UserCheck, Pencil, Trash2, ExternalLink, Upload, X, Image as ImageIcon } from "lucide-react";
+import { Users, UtensilsCrossed, DollarSign, UserCheck, Pencil, Trash2, ExternalLink, Upload, X } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { EVENT_STATUSES } from "@/lib/constants";
 import type { Family } from "@/types";
@@ -75,7 +75,6 @@ export function EventDashboardClient({ event }: { event: EventDashboardData }) {
   const [saving, setSaving] = useState(false);
   const [editImageUrl, setEditImageUrl] = useState(event.imageUrl || "");
   const [uploading, setUploading] = useState(false);
-  const [imagePreview, setImagePreview] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const totalAdults = event.signups.reduce((sum, s) => sum + s.adults, 0);
@@ -131,14 +130,12 @@ export function EventDashboardClient({ event }: { event: EventDashboardData }) {
   }
 
   const fmtDate = (d: string) => new Date(d).toISOString().split("T")[0];
-  const fmtDateTime = (d: string) => {
-    const dt = new Date(d);
-    return dt.toISOString().slice(0, 16);
-  };
-  const fmtDisplayDateTime = (d: string) => {
-    return new Date(d).toLocaleString("en-US", {
-      month: "short", day: "numeric", hour: "numeric", minute: "2-digit",
-    });
+  const fmtTime = (t: string) => {
+    const [h, m] = t.split(":");
+    const hour = parseInt(h, 10);
+    const ampm = hour >= 12 ? "PM" : "AM";
+    const h12 = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+    return m === "00" ? `${h12} ${ampm}` : `${h12}:${m} ${ampm}`;
   };
 
   return (
@@ -193,10 +190,10 @@ export function EventDashboardClient({ event }: { event: EventDashboardData }) {
               <div><span className="text-muted-foreground">Reservation:</span> <span className="font-medium">{event.reservationNo}</span></div>
             )}
             {event.checkIn && (
-              <div><span className="text-muted-foreground">Check-in:</span> <span className="font-medium">{fmtDisplayDateTime(event.checkIn)}</span></div>
+              <div><span className="text-muted-foreground">Check-in:</span> <span className="font-medium">{fmtTime(event.checkIn)}</span></div>
             )}
             {event.checkOut && (
-              <div><span className="text-muted-foreground">Check-out:</span> <span className="font-medium">{fmtDisplayDateTime(event.checkOut)}</span></div>
+              <div><span className="text-muted-foreground">Check-out:</span> <span className="font-medium">{fmtTime(event.checkOut)}</span></div>
             )}
             {event.campsiteUrl && (
               <div>
@@ -206,10 +203,8 @@ export function EventDashboardClient({ event }: { event: EventDashboardData }) {
               </div>
             )}
             {event.imageUrl && (
-              <div>
-                <button type="button" onClick={() => setImagePreview(true)} className="inline-flex items-center gap-1 text-blue-600 hover:underline">
-                  <ImageIcon className="h-3.5 w-3.5" /> View campsite image
-                </button>
+              <div className="pt-1">
+                <img src={event.imageUrl} alt="Campsite info" className="rounded-lg border max-w-full" />
               </div>
             )}
           </CardContent>
@@ -336,12 +331,12 @@ export function EventDashboardClient({ event }: { event: EventDashboardData }) {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="edit-checkIn">Check-in</Label>
-                <Input id="edit-checkIn" name="checkIn" type="datetime-local" defaultValue={event.checkIn ? fmtDateTime(event.checkIn) : ""} />
+                <Label htmlFor="edit-checkIn">Check-in Time</Label>
+                <Input id="edit-checkIn" name="checkIn" type="time" defaultValue={event.checkIn || ""} />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="edit-checkOut">Check-out</Label>
-                <Input id="edit-checkOut" name="checkOut" type="datetime-local" defaultValue={event.checkOut ? fmtDateTime(event.checkOut) : ""} />
+                <Label htmlFor="edit-checkOut">Check-out Time</Label>
+                <Input id="edit-checkOut" name="checkOut" type="time" defaultValue={event.checkOut || ""} />
               </div>
             </div>
             <div className="space-y-2">
@@ -437,17 +432,6 @@ export function EventDashboardClient({ event }: { event: EventDashboardData }) {
         </DialogContent>
       </Dialog>
 
-      {/* Image Preview Dialog */}
-      <Dialog open={imagePreview} onOpenChange={setImagePreview}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Campsite Info</DialogTitle>
-          </DialogHeader>
-          {event.imageUrl && (
-            <img src={event.imageUrl} alt="Campsite" className="rounded-lg w-full" />
-          )}
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

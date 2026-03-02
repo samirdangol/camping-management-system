@@ -53,11 +53,14 @@ async function main() {
   await pool.query(`ALTER TABLE "CampingEvent" ADD COLUMN IF NOT EXISTS "reservationNo" TEXT`);
   console.log("  Added reservationNo to CampingEvent");
 
-  await pool.query(`ALTER TABLE "CampingEvent" ADD COLUMN IF NOT EXISTS "checkIn" TIMESTAMP(3)`);
-  console.log("  Added checkIn to CampingEvent");
+  // Change checkIn/checkOut from TIMESTAMP to TEXT (time-only, e.g. "14:00")
+  await pool.query(`ALTER TABLE "CampingEvent" ADD COLUMN IF NOT EXISTS "checkIn" TEXT`);
+  await pool.query(`ALTER TABLE "CampingEvent" ALTER COLUMN "checkIn" TYPE TEXT USING "checkIn"::TEXT`);
+  console.log("  checkIn column is TEXT");
 
-  await pool.query(`ALTER TABLE "CampingEvent" ADD COLUMN IF NOT EXISTS "checkOut" TIMESTAMP(3)`);
-  console.log("  Added checkOut to CampingEvent");
+  await pool.query(`ALTER TABLE "CampingEvent" ADD COLUMN IF NOT EXISTS "checkOut" TEXT`);
+  await pool.query(`ALTER TABLE "CampingEvent" ALTER COLUMN "checkOut" TYPE TEXT USING "checkOut"::TEXT`);
+  console.log("  checkOut column is TEXT");
 
   await pool.query(`ALTER TABLE "CampingEvent" ADD COLUMN IF NOT EXISTS "campsiteUrl" TEXT`);
   console.log("  Added campsiteUrl to CampingEvent");
