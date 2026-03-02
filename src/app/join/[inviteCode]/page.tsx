@@ -168,9 +168,14 @@ export default function JoinPage() {
           <p className="text-sm text-muted-foreground">
             {signedUpName} has been signed up for {event.title}.
           </p>
-          <Button asChild variant="outline" size="sm" className="mt-4">
-            <Link href="/login">Log in to manage the trip</Link>
-          </Button>
+          <div className="flex flex-col gap-2 mt-4">
+            <Button asChild size="sm">
+              <Link href={`/events/${event.id}`}>Go to Trip Page</Link>
+            </Button>
+            <Button asChild variant="outline" size="sm">
+              <Link href="/login">Log in to manage trips</Link>
+            </Button>
+          </div>
         </CardContent>
       </Card>
     );
