@@ -10,13 +10,15 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useCurrentFamily } from "@/hooks/use-current-family";
-import { Plus, Tent, MapPin, Calendar, Users } from "lucide-react";
+import { Plus, Tent, MapPin, Calendar, Users, ExternalLink } from "lucide-react";
 import type { Family } from "@/types";
 
 type EventWithOrganizer = {
   id: number;
   title: string;
   location: string;
+  locationUrl: string | null;
+  campsiteUrl: string | null;
   startDate: string;
   endDate: string;
   status: string;
@@ -161,17 +163,31 @@ export default function EventsPage() {
                         </CardHeader>
                         <CardContent className="space-y-2 text-sm text-muted-foreground">
                           <div className="flex items-center gap-2">
-                            <MapPin className="h-4 w-4" />
-                            {event.location}
+                            <MapPin className="h-4 w-4 shrink-0" />
+                            {event.locationUrl ? (
+                              <a href={event.locationUrl} target="_blank" rel="noopener noreferrer" className="hover:underline inline-flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                                {event.location} <ExternalLink className="h-3 w-3" />
+                              </a>
+                            ) : (
+                              event.location
+                            )}
                           </div>
                           <div className="flex items-center gap-2">
-                            <Calendar className="h-4 w-4" />
+                            <Calendar className="h-4 w-4 shrink-0" />
                             {formatDateRange(new Date(event.startDate), new Date(event.endDate))}
                           </div>
                           <div className="flex items-center gap-2">
-                            <Users className="h-4 w-4" />
+                            <Users className="h-4 w-4 shrink-0" />
                             {event._count.signups} {event._count.signups === 1 ? "family" : "families"} signed up
                           </div>
+                          {event.campsiteUrl && (
+                            <div>
+                              <a href={event.campsiteUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline inline-flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                                Campsite Official Page <ExternalLink className="h-3 w-3" />
+                              </a>
+                            </div>
+                          )}
+                          {event.description && <p className="text-xs">{event.description}</p>}
                           <div className="text-xs">Organized by {event.organizer.name}</div>
                         </CardContent>
                       </Card>
