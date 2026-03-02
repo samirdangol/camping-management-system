@@ -397,6 +397,9 @@ export default function JoinPage() {
                     <Input type="number" min={0} value={vegetarians} onChange={(e) => setVegetarians(parseInt(e.target.value) || 0)} />
                   </div>
                 </div>
+                <p className="text-xs text-muted-foreground -mt-2">
+                  Vegetarian count is out of the people above (e.g. 2 adults + 2 kids, 1 vegetarian = 4 people total, 1 veg)
+                </p>
 
                 <div className="space-y-2">
                   <Label>Notes (optional)</Label>
