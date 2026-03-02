@@ -21,7 +21,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Tent, Plus, Users, Check, Lock, Pencil } from "lucide-react";
+import { MountainSnow, Plus, Users, Check, Lock, Pencil } from "lucide-react";
 import type { FamilyPublic } from "@/types";
 
 function SelectFamilyContent() {
@@ -231,9 +231,9 @@ function SelectFamilyContent() {
         {/* Header */}
         <div className="text-center space-y-2">
           <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-green-100">
-            <Tent className="h-6 w-6 text-green-700" />
+            <MountainSnow className="h-6 w-6 text-green-700" />
           </div>
-          <h1 className="text-2xl font-bold">Camp Planner</h1>
+          <h1 className="text-2xl font-bold">Nepali Camping</h1>
           <p className="text-sm text-muted-foreground">
             {isSwitch
               ? "Switch to a different family"

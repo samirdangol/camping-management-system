@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, usePathname } from "next/navigation";
-import { Tent, LogOut, Users, ArrowLeftRight, Pencil } from "lucide-react";
+import { MountainSnow, LogOut, Users, ArrowLeftRight, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useCurrentFamily } from "@/hooks/use-current-family";
 import Link from "next/link";
@@ -32,8 +32,8 @@ export function AppHeader() {
           href="/events"
           className="flex items-center gap-2 font-semibold text-green-700"
         >
-          <Tent className="h-5 w-5" />
-          <span className="hidden sm:inline">Camp Planner</span>
+          <MountainSnow className="h-5 w-5" />
+          <span className="hidden sm:inline">Nepali Camping</span>
         </Link>
 
         <div className="flex items-center gap-2">

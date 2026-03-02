@@ -10,8 +10,8 @@ const geistSans = Geist({
 });
 
 export const metadata: Metadata = {
-  title: "Camp Planner",
-  description: "Camping Management System for organizing group camping trips",
+  title: "Nepali Camping",
+  description: "Group camping planner for the Nepali community in Seattle",
 };
 
 export default function RootLayout({

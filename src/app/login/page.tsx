@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Tent } from "lucide-react";
+import { MountainSnow } from "lucide-react";
 
 export default function LoginPage() {
   const [passcode, setPasscode] = useState("");
@@ -43,11 +43,11 @@ export default function LoginPage() {
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center">
           <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-green-100">
-            <Tent className="h-6 w-6 text-green-700" />
+            <MountainSnow className="h-6 w-6 text-green-700" />
           </div>
-          <CardTitle className="text-2xl">Camp Planner</CardTitle>
+          <CardTitle className="text-2xl">Nepali Camping</CardTitle>
           <CardDescription>
-            Enter the shared passcode to access the camping planner
+            Enter the shared passcode to access the planner
           </CardDescription>
         </CardHeader>
         <CardContent>

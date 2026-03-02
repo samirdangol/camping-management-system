@@ -1,4 +1,4 @@
-import { Tent } from "lucide-react";
+import { MountainSnow } from "lucide-react";
 
 export default function JoinLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -6,8 +6,8 @@ export default function JoinLayout({ children }: { children: React.ReactNode }) 
       <header className="border-b bg-white">
         <div className="mx-auto flex h-14 max-w-4xl items-center px-4">
           <div className="flex items-center gap-2 font-semibold text-green-700">
-            <Tent className="h-5 w-5" />
-            <span>Camp Planner</span>
+            <MountainSnow className="h-5 w-5" />
+            <span>Nepali Camping</span>
           </div>
         </div>
       </header>

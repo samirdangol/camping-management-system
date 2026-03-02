@@ -65,7 +65,7 @@ export default function EventsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Camping Trips" description="Plan and manage your group camping adventures">
+      <PageHeader title="Camping Trips" description="Plan and manage group camping trips">
         <Button asChild>
           <Link href="/events/new">
             <Plus className="mr-2 h-4 w-4" />
