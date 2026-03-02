@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { formatDateRange } from "@/lib/utils";
+import { formatDateRange, locationLink } from "@/lib/utils";
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Button } from "@/components/ui/button";
@@ -162,16 +162,10 @@ export default function EventsPage() {
                           </div>
                         </CardHeader>
                         <CardContent className="space-y-2 text-sm text-muted-foreground">
-                          <div className="flex items-center gap-2">
+                          <a href={locationLink(event.location, event.locationUrl)} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 hover:underline" onClick={(e) => e.stopPropagation()}>
                             <MapPin className="h-4 w-4 shrink-0" />
-                            {event.locationUrl ? (
-                              <a href={event.locationUrl} target="_blank" rel="noopener noreferrer" className="hover:underline inline-flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-                                {event.location} <ExternalLink className="h-3 w-3" />
-                              </a>
-                            ) : (
-                              event.location
-                            )}
-                          </div>
+                            {event.location} <ExternalLink className="h-3 w-3" />
+                          </a>
                           <div className="flex items-center gap-2">
                             <Calendar className="h-4 w-4 shrink-0" />
                             {formatDateRange(new Date(event.startDate), new Date(event.endDate))}

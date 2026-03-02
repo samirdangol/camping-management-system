@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { MapPin, Calendar, Users, CheckCircle2, ShieldCheck, ExternalLink } from "lucide-react";
-import { formatDateRange } from "@/lib/utils";
+import { formatDateRange, locationLink } from "@/lib/utils";
 import Link from "next/link";
 
 type EventInfo = {
@@ -224,16 +224,10 @@ export default function JoinPage() {
           <CardTitle className="text-lg">{event.title}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-1.5 text-sm text-muted-foreground">
-          <div className="flex items-center gap-2">
+          <a href={locationLink(event.location, event.locationUrl)} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 hover:underline">
             <MapPin className="h-4 w-4 shrink-0" />
-            {event.locationUrl ? (
-              <a href={event.locationUrl} target="_blank" rel="noopener noreferrer" className="hover:underline inline-flex items-center gap-1">
-                {event.location} <ExternalLink className="h-3 w-3" />
-              </a>
-            ) : (
-              event.location
-            )}
-          </div>
+            {event.location} <ExternalLink className="h-3 w-3" />
+          </a>
           <div className="flex items-center gap-2">
             <Calendar className="h-4 w-4 shrink-0" />
             {formatDateRange(new Date(event.startDate), new Date(event.endDate))}

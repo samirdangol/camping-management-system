@@ -30,6 +30,14 @@ export function formatCurrency(amount: number | string) {
   }).format(Number(amount));
 }
 
+/** Return a clickable URL for a location — uses custom URL if valid, otherwise Google Maps search */
+export function locationLink(location: string, locationUrl?: string | null): string {
+  if (locationUrl && (locationUrl.startsWith("http://") || locationUrl.startsWith("https://"))) {
+    return locationUrl;
+  }
+  return `https://www.google.com/maps/search/${encodeURIComponent(location)}`;
+}
+
 /** Convert a blob URL to a proxied URL for private blob stores */
 export function blobUrl(url: string): string {
   if (url.includes(".private.blob.vercel-storage.com")) {
