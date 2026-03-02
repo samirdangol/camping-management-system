@@ -275,7 +275,7 @@ export default function SignupPage() {
               </div>
             </div>
             <p className="text-xs text-muted-foreground -mt-2">
-              Vegetarian count is out of the people above (e.g. 2 adults + 2 kids, 1 vegetarian = 4 people total, 1 veg)
+              How many of the above members are vegetarian? (e.g. 2 adults, 2 kids, 1 elderly = 5 members. If the elderly person is vegetarian, enter 1 here)
             </p>
 
             <div className="space-y-2">
