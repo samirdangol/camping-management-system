@@ -49,6 +49,22 @@ async function main() {
   `);
   console.log("  Created EquipmentVolunteer table");
 
+  // CampingEvent: reservation + campsite fields
+  await pool.query(`ALTER TABLE "CampingEvent" ADD COLUMN IF NOT EXISTS "reservationNo" TEXT`);
+  console.log("  Added reservationNo to CampingEvent");
+
+  await pool.query(`ALTER TABLE "CampingEvent" ADD COLUMN IF NOT EXISTS "checkIn" TIMESTAMP(3)`);
+  console.log("  Added checkIn to CampingEvent");
+
+  await pool.query(`ALTER TABLE "CampingEvent" ADD COLUMN IF NOT EXISTS "checkOut" TIMESTAMP(3)`);
+  console.log("  Added checkOut to CampingEvent");
+
+  await pool.query(`ALTER TABLE "CampingEvent" ADD COLUMN IF NOT EXISTS "campsiteUrl" TEXT`);
+  console.log("  Added campsiteUrl to CampingEvent");
+
+  await pool.query(`ALTER TABLE "CampingEvent" ADD COLUMN IF NOT EXISTS "imageUrl" TEXT`);
+  console.log("  Added imageUrl to CampingEvent");
+
   console.log("Schema push complete!");
 }
 

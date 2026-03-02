@@ -34,18 +34,23 @@ model Family {
 }
 
 model CampingEvent {
-  id                Int      @id @default(autoincrement())
+  id                Int       @id @default(autoincrement())
   title             String
   location          String
   locationUrl       String?
   description       String?
   startDate         DateTime
   endDate           DateTime
+  reservationNo     String?
+  checkIn           DateTime?
+  checkOut          DateTime?
+  campsiteUrl       String?
+  imageUrl          String?
   organizerFamilyId Int
-  inviteCode        String   @unique @default(uuid())
-  status            String   @default("upcoming")
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  inviteCode        String    @unique @default(uuid())
+  status            String    @default("upcoming")
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
   organizer    Family        @relation("EventOrganizer", fields: [organizerFamilyId], references: [id])
   signups      EventSignup[]

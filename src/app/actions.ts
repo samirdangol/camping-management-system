@@ -73,35 +73,38 @@ export async function createEvent(formData: FormData) {
   const description = (formData.get("description") as string) || null;
   const startDate = new Date(formData.get("startDate") as string);
   const endDate = new Date(formData.get("endDate") as string);
-  const familyName = formData.get("familyName") as string;
-  const contactName = formData.get("contactName") as string;
-  const contactName2 = (formData.get("contactName2") as string) || null;
-  const pin = (formData.get("pin") as string) || null;
+  const familyId = parseInt(formData.get("familyId") as string, 10);
+  const reservationNo = (formData.get("reservationNo") as string) || null;
+  const checkInStr = formData.get("checkIn") as string;
+  const checkOutStr = formData.get("checkOut") as string;
+  const campsiteUrl = (formData.get("campsiteUrl") as string) || null;
+  const imageUrl = (formData.get("imageUrl") as string) || null;
 
-  if (pin && !/^\d{4}$/.test(pin)) {
-    throw new Error("PIN must be exactly 4 digits");
-  }
+  const family = await prisma.family.findUnique({ where: { id: familyId } });
+  if (!family) throw new Error("Family not found");
 
   const result = await prisma.$transaction(async (tx) => {
-    const family = await tx.family.upsert({
-      where: { name: familyName },
-      update: { contactName, contactName2 },
-      create: { name: familyName, contactName, contactName2, pin },
-    });
-
     const event = await tx.campingEvent.create({
-      data: { title, location, locationUrl, description, startDate, endDate, organizerFamilyId: family.id },
+      data: {
+        title, location, locationUrl, description, startDate, endDate,
+        organizerFamilyId: familyId,
+        reservationNo,
+        checkIn: checkInStr ? new Date(checkInStr) : null,
+        checkOut: checkOutStr ? new Date(checkOutStr) : null,
+        campsiteUrl,
+        imageUrl,
+      },
     });
 
     await tx.eventSignup.create({
-      data: { eventId: event.id, familyId: family.id, adults: 1, kids: 0, elderly: 0, vegetarians: 0 },
+      data: { eventId: event.id, familyId, adults: 1, kids: 0, elderly: 0, vegetarians: 0 },
     });
 
-    return { event, family };
+    return event;
   });
 
   revalidatePath("/events");
-  return result.event.id;
+  return result.id;
 }
 
 export async function updateEvent(eventId: number, formData: FormData) {
@@ -111,10 +114,24 @@ export async function updateEvent(eventId: number, formData: FormData) {
   const description = (formData.get("description") as string) || null;
   const startDate = new Date(formData.get("startDate") as string);
   const endDate = new Date(formData.get("endDate") as string);
+  const reservationNo = (formData.get("reservationNo") as string) || null;
+  const checkInStr = formData.get("checkIn") as string;
+  const checkOutStr = formData.get("checkOut") as string;
+  const campsiteUrl = (formData.get("campsiteUrl") as string) || null;
+  const imageUrl = (formData.get("imageUrl") as string) || null;
+  const organizerFamilyIdStr = formData.get("organizerFamilyId") as string;
 
   await prisma.campingEvent.update({
     where: { id: eventId },
-    data: { title, location, locationUrl, description, startDate, endDate },
+    data: {
+      title, location, locationUrl, description, startDate, endDate,
+      reservationNo,
+      checkIn: checkInStr ? new Date(checkInStr) : null,
+      checkOut: checkOutStr ? new Date(checkOutStr) : null,
+      campsiteUrl,
+      imageUrl,
+      ...(organizerFamilyIdStr ? { organizerFamilyId: parseInt(organizerFamilyIdStr, 10) } : {}),
+    },
   });
   revalidatePath(`/events/${eventId}`);
   revalidatePath("/events");

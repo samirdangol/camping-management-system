@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useCurrentFamily } from "@/hooks/use-current-family";
 import { updateEvent, deleteEvent, updateEventStatus } from "@/app/actions";
@@ -19,7 +19,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Users, UtensilsCrossed, DollarSign, UserCheck, Pencil, Trash2 } from "lucide-react";
+import { Users, UtensilsCrossed, DollarSign, UserCheck, Pencil, Trash2, ExternalLink, Upload, X, Image as ImageIcon } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { EVENT_STATUSES } from "@/lib/constants";
 import type { Family } from "@/types";
@@ -32,6 +32,11 @@ type EventDashboardData = {
   description: string | null;
   startDate: string;
   endDate: string;
+  reservationNo: string | null;
+  checkIn: string | null;
+  checkOut: string | null;
+  campsiteUrl: string | null;
+  imageUrl: string | null;
   organizerFamilyId: number;
   inviteCode: string;
   status: string;
@@ -66,8 +71,12 @@ export function EventDashboardClient({ event }: { event: EventDashboardData }) {
   const isOrganizer = familyId === event.organizerFamilyId;
 
   const [editing, setEditing] = useState(false);
-  const [deleting, setDeleting] = useState(false);
+  const [deletingDialog, setDeletingDialog] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [editImageUrl, setEditImageUrl] = useState(event.imageUrl || "");
+  const [uploading, setUploading] = useState(false);
+  const [imagePreview, setImagePreview] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const totalAdults = event.signups.reduce((sum, s) => sum + s.adults, 0);
   const totalKids = event.signups.reduce((sum, s) => sum + s.kids, 0);
@@ -75,10 +84,30 @@ export function EventDashboardClient({ event }: { event: EventDashboardData }) {
   const totalVegetarians = event.signups.reduce((sum, s) => sum + s.vegetarians, 0);
   const grandTotal = totalAdults + totalKids + totalElderly;
 
+  async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const res = await fetch("/api/upload", { method: "POST", body: form });
+      if (res.ok) {
+        const data = await res.json();
+        setEditImageUrl(data.url);
+      }
+    } catch {
+      // silently fail
+    } finally {
+      setUploading(false);
+    }
+  }
+
   async function handleEdit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setSaving(true);
     const formData = new FormData(e.currentTarget);
+    formData.set("imageUrl", editImageUrl || "");
     await updateEvent(event.id, formData);
     setEditing(false);
     setSaving(false);
@@ -96,8 +125,21 @@ export function EventDashboardClient({ event }: { event: EventDashboardData }) {
     router.refresh();
   }
 
-  // Format date for input[type=date]
+  function openEditDialog() {
+    setEditImageUrl(event.imageUrl || "");
+    setEditing(true);
+  }
+
   const fmtDate = (d: string) => new Date(d).toISOString().split("T")[0];
+  const fmtDateTime = (d: string) => {
+    const dt = new Date(d);
+    return dt.toISOString().slice(0, 16);
+  };
+  const fmtDisplayDateTime = (d: string) => {
+    return new Date(d).toLocaleString("en-US", {
+      month: "short", day: "numeric", hour: "numeric", minute: "2-digit",
+    });
+  };
 
   return (
     <div className="space-y-6">
@@ -108,10 +150,10 @@ export function EventDashboardClient({ event }: { event: EventDashboardData }) {
         </Badge>
         {isOrganizer && (
           <>
-            <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
+            <Button variant="outline" size="sm" onClick={openEditDialog}>
               <Pencil className="h-3.5 w-3.5 mr-1" /> Edit
             </Button>
-            <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700" onClick={() => setDeleting(true)}>
+            <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700" onClick={() => setDeletingDialog(true)}>
               <Trash2 className="h-3.5 w-3.5 mr-1" /> Delete
             </Button>
           </>
@@ -138,6 +180,40 @@ export function EventDashboardClient({ event }: { event: EventDashboardData }) {
 
       {event.description && (
         <p className="text-sm text-muted-foreground">{event.description}</p>
+      )}
+
+      {/* Reservation & Campsite Info */}
+      {(event.reservationNo || event.checkIn || event.checkOut || event.campsiteUrl || event.imageUrl) && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Reservation Details</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm">
+            {event.reservationNo && (
+              <div><span className="text-muted-foreground">Reservation:</span> <span className="font-medium">{event.reservationNo}</span></div>
+            )}
+            {event.checkIn && (
+              <div><span className="text-muted-foreground">Check-in:</span> <span className="font-medium">{fmtDisplayDateTime(event.checkIn)}</span></div>
+            )}
+            {event.checkOut && (
+              <div><span className="text-muted-foreground">Check-out:</span> <span className="font-medium">{fmtDisplayDateTime(event.checkOut)}</span></div>
+            )}
+            {event.campsiteUrl && (
+              <div>
+                <a href={event.campsiteUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline inline-flex items-center gap-1">
+                  Campsite Official Page <ExternalLink className="h-3 w-3" />
+                </a>
+              </div>
+            )}
+            {event.imageUrl && (
+              <div>
+                <button type="button" onClick={() => setImagePreview(true)} className="inline-flex items-center gap-1 text-blue-600 hover:underline">
+                  <ImageIcon className="h-3.5 w-3.5" /> View campsite image
+                </button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       )}
 
       <InviteLinkCard inviteCode={event.inviteCode} />
@@ -224,7 +300,7 @@ export function EventDashboardClient({ event }: { event: EventDashboardData }) {
 
       {/* Edit Dialog */}
       <Dialog open={editing} onOpenChange={setEditing}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Trip</DialogTitle>
             <DialogDescription>Update the trip details below.</DialogDescription>
@@ -252,6 +328,85 @@ export function EventDashboardClient({ event }: { event: EventDashboardData }) {
                 <Input id="edit-endDate" name="endDate" type="date" defaultValue={fmtDate(event.endDate)} required />
               </div>
             </div>
+
+            {/* Reservation fields */}
+            <div className="space-y-2">
+              <Label htmlFor="edit-reservationNo">Reservation No</Label>
+              <Input id="edit-reservationNo" name="reservationNo" defaultValue={event.reservationNo || ""} placeholder="e.g. RES-12345" />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-checkIn">Check-in</Label>
+                <Input id="edit-checkIn" name="checkIn" type="datetime-local" defaultValue={event.checkIn ? fmtDateTime(event.checkIn) : ""} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-checkOut">Check-out</Label>
+                <Input id="edit-checkOut" name="checkOut" type="datetime-local" defaultValue={event.checkOut ? fmtDateTime(event.checkOut) : ""} />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-campsiteUrl">Campsite Official Page</Label>
+              <Input id="edit-campsiteUrl" name="campsiteUrl" defaultValue={event.campsiteUrl || ""} placeholder="https://parks.wa.gov/..." />
+            </div>
+
+            {/* Image upload */}
+            <div className="space-y-2">
+              <Label>Campsite Screenshot / Info</Label>
+              {editImageUrl ? (
+                <div className="relative inline-block">
+                  <img src={editImageUrl} alt="Campsite" className="rounded-lg border max-h-40 object-cover" />
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="icon"
+                    className="absolute -top-2 -right-2 h-6 w-6"
+                    onClick={() => { setEditImageUrl(""); if (fileInputRef.current) fileInputRef.current.value = ""; }}
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                </div>
+              ) : (
+                <div>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleUpload}
+                    className="hidden"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={uploading}
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    <Upload className="h-4 w-4 mr-2" />
+                    {uploading ? "Uploading..." : "Upload Image"}
+                  </Button>
+                </div>
+              )}
+            </div>
+
+            {/* Organizer dropdown */}
+            {event.signups.length > 1 && (
+              <div className="space-y-2">
+                <Label htmlFor="edit-organizer">Organizer</Label>
+                <select
+                  id="edit-organizer"
+                  name="organizerFamilyId"
+                  defaultValue={event.organizerFamilyId}
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                >
+                  {event.signups.map((s) => (
+                    <option key={s.family.id} value={s.family.id}>
+                      {s.family.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
             <div className="space-y-2">
               <Label htmlFor="edit-description">Description</Label>
               <Textarea id="edit-description" name="description" defaultValue={event.description || ""} rows={3} />
@@ -265,7 +420,7 @@ export function EventDashboardClient({ event }: { event: EventDashboardData }) {
       </Dialog>
 
       {/* Delete Confirmation Dialog */}
-      <Dialog open={deleting} onOpenChange={setDeleting}>
+      <Dialog open={deletingDialog} onOpenChange={setDeletingDialog}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Delete Trip</DialogTitle>
@@ -274,11 +429,23 @@ export function EventDashboardClient({ event }: { event: EventDashboardData }) {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleting(false)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setDeletingDialog(false)}>Cancel</Button>
             <Button variant="destructive" onClick={handleDelete} disabled={saving}>
               {saving ? "Deleting..." : "Delete Trip"}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Image Preview Dialog */}
+      <Dialog open={imagePreview} onOpenChange={setImagePreview}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Campsite Info</DialogTitle>
+          </DialogHeader>
+          {event.imageUrl && (
+            <img src={event.imageUrl} alt="Campsite" className="rounded-lg w-full" />
+          )}
         </DialogContent>
       </Dialog>
     </div>
