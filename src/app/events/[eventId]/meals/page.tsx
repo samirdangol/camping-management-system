@@ -22,8 +22,9 @@ import {
 import { EmptyState } from "@/components/shared/empty-state";
 import { useCurrentFamily } from "@/hooks/use-current-family";
 import { MEAL_TYPE_LABELS } from "@/lib/constants";
-import { UtensilsCrossed, Plus, Trash2, ChefHat, Leaf, X } from "lucide-react";
+import { UtensilsCrossed, Plus, Trash2, ChefHat, Leaf, X, Hand, UserPlus } from "lucide-react";
 import { useIsOrganizer } from "@/hooks/use-is-organizer";
+import { familyEmoji } from "@/lib/utils";
 import type { Family, MealWithDetails } from "@/types";
 
 type EventInfo = {
@@ -72,6 +73,7 @@ export default function MealsPage() {
   // Add meal form
   const [newMealDay, setNewMealDay] = useState("");
   const [newMealType, setNewMealType] = useState("");
+  const [newMealName, setNewMealName] = useState("");
   const [newMealChef, setNewMealChef] = useState("");
   const [showAddMeal, setShowAddMeal] = useState(false);
 
@@ -97,12 +99,21 @@ export default function MealsPage() {
     await createMeal(parseInt(eventId, 10), {
       date: newMealDay,
       mealType: newMealType,
+      name: newMealName || undefined,
       headChefName: newMealChef || undefined,
     });
     setNewMealDay("");
     setNewMealType("");
+    setNewMealName("");
     setNewMealChef("");
     setShowAddMeal(false);
+    await fetchData();
+  }
+
+  async function handleUpdateName(mealId: number, name: string) {
+    await updateMeal(mealId, parseInt(eventId, 10), {
+      name: name || "",
+    });
     await fetchData();
   }
 
@@ -198,6 +209,15 @@ export default function MealsPage() {
               </div>
             </div>
             <div className="space-y-1">
+              <Label className="text-sm">Meal Name (optional)</Label>
+              <Input
+                className="h-9 text-sm"
+                placeholder="e.g. Goat Biryani, Jhol Masu Bhat"
+                value={newMealName}
+                onChange={(e) => setNewMealName(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1">
               <Label className="text-sm">Head Chef (optional)</Label>
               <PersonSelect
                 value={newMealChef}
@@ -236,8 +256,11 @@ export default function MealsPage() {
                 <MealCard
                   key={meal.id}
                   meal={meal}
+                  families={families}
+                  currentFamilyId={familyId}
                   personOptions={personOptions}
                   isOrganizer={isOrganizer}
+                  onUpdateName={handleUpdateName}
                   onUpdateChef={handleUpdateChef}
                   onAddFood={handleAddFood}
                   onRemoveFood={handleRemoveFood}
@@ -315,10 +338,21 @@ function PersonSelect({
   );
 }
 
+/** Get emoji for a volunteer name by matching against families */
+function volunteerEmoji(name: string, families: Family[]): string {
+  const match = families.find(
+    (f) => f.name === name || name.includes(`(${f.name})`)
+  );
+  return match ? familyEmoji(match.id) : "👤";
+}
+
 function MealCard({
   meal,
+  families,
+  currentFamilyId,
   personOptions,
   isOrganizer,
+  onUpdateName,
   onUpdateChef,
   onAddFood,
   onRemoveFood,
@@ -327,8 +361,11 @@ function MealCard({
   onDelete,
 }: {
   meal: MealWithDetails;
+  families: Family[];
+  currentFamilyId: number | null;
   personOptions: { families: string[]; people: string[] };
   isOrganizer: boolean;
+  onUpdateName: (mealId: number, name: string) => void;
   onUpdateChef: (mealId: number, chefName: string) => void;
   onAddFood: (mealId: number, name: string, isVegetarian: boolean) => void;
   onRemoveFood: (foodItemId: number) => void;
@@ -338,7 +375,13 @@ function MealCard({
 }) {
   const [foodName, setFoodName] = useState("");
   const [isVeg, setIsVeg] = useState(false);
-  const [volunteerInputs, setVolunteerInputs] = useState<Record<number, string>>({});
+  const [editingName, setEditingName] = useState(false);
+  const [nameValue, setNameValue] = useState(meal.name || "");
+  const foodInputRef = useCallback((node: HTMLInputElement | null) => {
+    if (node) node.focus();
+  }, []);
+
+  const currentFamily = families.find((f) => f.id === currentFamilyId);
 
   const mealTypeColors: Record<string, string> = {
     breakfast: "bg-yellow-100 text-yellow-800",
@@ -351,11 +394,34 @@ function MealCard({
     <Card>
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
             <Badge className={mealTypeColors[meal.mealType]} variant="secondary">
               {MEAL_TYPE_LABELS[meal.mealType as keyof typeof MEAL_TYPE_LABELS] || meal.mealType}
             </Badge>
-            {meal.name && <span className="font-medium">{meal.name}</span>}
+            {editingName ? (
+              <Input
+                className="h-7 text-sm font-medium max-w-[200px]"
+                placeholder="e.g. Goat Biryani"
+                value={nameValue}
+                autoFocus
+                onChange={(e) => setNameValue(e.target.value)}
+                onBlur={() => {
+                  onUpdateName(meal.id, nameValue.trim());
+                  setEditingName(false);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") { onUpdateName(meal.id, nameValue.trim()); setEditingName(false); }
+                  if (e.key === "Escape") { setNameValue(meal.name || ""); setEditingName(false); }
+                }}
+              />
+            ) : (
+              <button
+                onClick={() => isOrganizer && setEditingName(true)}
+                className={`text-sm font-medium truncate ${isOrganizer ? "hover:underline cursor-pointer" : ""} ${meal.name ? "text-foreground" : "text-muted-foreground italic"}`}
+              >
+                {meal.name || (isOrganizer ? "Add name..." : "")}
+              </button>
+            )}
           </div>
           {isOrganizer && (
             <Button variant="ghost" size="icon" onClick={() => onDelete(meal.id)} className="h-8 w-8 text-red-500">
@@ -383,43 +449,83 @@ function MealCard({
           )}
         </div>
 
-        {/* Food Items */}
+        {/* Food Items as mini-cards */}
         <div className="space-y-2">
           <span className="text-sm font-medium">Food Items:</span>
           {meal.foodItems.length > 0 && (
-            <div className="space-y-2 ml-2">
-              {meal.foodItems.map((item) => (
-                <div key={item.id} className="space-y-1">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="flex items-center gap-1">
-                      {item.name}
-                      {item.isVegetarian && <Leaf className="h-3 w-3 text-green-600" />}
-                    </span>
-                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => onRemoveFood(item.id)}>
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
+            <div className="grid gap-2">
+              {meal.foodItems.map((item) => {
+                const hasVolunteers = item.volunteers.length > 0;
+                return (
+                  <div
+                    key={item.id}
+                    className={`rounded-lg border p-2.5 transition-colors ${
+                      hasVolunteers
+                        ? "bg-white border-border"
+                        : "bg-amber-50 border-amber-200"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="flex items-center gap-1.5 text-sm font-medium">
+                        {item.isVegetarian && <Leaf className="h-3.5 w-3.5 text-green-600 shrink-0" />}
+                        {item.name}
+                      </span>
+                      {isOrganizer && (
+                        <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-red-500" onClick={() => onRemoveFood(item.id)}>
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      )}
+                    </div>
+                    {/* Volunteers */}
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {item.volunteers.map((v) => (
+                        <Badge
+                          key={v.id}
+                          variant="secondary"
+                          className="text-xs gap-1 bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100"
+                        >
+                          <span>{volunteerEmoji(v.name, families)}</span>
+                          {v.name}
+                          {isOrganizer && (
+                            <button onClick={() => onRemoveVolunteer(v.id)} className="ml-0.5 hover:text-red-500">
+                              <X className="h-2.5 w-2.5" />
+                            </button>
+                          )}
+                        </Badge>
+                      ))}
+                      {/* "I'll bring this!" button for signed-in family */}
+                      {currentFamily && !item.volunteers.some((v) => v.name === currentFamily.name) && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-6 text-xs gap-1 border-dashed text-blue-600 border-blue-300 hover:bg-blue-50 hover:text-blue-700"
+                          onClick={() => onAddVolunteer(item.id, currentFamily.name)}
+                        >
+                          <Hand className="h-3 w-3" />
+                          I&apos;ll bring this!
+                        </Button>
+                      )}
+                      {/* Assign volunteer (organizer) */}
+                      {isOrganizer && (
+                        <VolunteerAdder
+                          foodItemId={item.id}
+                          personOptions={personOptions}
+                          families={families}
+                          onAdd={onAddVolunteer}
+                        />
+                      )}
+                      {/* No volunteers hint */}
+                      {!hasVolunteers && !currentFamily && (
+                        <span className="text-xs text-amber-600 italic">Needs a volunteer</span>
+                      )}
+                    </div>
                   </div>
-                  {/* Volunteers for this food item */}
-                  <div className="flex flex-wrap items-center gap-1 ml-2">
-                    {item.volunteers.map((v) => (
-                      <Badge key={v.id} variant="outline" className="text-xs gap-1">
-                        {v.name}
-                        <button onClick={() => onRemoveVolunteer(v.id)} className="hover:text-red-500">
-                          <X className="h-2.5 w-2.5" />
-                        </button>
-                      </Badge>
-                    ))}
-                    <VolunteerAdder
-                      foodItemId={item.id}
-                      personOptions={personOptions}
-                      onAdd={onAddVolunteer}
-                    />
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
-          <div className="flex gap-2 items-center">
+          {/* Add food item input */}
+          <div className="flex gap-2 items-center mt-1">
             <Input
               placeholder="Add food item..."
               value={foodName}
@@ -434,10 +540,19 @@ function MealCard({
                 }
               }}
             />
-            <div className="flex items-center gap-1">
-              <Checkbox id={`veg-${meal.id}`} checked={isVeg} onCheckedChange={(c) => setIsVeg(c === true)} />
-              <Label htmlFor={`veg-${meal.id}`} className="text-xs">Veg</Label>
-            </div>
+            <button
+              type="button"
+              onClick={() => setIsVeg(!isVeg)}
+              className={`flex items-center gap-1 px-2 h-8 rounded-md border text-xs transition-colors shrink-0 ${
+                isVeg
+                  ? "bg-green-100 border-green-300 text-green-700"
+                  : "bg-white border-border text-muted-foreground hover:bg-muted"
+              }`}
+              title="Toggle vegetarian"
+            >
+              <Leaf className="h-3 w-3" />
+              Veg
+            </button>
             <Button
               variant="outline"
               size="sm"
@@ -458,14 +573,16 @@ function MealCard({
   );
 }
 
-/** Inline volunteer adder for a food item */
+/** Inline volunteer adder for a food item (organizer only) */
 function VolunteerAdder({
   foodItemId,
   personOptions,
+  families,
   onAdd,
 }: {
   foodItemId: number;
   personOptions: { families: string[]; people: string[] };
+  families: Family[];
   onAdd: (foodItemId: number, name: string) => void;
 }) {
   const [adding, setAdding] = useState(false);
@@ -473,12 +590,14 @@ function VolunteerAdder({
 
   if (!adding) {
     return (
-      <button
+      <Button
+        variant="ghost"
+        size="sm"
+        className="h-6 text-xs gap-0.5 text-muted-foreground hover:text-blue-600"
         onClick={() => setAdding(true)}
-        className="inline-flex items-center gap-0.5 text-xs text-blue-600 hover:underline"
       >
-        <Plus className="h-3 w-3" /> volunteer
-      </button>
+        <UserPlus className="h-3 w-3" /> assign
+      </Button>
     );
   }
 
