@@ -979,7 +979,7 @@ function AssignPanel({
   return (
     <div
       ref={panelRef}
-      className="absolute z-20 top-full left-0 mt-1 bg-white border rounded-lg shadow-lg p-2 min-w-[220px] space-y-2"
+      className="absolute z-20 top-full left-0 mt-1 bg-white border rounded-lg shadow-lg p-2 min-w-[280px] space-y-2"
     >
       {/* Family grid */}
       <div className="grid grid-cols-2 gap-1">
@@ -988,7 +988,7 @@ function AssignPanel({
             <div className="flex items-center">
               <button
                 onClick={() => onAssign(f.id)}
-                className="flex-1 text-left text-xs px-2 py-1.5 rounded bg-muted hover:bg-muted/80 truncate"
+                className="flex-1 text-left text-xs px-2.5 py-2 rounded bg-muted hover:bg-muted/80 truncate"
                 title={`Assign to ${f.name} family`}
               >
                 {familyEmoji(f.id)} {f.name}
