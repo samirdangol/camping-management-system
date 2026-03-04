@@ -381,6 +381,14 @@ export async function claimGroceryItem(itemId: number, eventId: number, familyId
   revalidatePath(`/events/${eventId}`);
 }
 
+export async function unclaimGroceryItem(itemId: number, eventId: number) {
+  await prisma.groceryItem.update({
+    where: { id: itemId },
+    data: { assignedFamilyId: null },
+  });
+  revalidatePath(`/events/${eventId}`);
+}
+
 export async function toggleGroceryPurchased(itemId: number, eventId: number, isPurchased: boolean) {
   await prisma.groceryItem.update({
     where: { id: itemId },
@@ -482,6 +490,14 @@ export async function claimEquipment(itemId: number, eventId: number, familyId: 
   await prisma.equipment.update({
     where: { id: itemId },
     data: { ownerFamilyId: familyId },
+  });
+  revalidatePath(`/events/${eventId}`);
+}
+
+export async function unclaimEquipment(itemId: number, eventId: number) {
+  await prisma.equipment.update({
+    where: { id: itemId },
+    data: { ownerFamilyId: null },
   });
   revalidatePath(`/events/${eventId}`);
 }

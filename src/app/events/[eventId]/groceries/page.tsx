@@ -7,6 +7,7 @@ import {
   updateGroceryItem,
   deleteGroceryItem,
   claimGroceryItem,
+  unclaimGroceryItem,
   toggleGroceryPurchased,
   addGroceryVolunteer,
   removeGroceryVolunteer,
@@ -151,6 +152,11 @@ export default function GroceriesPage() {
     await fetchData();
   }
 
+  async function handleUnclaim(itemId: number) {
+    await unclaimGroceryItem(itemId, eid);
+    await fetchData();
+  }
+
   async function handleTogglePurchased(itemId: number, current: boolean) {
     await toggleGroceryPurchased(itemId, eid, !current);
     await fetchData();
@@ -262,6 +268,7 @@ export default function GroceriesPage() {
           allSuggestions={allSuggestions}
           onDelete={handleDelete}
           onClaim={handleClaim}
+          onUnclaim={handleUnclaim}
           onTogglePurchased={handleTogglePurchased}
           onVolunteer={handleVolunteer}
           onUnvolunteer={handleUnvolunteer}
@@ -282,6 +289,7 @@ export default function GroceriesPage() {
           allSuggestions={allSuggestions}
           onDelete={handleDelete}
           onClaim={handleClaim}
+          onUnclaim={handleUnclaim}
           onTogglePurchased={handleTogglePurchased}
           onVolunteer={handleVolunteer}
           onUnvolunteer={handleUnvolunteer}
@@ -312,6 +320,7 @@ function CategorySection({
   allSuggestions,
   onDelete,
   onClaim,
+  onUnclaim,
   onTogglePurchased,
   onVolunteer,
   onUnvolunteer,
@@ -326,6 +335,7 @@ function CategorySection({
   allSuggestions: string[];
   onDelete: (id: number) => Promise<void>;
   onClaim: (id: number) => Promise<void>;
+  onUnclaim: (id: number) => Promise<void>;
   onTogglePurchased: (id: number, current: boolean) => Promise<void>;
   onVolunteer: (id: number) => Promise<void>;
   onUnvolunteer: (id: number) => Promise<void>;
@@ -352,7 +362,6 @@ function CategorySection({
   const [collapsed, setCollapsed] = useState(false);
   const [addName, setAddName] = useState("");
   const [addQty, setAddQty] = useState("");
-  const [addCost, setAddCost] = useState("");
   const [adding, setAdding] = useState(false);
 
   const purchased = items.filter((i) => i.isPurchased).length;
@@ -366,12 +375,10 @@ function CategorySection({
         name: addName.trim(),
         category: category || undefined,
         quantity: addQty || undefined,
-        estimatedCost: addCost ? parseFloat(addCost) : undefined,
       },
     ]);
     setAddName("");
     setAddQty("");
-    setAddCost("");
     setAdding(false);
   }
 
@@ -391,11 +398,6 @@ function CategorySection({
         <Badge variant="secondary" className="text-xs">
           {purchased}/{items.length}
         </Badge>
-        {items.reduce((s, i) => s + (i.estimatedCost || 0), 0) > 0 && (
-          <span className="text-xs text-muted-foreground ml-auto">
-            ${items.reduce((s, i) => s + (i.estimatedCost || 0), 0).toFixed(2)}
-          </span>
-        )}
       </button>
 
       {!collapsed && (
@@ -410,6 +412,7 @@ function CategorySection({
               allSuggestions={allSuggestions}
               onDelete={onDelete}
               onClaim={onClaim}
+              onUnclaim={onUnclaim}
               onTogglePurchased={onTogglePurchased}
               onVolunteer={onVolunteer}
               onUnvolunteer={onUnvolunteer}
@@ -435,14 +438,6 @@ function CategorySection({
               value={addQty}
               onChange={(e) => setAddQty(e.target.value)}
               placeholder="Qty"
-              className="h-8 text-sm w-16"
-            />
-            <Input
-              type="number"
-              step="0.01"
-              value={addCost}
-              onChange={(e) => setAddCost(e.target.value)}
-              placeholder="$"
               className="h-8 text-sm w-16"
             />
             <Button
@@ -473,6 +468,7 @@ function GroceryItemCard({
   allSuggestions,
   onDelete,
   onClaim,
+  onUnclaim,
   onTogglePurchased,
   onVolunteer,
   onUnvolunteer,
@@ -485,6 +481,7 @@ function GroceryItemCard({
   allSuggestions: string[];
   onDelete: (id: number) => Promise<void>;
   onClaim: (id: number) => Promise<void>;
+  onUnclaim: (id: number) => Promise<void>;
   onTogglePurchased: (id: number, current: boolean) => Promise<void>;
   onVolunteer: (id: number) => Promise<void>;
   onUnvolunteer: (id: number) => Promise<void>;
@@ -511,9 +508,9 @@ function GroceryItemCard({
 
   const hasOwner = !!item.assignedTo;
   const hasVolunteers = item.volunteers.length > 0;
-  const isMyItem =
-    item.assignedFamilyId === familyId ||
-    item.volunteers.some((v) => v.familyId === familyId);
+  const iAmOwner = item.assignedFamilyId === familyId;
+  const iAmVolunteer = item.volunteers.some((v) => v.familyId === familyId);
+  const isMyItem = iAmOwner || iAmVolunteer;
   const needsVolunteer = !hasOwner && !hasVolunteers;
 
   const bg = item.isPurchased
@@ -611,101 +608,99 @@ function GroceryItemCard({
   /* ── Display mode ── */
   return (
     <div className={`rounded-lg border p-2.5 ${bg}`}>
-      {/* Top row: checkbox + name + details + actions */}
-      <div className="flex items-start gap-2">
+      <div className="flex items-center gap-2">
         <Checkbox
           checked={item.isPurchased}
           onCheckedChange={() => onTogglePurchased(item.id, item.isPurchased)}
-          className="mt-0.5"
+          className="shrink-0"
         />
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <span
-              className={`text-sm font-medium ${item.isPurchased ? "line-through text-muted-foreground" : ""}`}
-            >
-              {item.name}
+        {/* Single line: name + qty + mealTag + volunteer info + actions */}
+        <div className="flex items-center gap-1.5 flex-wrap flex-1 min-w-0">
+          <span
+            className={`text-sm font-medium ${item.isPurchased ? "line-through text-muted-foreground" : ""}`}
+          >
+            {item.name}
+          </span>
+          {item.quantity && (
+            <span className="text-xs text-muted-foreground">
+              ×{item.quantity}
             </span>
-            {item.quantity && (
-              <span className="text-xs text-muted-foreground">
-                ×{item.quantity}
-              </span>
-            )}
-            {item.estimatedCost != null && item.estimatedCost > 0 && (
-              <span className="text-xs text-muted-foreground">
-                ${Number(item.estimatedCost).toFixed(2)}
-              </span>
-            )}
-            {item.mealTag && (
-              <Badge className="text-[10px] px-1.5 py-0 bg-purple-100 text-purple-700 hover:bg-purple-100">
-                {item.mealTag}
-              </Badge>
-            )}
-          </div>
+          )}
+          {item.mealTag && (
+            <Badge className="text-[10px] px-1.5 py-0 bg-purple-100 text-purple-700 hover:bg-purple-100">
+              {item.mealTag}
+            </Badge>
+          )}
 
-          {/* Volunteer row */}
-          <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-            {/* Owner / assignedTo */}
-            {item.assignedTo && (
-              <Badge
-                variant="secondary"
-                className="text-[10px] px-1.5 py-0 bg-emerald-100 text-emerald-700"
-              >
-                {familyEmoji(item.assignedTo.id)} {item.assignedTo.name}
-              </Badge>
-            )}
-            {/* Volunteer badges */}
-            {item.volunteers.map((v) => (
-              <Badge
-                key={v.id}
-                variant="secondary"
-                className="text-[10px] px-1.5 py-0 bg-emerald-100 text-emerald-700"
-              >
-                {familyEmoji(v.family.id)} {v.family.name}
-                {v.familyId === familyId && (
-                  <button
-                    onClick={() => onUnvolunteer(item.id)}
-                    className="ml-0.5 hover:text-red-600"
-                  >
-                    <X className="h-2.5 w-2.5" />
-                  </button>
-                )}
-              </Badge>
-            ))}
+          {/* Owner / assignedTo badge (with unclaim X if mine) */}
+          {item.assignedTo && (
+            <Badge
+              variant="secondary"
+              className="text-[10px] px-1.5 py-0 bg-emerald-100 text-emerald-700"
+            >
+              {familyEmoji(item.assignedTo.id)} {item.assignedTo.name}
+              {iAmOwner && (
+                <button
+                  onClick={() => onUnclaim(item.id)}
+                  className="ml-0.5 hover:text-red-600"
+                >
+                  <X className="h-2.5 w-2.5" />
+                </button>
+              )}
+            </Badge>
+          )}
+          {/* Volunteer badges (with X if mine) */}
+          {item.volunteers.map((v) => (
+            <Badge
+              key={v.id}
+              variant="secondary"
+              className="text-[10px] px-1.5 py-0 bg-emerald-100 text-emerald-700"
+            >
+              {familyEmoji(v.family.id)} {v.family.name}
+              {v.familyId === familyId && (
+                <button
+                  onClick={() => onUnvolunteer(item.id)}
+                  className="ml-0.5 hover:text-red-600"
+                >
+                  <X className="h-2.5 w-2.5" />
+                </button>
+              )}
+            </Badge>
+          ))}
 
-            {/* Needs volunteer warning */}
-            {needsVolunteer && !item.isPurchased && (
-              <span className="text-[10px] text-amber-600 flex items-center gap-0.5">
-                <AlertTriangle className="h-3 w-3" /> Needs a volunteer
-              </span>
-            )}
+          {/* Needs volunteer warning */}
+          {needsVolunteer && !item.isPurchased && (
+            <span className="text-[10px] text-amber-600 flex items-center gap-0.5">
+              <AlertTriangle className="h-3 w-3" /> Needs a volunteer
+            </span>
+          )}
 
-            {/* Self-volunteer button */}
-            {!isMyItem && !item.isPurchased && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-5 text-[10px] px-1.5 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
-                onClick={() =>
-                  hasOwner ? onVolunteer(item.id) : onClaim(item.id)
-                }
-              >
-                <Hand className="h-3 w-3 mr-0.5" />
-                I&apos;ll bring this!
-              </Button>
-            )}
+          {/* Self-volunteer button */}
+          {!isMyItem && !item.isPurchased && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-5 text-[10px] px-1.5 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
+              onClick={() =>
+                hasOwner ? onVolunteer(item.id) : onClaim(item.id)
+              }
+            >
+              <Hand className="h-3 w-3 mr-0.5" />
+              I&apos;ll bring this!
+            </Button>
+          )}
 
-            {/* Organizer assign */}
-            {isOrganizer && !hasOwner && !item.isPurchased && (
-              <AssignDropdown
-                families={families}
-                onAssign={(fId) => {
-                  claimGroceryItem(item.id, parseInt(String(item.eventId), 10), fId).then(
-                    () => window.location.reload()
-                  );
-                }}
-              />
-            )}
-          </div>
+          {/* Organizer assign */}
+          {isOrganizer && !hasOwner && !item.isPurchased && (
+            <AssignDropdown
+              families={families}
+              onAssign={(fId) => {
+                claimGroceryItem(item.id, parseInt(String(item.eventId), 10), fId).then(
+                  () => window.location.reload()
+                );
+              }}
+            />
+          )}
         </div>
 
         {/* Action buttons */}
@@ -795,7 +790,6 @@ interface QuickRow {
   name: string;
   category: string;
   quantity: string;
-  estimatedCost: string;
 }
 
 function createQuickRow(): QuickRow {
@@ -804,7 +798,6 @@ function createQuickRow(): QuickRow {
     name: "",
     category: "",
     quantity: "",
-    estimatedCost: "",
   };
 }
 
@@ -849,7 +842,6 @@ function QuickAddSection({
         name: r.name.trim(),
         category: r.category.trim() || undefined,
         quantity: r.quantity.trim() || undefined,
-        estimatedCost: r.estimatedCost ? parseFloat(r.estimatedCost) : undefined,
       }))
     );
     setRows([createQuickRow(), createQuickRow(), createQuickRow()]);
@@ -885,14 +877,6 @@ function QuickAddSection({
               value={row.quantity}
               onChange={(e) => update(row.id, "quantity", e.target.value)}
               placeholder="Qty"
-              className="h-8 text-sm w-16"
-            />
-            <Input
-              type="number"
-              step="0.01"
-              value={row.estimatedCost}
-              onChange={(e) => update(row.id, "estimatedCost", e.target.value)}
-              placeholder="$"
               className="h-8 text-sm w-16"
             />
             {rows.length > 1 && (

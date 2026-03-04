@@ -7,6 +7,7 @@ import {
   updateEquipment,
   deleteEquipment,
   claimEquipment,
+  unclaimEquipment,
   addEquipmentVolunteer,
   removeEquipmentVolunteer,
 } from "@/app/actions";
@@ -147,6 +148,11 @@ export default function EquipmentPage() {
     await fetchData();
   }
 
+  async function handleUnclaim(itemId: number) {
+    await unclaimEquipment(itemId, eid);
+    await fetchData();
+  }
+
   async function handleVolunteer(itemId: number) {
     if (!familyId) return;
     await addEquipmentVolunteer(itemId, eid, familyId);
@@ -249,6 +255,7 @@ export default function EquipmentPage() {
           allSuggestions={allSuggestions}
           onDelete={handleDelete}
           onClaim={handleClaim}
+          onUnclaim={handleUnclaim}
           onVolunteer={handleVolunteer}
           onUnvolunteer={handleUnvolunteer}
           onSaveEdit={handleSaveEdit}
@@ -268,6 +275,7 @@ export default function EquipmentPage() {
           allSuggestions={allSuggestions}
           onDelete={handleDelete}
           onClaim={handleClaim}
+          onUnclaim={handleUnclaim}
           onVolunteer={handleVolunteer}
           onUnvolunteer={handleUnvolunteer}
           onSaveEdit={handleSaveEdit}
@@ -294,6 +302,7 @@ function EquipmentCategorySection({
   allSuggestions,
   onDelete,
   onClaim,
+  onUnclaim,
   onVolunteer,
   onUnvolunteer,
   onSaveEdit,
@@ -307,6 +316,7 @@ function EquipmentCategorySection({
   allSuggestions: string[];
   onDelete: (id: number) => Promise<void>;
   onClaim: (id: number) => Promise<void>;
+  onUnclaim: (id: number) => Promise<void>;
   onVolunteer: (id: number) => Promise<void>;
   onUnvolunteer: (id: number) => Promise<void>;
   onSaveEdit: (
@@ -373,6 +383,7 @@ function EquipmentCategorySection({
               allSuggestions={allSuggestions}
               onDelete={onDelete}
               onClaim={onClaim}
+              onUnclaim={onUnclaim}
               onVolunteer={onVolunteer}
               onUnvolunteer={onUnvolunteer}
               onSaveEdit={onSaveEdit}
@@ -435,6 +446,7 @@ function EquipmentItemCard({
   allSuggestions,
   onDelete,
   onClaim,
+  onUnclaim,
   onVolunteer,
   onUnvolunteer,
   onSaveEdit,
@@ -446,6 +458,7 @@ function EquipmentItemCard({
   allSuggestions: string[];
   onDelete: (id: number) => Promise<void>;
   onClaim: (id: number) => Promise<void>;
+  onUnclaim: (id: number) => Promise<void>;
   onVolunteer: (id: number) => Promise<void>;
   onUnvolunteer: (id: number) => Promise<void>;
   onSaveEdit: (
@@ -462,9 +475,9 @@ function EquipmentItemCard({
 
   const hasOwner = !!item.owner;
   const hasVolunteers = item.volunteers.length > 0;
-  const isMyItem =
-    item.ownerFamilyId === familyId ||
-    item.volunteers.some((v) => v.familyId === familyId);
+  const iAmOwner = item.ownerFamilyId === familyId;
+  const iAmVolunteer = item.volunteers.some((v) => v.familyId === familyId);
+  const isMyItem = iAmOwner || iAmVolunteer;
   const needsVolunteer = !hasOwner && !hasVolunteers;
 
   const bg = needsVolunteer
@@ -552,87 +565,90 @@ function EquipmentItemCard({
   /* ── Display mode ── */
   return (
     <div className={`rounded-lg border p-2.5 ${bg}`}>
-      {/* Top row: name + details + actions */}
-      <div className="flex items-start gap-2">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="text-sm font-medium">{item.name}</span>
-            {item.quantity > 1 && (
-              <span className="text-xs text-muted-foreground">
-                ×{item.quantity}
-              </span>
-            )}
-          </div>
-
-          {/* Notes */}
+      <div className="flex items-center gap-2">
+        {/* Single line: name + qty + notes + owner/volunteers + actions */}
+        <div className="flex items-center gap-1.5 flex-wrap flex-1 min-w-0">
+          <span className="text-sm font-medium">{item.name}</span>
+          {item.quantity > 1 && (
+            <span className="text-xs text-muted-foreground">
+              ×{item.quantity}
+            </span>
+          )}
           {item.notes && (
-            <p className="text-xs text-muted-foreground mt-0.5">{item.notes}</p>
+            <span className="text-xs text-muted-foreground italic">
+              {item.notes}
+            </span>
           )}
 
-          {/* Volunteer row */}
-          <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-            {/* Owner */}
-            {item.owner && (
-              <Badge
-                variant="secondary"
-                className="text-[10px] px-1.5 py-0 bg-emerald-100 text-emerald-700"
-              >
-                {familyEmoji(item.owner.id)} {item.owner.name}
-              </Badge>
-            )}
-            {/* Volunteer badges */}
-            {item.volunteers.map((v) => (
-              <Badge
-                key={v.id}
-                variant="secondary"
-                className="text-[10px] px-1.5 py-0 bg-emerald-100 text-emerald-700"
-              >
-                {familyEmoji(v.family.id)} {v.family.name}
-                {v.familyId === familyId && (
-                  <button
-                    onClick={() => onUnvolunteer(item.id)}
-                    className="ml-0.5 hover:text-red-600"
-                  >
-                    <X className="h-2.5 w-2.5" />
-                  </button>
-                )}
-              </Badge>
-            ))}
+          {/* Owner badge (with unclaim X if mine) */}
+          {item.owner && (
+            <Badge
+              variant="secondary"
+              className="text-[10px] px-1.5 py-0 bg-emerald-100 text-emerald-700"
+            >
+              {familyEmoji(item.owner.id)} {item.owner.name}
+              {iAmOwner && (
+                <button
+                  onClick={() => onUnclaim(item.id)}
+                  className="ml-0.5 hover:text-red-600"
+                >
+                  <X className="h-2.5 w-2.5" />
+                </button>
+              )}
+            </Badge>
+          )}
+          {/* Volunteer badges (with X if mine) */}
+          {item.volunteers.map((v) => (
+            <Badge
+              key={v.id}
+              variant="secondary"
+              className="text-[10px] px-1.5 py-0 bg-emerald-100 text-emerald-700"
+            >
+              {familyEmoji(v.family.id)} {v.family.name}
+              {v.familyId === familyId && (
+                <button
+                  onClick={() => onUnvolunteer(item.id)}
+                  className="ml-0.5 hover:text-red-600"
+                >
+                  <X className="h-2.5 w-2.5" />
+                </button>
+              )}
+            </Badge>
+          ))}
 
-            {/* Needs volunteer warning */}
-            {needsVolunteer && (
-              <span className="text-[10px] text-amber-600 flex items-center gap-0.5">
-                <AlertTriangle className="h-3 w-3" /> Needs someone to bring
-              </span>
-            )}
+          {/* Needs volunteer warning */}
+          {needsVolunteer && (
+            <span className="text-[10px] text-amber-600 flex items-center gap-0.5">
+              <AlertTriangle className="h-3 w-3" /> Needs someone to bring
+            </span>
+          )}
 
-            {/* Self-volunteer button */}
-            {!isMyItem && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-5 text-[10px] px-1.5 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
-                onClick={() =>
-                  hasOwner ? onVolunteer(item.id) : onClaim(item.id)
-                }
-              >
-                <Hand className="h-3 w-3 mr-0.5" />
-                I&apos;ll bring this!
-              </Button>
-            )}
+          {/* Self-volunteer button */}
+          {!isMyItem && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-5 text-[10px] px-1.5 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
+              onClick={() =>
+                hasOwner ? onVolunteer(item.id) : onClaim(item.id)
+              }
+            >
+              <Hand className="h-3 w-3 mr-0.5" />
+              I&apos;ll bring this!
+            </Button>
+          )}
 
-            {/* Organizer assign */}
-            {isOrganizer && !hasOwner && (
-              <AssignDropdown
-                families={families}
-                onAssign={(fId) => {
-                  claimEquipment(item.id, parseInt(String(item.eventId), 10), fId).then(
-                    () => window.location.reload()
-                  );
-                }}
-              />
-            )}
-          </div>
+          {/* Organizer assign */}
+          {isOrganizer && !hasOwner && (
+            <AssignDropdown
+              families={families}
+              onAssign={(fId) => {
+                claimEquipment(item.id, parseInt(String(item.eventId), 10), fId).then(
+                  () => window.location.reload()
+                );
+              }}
+            />
+          )}
         </div>
 
         {/* Action buttons */}
