@@ -20,7 +20,8 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Users, UtensilsCrossed, DollarSign, UserCheck, Pencil, Trash2, ExternalLink, Upload, X } from "lucide-react";
-import { formatCurrency, blobUrl } from "@/lib/utils";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { formatCurrency, blobUrl, familyEmoji, emojiMembers } from "@/lib/utils";
 import { EVENT_STATUSES } from "@/lib/constants";
 import type { Family } from "@/types";
 
@@ -46,6 +47,7 @@ type EventDashboardData = {
     kids: number;
     elderly: number;
     vegetarians: number;
+    notes: string | null;
     family: Family;
   }>;
   _count: {
@@ -285,23 +287,57 @@ export function EventDashboardClient({ event }: { event: EventDashboardData }) {
         </Card>
       </div>
 
-      {event.signups.length > 0 && (
-        <div>
-          <h3 className="text-sm font-semibold mb-2">Signed Up Families</h3>
-          <div className="flex flex-wrap gap-2">
-            {event.signups.map((s) => (
-              <span key={s.id} className="inline-flex items-center rounded-full bg-green-50 px-3 py-1 text-sm text-green-700">
-                {s.family.name}
-                {s.family.contactName2 && (
-                  <span className="ml-1 text-xs text-green-500">
-                    ({s.family.contactName}, {s.family.contactName2})
-                  </span>
-                )}
-              </span>
-            ))}
+      {event.signups.length > 0 && (() => {
+        const hasVeg = event.signups.some((s) => s.vegetarians > 0);
+        const hasNotes = event.signups.some((s) => s.notes);
+        const totals = event.signups.reduce(
+          (acc, s) => ({ adults: acc.adults + s.adults, kids: acc.kids + s.kids, elderly: acc.elderly + s.elderly, veg: acc.veg + s.vegetarians }),
+          { adults: 0, kids: 0, elderly: 0, veg: 0 }
+        );
+        return (
+          <div>
+            <h3 className="text-sm font-semibold mb-2">Signed Up Families</h3>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Family</TableHead>
+                    <TableHead>Members</TableHead>
+                    {hasVeg && <TableHead>Veg</TableHead>}
+                    {hasNotes && <TableHead>Notes</TableHead>}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {event.signups.map((s) => (
+                    <TableRow key={s.id}>
+                      <TableCell>
+                        <div className="font-medium">{familyEmoji(s.family.id)} {s.family.name}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {s.family.contactName}{s.family.contactName2 ? ` & ${s.family.contactName2}` : ""}
+                        </div>
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap">{emojiMembers(s.adults, s.kids, s.elderly)}</TableCell>
+                      {hasVeg && <TableCell>{s.vegetarians > 0 ? `🌿${s.vegetarians}` : ""}</TableCell>}
+                      {hasNotes && <TableCell className="text-xs">{s.notes}</TableCell>}
+                    </TableRow>
+                  ))}
+                  <TableRow className="font-semibold border-t-2">
+                    <TableCell>Total: {event.signups.length} families</TableCell>
+                    <TableCell className="whitespace-nowrap">
+                      {totals.adults > 0 && `${totals.adults}×🧑‍🌾 `}
+                      {totals.kids > 0 && `${totals.kids}×🧒 `}
+                      {totals.elderly > 0 && `${totals.elderly}×👴 `}
+                      = {totals.adults + totals.kids + totals.elderly}
+                    </TableCell>
+                    {hasVeg && <TableCell>🌿{totals.veg}</TableCell>}
+                    {hasNotes && <TableCell />}
+                  </TableRow>
+                </TableBody>
+              </Table>
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Edit Dialog */}
       <Dialog open={editing} onOpenChange={setEditing}>

@@ -50,6 +50,7 @@ export default async function EventDashboardPage({
       kids: s.kids,
       elderly: s.elderly,
       vegetarians: s.vegetarians,
+      notes: s.notes,
       family: s.family,
     })),
     _count: event._count,

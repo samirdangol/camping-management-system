@@ -37,6 +37,22 @@ export function formatCurrency(amount: number | string) {
   }).format(Number(amount));
 }
 
+const FAMILY_EMOJIS = ["🐻", "🦌", "🦅", "🐿️", "🦋", "🐺", "🦉", "🐝", "🐟", "🦎", "🐢", "🦆"];
+
+/** Deterministic animal emoji for a family based on its ID */
+export function familyEmoji(familyId: number): string {
+  return FAMILY_EMOJIS[familyId % FAMILY_EMOJIS.length];
+}
+
+/** Visual emoji representation of family members */
+export function emojiMembers(adults: number, kids: number, elderly: number): string {
+  const parts: string[] = [];
+  if (adults > 0) parts.push(adults <= 4 ? "🧑‍🌾".repeat(adults) : `${adults}×🧑‍🌾`);
+  if (kids > 0) parts.push(kids <= 4 ? "🧒".repeat(kids) : `${kids}×🧒`);
+  if (elderly > 0) parts.push(elderly <= 4 ? "👴".repeat(elderly) : `${elderly}×👴`);
+  return parts.join(" ");
+}
+
 /** Return a clickable URL for a location — uses custom URL if valid, otherwise Google Maps search */
 export function locationLink(location: string, locationUrl?: string | null): string {
   if (locationUrl && (locationUrl.startsWith("http://") || locationUrl.startsWith("https://"))) {
