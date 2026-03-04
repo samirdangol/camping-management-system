@@ -105,7 +105,7 @@ export default function SignupPage() {
     setVegetarians(signup.vegetarians);
     setNotes(signup.notes || "");
     setEditingFamilyId(signup.familyId);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
   }
 
   function resetForm() {
@@ -185,6 +185,77 @@ export default function SignupPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Signup List */}
+      {signups.length > 0 && (() => {
+        const hasVeg = signups.some((s) => s.vegetarians > 0);
+        const hasNotes = signups.some((s) => s.notes);
+        const totals = signups.reduce(
+          (acc, s) => ({ adults: acc.adults + s.adults, kids: acc.kids + s.kids, elderly: acc.elderly + s.elderly, veg: acc.veg + s.vegetarians }),
+          { adults: 0, kids: 0, elderly: 0, veg: 0 }
+        );
+        return (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Signed Up Families</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Family</TableHead>
+                      <TableHead>Members</TableHead>
+                      {hasVeg && <TableHead>Veg</TableHead>}
+                      {hasNotes && <TableHead>Notes</TableHead>}
+                      <TableHead className="w-[80px]" />
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {signups.map((s) => (
+                      <TableRow key={s.id}>
+                        <TableCell>
+                          <div className="font-medium">{familyEmoji(s.family.id)} {s.family.name}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {s.family.contactName}{s.family.contactName2 ? ` & ${s.family.contactName2}` : ""}
+                          </div>
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap">{emojiMembers(s.adults, s.kids, s.elderly)}</TableCell>
+                        {hasVeg && <TableCell>{s.vegetarians > 0 ? `🌿${s.vegetarians}` : ""}</TableCell>}
+                        {hasNotes && <TableCell className="text-xs">{s.notes}</TableCell>}
+                        <TableCell>
+                          <div className="flex gap-1">
+                            <Button variant="ghost" size="icon" onClick={() => handleEdit(s)} className="text-gray-500 hover:text-gray-700">
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            {isOrganizer && (
+                              <Button variant="ghost" size="icon" onClick={() => handleRemove(s.familyId)} className="text-red-500 hover:text-red-700">
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    <TableRow className="font-semibold border-t-2">
+                      <TableCell>Total: {signups.length} families</TableCell>
+                      <TableCell className="whitespace-nowrap">
+                        {totals.adults > 0 && `${totals.adults}×🧑‍🌾 `}
+                        {totals.kids > 0 && `${totals.kids}×🧒 `}
+                        {totals.elderly > 0 && `${totals.elderly}×👴 `}
+                        = {totals.adults + totals.kids + totals.elderly}
+                      </TableCell>
+                      {hasVeg && <TableCell>🌿{totals.veg}</TableCell>}
+                      {hasNotes && <TableCell />}
+                      <TableCell />
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        );
+      })()}
 
       {/* Signup Form */}
       <Card>
@@ -302,77 +373,6 @@ export default function SignupPage() {
           </form>
         </CardContent>
       </Card>
-
-      {/* Signup List */}
-      {signups.length > 0 && (() => {
-        const hasVeg = signups.some((s) => s.vegetarians > 0);
-        const hasNotes = signups.some((s) => s.notes);
-        const totals = signups.reduce(
-          (acc, s) => ({ adults: acc.adults + s.adults, kids: acc.kids + s.kids, elderly: acc.elderly + s.elderly, veg: acc.veg + s.vegetarians }),
-          { adults: 0, kids: 0, elderly: 0, veg: 0 }
-        );
-        return (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Signed Up Families</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Family</TableHead>
-                      <TableHead>Members</TableHead>
-                      {hasVeg && <TableHead>Veg</TableHead>}
-                      {hasNotes && <TableHead>Notes</TableHead>}
-                      <TableHead className="w-[80px]" />
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {signups.map((s) => (
-                      <TableRow key={s.id}>
-                        <TableCell>
-                          <div className="font-medium">{familyEmoji(s.family.id)} {s.family.name}</div>
-                          <div className="text-xs text-muted-foreground">
-                            {s.family.contactName}{s.family.contactName2 ? ` & ${s.family.contactName2}` : ""}
-                          </div>
-                        </TableCell>
-                        <TableCell className="whitespace-nowrap">{emojiMembers(s.adults, s.kids, s.elderly)}</TableCell>
-                        {hasVeg && <TableCell>{s.vegetarians > 0 ? `🌿${s.vegetarians}` : ""}</TableCell>}
-                        {hasNotes && <TableCell className="text-xs">{s.notes}</TableCell>}
-                        <TableCell>
-                          <div className="flex gap-1">
-                            <Button variant="ghost" size="icon" onClick={() => handleEdit(s)} className="text-gray-500 hover:text-gray-700">
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                            {isOrganizer && (
-                              <Button variant="ghost" size="icon" onClick={() => handleRemove(s.familyId)} className="text-red-500 hover:text-red-700">
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            )}
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                    <TableRow className="font-semibold border-t-2">
-                      <TableCell>Total: {signups.length} families</TableCell>
-                      <TableCell className="whitespace-nowrap">
-                        {totals.adults > 0 && `${totals.adults}×🧑‍🌾 `}
-                        {totals.kids > 0 && `${totals.kids}×🧒 `}
-                        {totals.elderly > 0 && `${totals.elderly}×👴 `}
-                        = {totals.adults + totals.kids + totals.elderly}
-                      </TableCell>
-                      {hasVeg && <TableCell>🌿{totals.veg}</TableCell>}
-                      {hasNotes && <TableCell />}
-                      <TableCell />
-                    </TableRow>
-                  </TableBody>
-                </Table>
-              </div>
-            </CardContent>
-          </Card>
-        );
-      })()}
     </div>
   );
 }
