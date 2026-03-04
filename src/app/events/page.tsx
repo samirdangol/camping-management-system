@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { formatDateRange, locationLink } from "@/lib/utils";
+import { formatDateRange, locationLink, familyEmoji } from "@/lib/utils";
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Button } from "@/components/ui/button";
@@ -142,7 +142,7 @@ export default function EventsPage() {
                           </div>
                         )}
                         {event.description && <p className="text-xs">{event.description}</p>}
-                        <div className="text-xs">Organized by {event.organizer.name}</div>
+                        <div className="text-xs">Organized by {familyEmoji(event.organizer.id)} {event.organizer.name}</div>
                       </CardContent>
                     </Card>
                   </Link>
@@ -190,7 +190,7 @@ export default function EventsPage() {
                             </div>
                           )}
                           {event.description && <p className="text-xs">{event.description}</p>}
-                          <div className="text-xs">Organized by {event.organizer.name}</div>
+                          <div className="text-xs">Organized by {familyEmoji(event.organizer.id)} {event.organizer.name}</div>
                         </CardContent>
                       </Card>
                     </Link>

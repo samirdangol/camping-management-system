@@ -1,13 +1,14 @@
 "use client";
 
 import { useRouter, usePathname } from "next/navigation";
-import { MountainSnow, LogOut, Users, ArrowLeftRight, Pencil } from "lucide-react";
+import { MountainSnow, LogOut, ArrowLeftRight, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useCurrentFamily } from "@/hooks/use-current-family";
+import { familyEmoji } from "@/lib/utils";
 import Link from "next/link";
 
 export function AppHeader() {
-  const { familyName, setCurrentFamily, isLoaded } = useCurrentFamily();
+  const { familyId, familyName, setCurrentFamily, isLoaded } = useCurrentFamily();
   const router = useRouter();
   const pathname = usePathname();
 
@@ -39,7 +40,7 @@ export function AppHeader() {
         <div className="flex items-center gap-2">
           {isLoaded && familyName && (
             <div className="flex items-center gap-1.5 text-sm">
-              <Users className="h-4 w-4 text-muted-foreground" />
+              <span className="text-base">{familyId ? familyEmoji(familyId) : "👤"}</span>
               <span className="font-medium max-w-[140px] truncate">
                 {familyName}
               </span>
