@@ -21,9 +21,7 @@ model Family {
 
   organizedEvents      CampingEvent[]        @relation("EventOrganizer")
   signups              EventSignup[]
-  headChefMeals        Meal[]                @relation("MealHeadChef")
   mealVolunteers       MealVolunteer[]
-  suggestedFoods       FoodItem[]
   ledActivities        Activity[]            @relation("ActivityLeader")
   activityVolunteers   ActivityVolunteer[]
   assignedGroceries    GroceryItem[]
@@ -80,18 +78,17 @@ model EventSignup {
 }
 
 model Meal {
-  id               Int      @id @default(autoincrement())
-  eventId          Int
-  date             DateTime
-  mealType         String
-  name             String?
-  headChefFamilyId Int?
-  notes            String?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  id           Int      @id @default(autoincrement())
+  eventId      Int
+  date         DateTime
+  mealType     String
+  name         String?
+  headChefName String?
+  notes        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   event      CampingEvent    @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  headChef   Family?         @relation("MealHeadChef", fields: [headChefFamilyId], references: [id])
   volunteers MealVolunteer[]
   foodItems  FoodItem[]
 }
@@ -110,15 +107,23 @@ model MealVolunteer {
 }
 
 model FoodItem {
-  id                  Int      @id @default(autoincrement())
-  mealId              Int
-  name                String
-  suggestedByFamilyId Int?
-  isVegetarian        Boolean  @default(false)
-  createdAt           DateTime @default(now())
+  id           Int      @id @default(autoincrement())
+  mealId       Int
+  name         String
+  isVegetarian Boolean  @default(false)
+  createdAt    DateTime @default(now())
 
-  meal        Meal    @relation(fields: [mealId], references: [id], onDelete: Cascade)
-  suggestedBy Family? @relation(fields: [suggestedByFamilyId], references: [id])
+  meal       Meal                @relation(fields: [mealId], references: [id], onDelete: Cascade)
+  volunteers FoodItemVolunteer[]
+}
+
+model FoodItemVolunteer {
+  id         Int      @id @default(autoincrement())
+  foodItemId Int
+  name       String
+  createdAt  DateTime @default(now())
+
+  foodItem FoodItem @relation(fields: [foodItemId], references: [id], onDelete: Cascade)
 }
 
 model Activity {

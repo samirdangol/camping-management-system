@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useParams } from "next/navigation";
-import { format } from "date-fns";
-import { createMeal, updateMeal, deleteMeal, addMealVolunteer, removeMealVolunteer, addFoodItem, removeFoodItem, generateMealsForEvent } from "@/app/actions";
+import { format, addDays } from "date-fns";
+import { createMeal, updateMeal, deleteMeal, addFoodItem, removeFoodItem, addFoodItemVolunteer, removeFoodItemVolunteer } from "@/app/actions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -13,23 +13,52 @@ import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 import { EmptyState } from "@/components/shared/empty-state";
 import { useCurrentFamily } from "@/hooks/use-current-family";
 import { MEAL_TYPE_LABELS } from "@/lib/constants";
-import { UtensilsCrossed, Plus, Trash2, ChefHat, HandHelping, Leaf } from "lucide-react";
+import { UtensilsCrossed, Plus, Trash2, ChefHat, Leaf, X } from "lucide-react";
 import { useIsOrganizer } from "@/hooks/use-is-organizer";
 import type { Family, MealWithDetails } from "@/types";
+
+type EventInfo = {
+  startDate: string;
+  endDate: string;
+};
+
+/** Build list of person options from signed-up families */
+function buildPersonOptions(families: Family[]): { families: string[]; people: string[] } {
+  const familyNames = families.map((f) => f.name);
+  const people: string[] = [];
+  for (const f of families) {
+    if (f.contactName) people.push(`${f.contactName} (${f.name})`);
+    if (f.contactName2) people.push(`${f.contactName2} (${f.name})`);
+  }
+  return { families: familyNames, people };
+}
+
+/** Get camping days between start and end dates */
+function getCampingDays(startDate: string, endDate: string): { value: string; label: string }[] {
+  const days: { value: string; label: string }[] = [];
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  const current = new Date(start);
+  while (current <= end) {
+    // Use UTC to avoid timezone shift
+    const utc = new Date(current.getTime() + current.getTimezoneOffset() * 60000);
+    days.push({
+      value: current.toISOString(),
+      label: format(utc, "EEE, MMM d"),
+    });
+    current.setDate(current.getDate() + 1);
+  }
+  return days;
+}
 
 export default function MealsPage() {
   const { eventId } = useParams<{ eventId: string }>();
@@ -37,55 +66,70 @@ export default function MealsPage() {
   const isOrganizer = useIsOrganizer(eventId);
   const [families, setFamilies] = useState<Family[]>([]);
   const [meals, setMeals] = useState<MealWithDetails[]>([]);
+  const [eventInfo, setEventInfo] = useState<EventInfo | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Add meal form
+  const [newMealDay, setNewMealDay] = useState("");
+  const [newMealType, setNewMealType] = useState("");
+  const [newMealChef, setNewMealChef] = useState("");
+  const [showAddMeal, setShowAddMeal] = useState(false);
+
   const fetchData = useCallback(async () => {
-    const [signups, mealsRes] = await Promise.all([
+    const [signups, mealsRes, eventRes] = await Promise.all([
       fetch(`/api/events/${eventId}/signups`).then((r) => r.json()),
       fetch(`/api/events/${eventId}/meals`).then((r) => r.json()),
+      fetch(`/api/events/${eventId}`).then((r) => r.json()),
     ]);
     setFamilies(signups.map((s: { family: Family }) => s.family));
     setMeals(mealsRes);
+    setEventInfo({ startDate: eventRes.startDate, endDate: eventRes.endDate });
     setLoading(false);
   }, [eventId]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  async function handleGenerate() {
-    await generateMealsForEvent(parseInt(eventId, 10));
-    await fetchData();
-  }
+  const personOptions = buildPersonOptions(families);
+  const campingDays = eventInfo ? getCampingDays(eventInfo.startDate, eventInfo.endDate) : [];
 
-  async function handleAssignChef(mealId: number, chefFamilyId: string) {
-    await updateMeal(mealId, parseInt(eventId, 10), {
-      headChefFamilyId: chefFamilyId ? parseInt(chefFamilyId, 10) : null,
+  async function handleAddMeal() {
+    if (!newMealDay || !newMealType) return;
+    await createMeal(parseInt(eventId, 10), {
+      date: newMealDay,
+      mealType: newMealType,
+      headChefName: newMealChef || undefined,
     });
+    setNewMealDay("");
+    setNewMealType("");
+    setNewMealChef("");
+    setShowAddMeal(false);
     await fetchData();
   }
 
-  async function handleVolunteer(mealId: number) {
-    if (!familyId) return;
-    await addMealVolunteer(mealId, parseInt(eventId, 10), familyId);
-    await fetchData();
-  }
-
-  async function handleUnvolunteer(mealId: number) {
-    if (!familyId) return;
-    await removeMealVolunteer(mealId, parseInt(eventId, 10), familyId);
+  async function handleUpdateChef(mealId: number, chefName: string) {
+    await updateMeal(mealId, parseInt(eventId, 10), {
+      headChefName: chefName || null,
+    });
     await fetchData();
   }
 
   async function handleAddFood(mealId: number, name: string, isVegetarian: boolean) {
-    await addFoodItem(mealId, parseInt(eventId, 10), {
-      name,
-      suggestedByFamilyId: familyId || undefined,
-      isVegetarian,
-    });
+    await addFoodItem(mealId, parseInt(eventId, 10), { name, isVegetarian });
     await fetchData();
   }
 
   async function handleRemoveFood(foodItemId: number) {
     await removeFoodItem(foodItemId, parseInt(eventId, 10));
+    await fetchData();
+  }
+
+  async function handleAddVolunteer(foodItemId: number, name: string) {
+    await addFoodItemVolunteer(foodItemId, parseInt(eventId, 10), name);
+    await fetchData();
+  }
+
+  async function handleRemoveVolunteer(volunteerId: number) {
+    await removeFoodItemVolunteer(volunteerId, parseInt(eventId, 10));
     await fetchData();
   }
 
@@ -96,7 +140,9 @@ export default function MealsPage() {
 
   // Group meals by date
   const mealsByDate = meals.reduce<Record<string, MealWithDetails[]>>((acc, meal) => {
-    const dateKey = format(new Date(meal.date), "yyyy-MM-dd");
+    const d = new Date(meal.date);
+    const utc = new Date(d.getTime() + d.getTimezoneOffset() * 60000);
+    const dateKey = format(utc, "yyyy-MM-dd");
     if (!acc[dateKey]) acc[dateKey] = [];
     acc[dateKey].push(meal);
     return acc;
@@ -112,18 +158,71 @@ export default function MealsPage() {
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold">Meal Planning</h2>
         {isOrganizer && (
-          <Button onClick={handleGenerate} variant="outline" size="sm">
+          <Button onClick={() => setShowAddMeal(!showAddMeal)} variant="outline" size="sm">
             <Plus className="mr-2 h-4 w-4" />
-            Auto-Generate Meals
+            Add Meal
           </Button>
         )}
       </div>
+
+      {/* Add Meal Form */}
+      {showAddMeal && (
+        <Card>
+          <CardContent className="pt-4 space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-sm">Day</Label>
+                <Select value={newMealDay} onValueChange={setNewMealDay}>
+                  <SelectTrigger className="h-9">
+                    <SelectValue placeholder="Pick a day" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {campingDays.map((d) => (
+                      <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-sm">Meal Type</Label>
+                <Select value={newMealType} onValueChange={setNewMealType}>
+                  <SelectTrigger className="h-9">
+                    <SelectValue placeholder="Pick type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(MEAL_TYPE_LABELS).map(([k, v]) => (
+                      <SelectItem key={k} value={k}>{v}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-sm">Head Chef (optional)</Label>
+              <PersonSelect
+                value={newMealChef}
+                onChange={setNewMealChef}
+                options={personOptions}
+                placeholder="Assign head chef"
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button size="sm" disabled={!newMealDay || !newMealType} onClick={handleAddMeal}>
+                Add Meal
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => setShowAddMeal(false)}>
+                Cancel
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {meals.length === 0 ? (
         <EmptyState
           icon={UtensilsCrossed}
           title="No meals planned yet"
-          description="Click 'Auto-Generate Meals' to create breakfast, lunch, and dinner for each day of the trip."
+          description="Click 'Add Meal' to plan breakfast, lunch, or dinner for a day of the trip."
         />
       ) : (
         sortedDates.map((dateKey) => (
@@ -137,14 +236,13 @@ export default function MealsPage() {
                 <MealCard
                   key={meal.id}
                   meal={meal}
-                  families={families}
-                  familyId={familyId}
+                  personOptions={personOptions}
                   isOrganizer={isOrganizer}
-                  onAssignChef={handleAssignChef}
-                  onVolunteer={handleVolunteer}
-                  onUnvolunteer={handleUnvolunteer}
+                  onUpdateChef={handleUpdateChef}
                   onAddFood={handleAddFood}
                   onRemoveFood={handleRemoveFood}
+                  onAddVolunteer={handleAddVolunteer}
+                  onRemoveVolunteer={handleRemoveVolunteer}
                   onDelete={handleDeleteMeal}
                 />
               ))}
@@ -155,32 +253,92 @@ export default function MealsPage() {
   );
 }
 
+/** Reusable person selector with families, individuals, and free text */
+function PersonSelect({
+  value,
+  onChange,
+  options,
+  placeholder,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  options: { families: string[]; people: string[] };
+  placeholder: string;
+}) {
+  const [customMode, setCustomMode] = useState(false);
+
+  if (customMode) {
+    return (
+      <div className="flex gap-1">
+        <Input
+          className="h-9 text-sm"
+          placeholder="Type a name..."
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          autoFocus
+          onKeyDown={(e) => { if (e.key === "Escape") setCustomMode(false); }}
+        />
+        <Button variant="ghost" size="sm" className="h-9" onClick={() => { setCustomMode(false); onChange(""); }}>
+          <X className="h-3 w-3" />
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <Select value={value} onValueChange={(v) => { if (v === "__custom__") { setCustomMode(true); onChange(""); } else { onChange(v); } }}>
+      <SelectTrigger className="h-9 text-sm">
+        <SelectValue placeholder={placeholder} />
+      </SelectTrigger>
+      <SelectContent>
+        {options.families.length > 0 && (
+          <SelectGroup>
+            <SelectLabel>Families</SelectLabel>
+            {options.families.map((f) => (
+              <SelectItem key={`f-${f}`} value={f}>{f}</SelectItem>
+            ))}
+          </SelectGroup>
+        )}
+        {options.people.length > 0 && (
+          <SelectGroup>
+            <SelectLabel>People</SelectLabel>
+            {options.people.map((p) => (
+              <SelectItem key={`p-${p}`} value={p}>{p}</SelectItem>
+            ))}
+          </SelectGroup>
+        )}
+        <SelectGroup>
+          <SelectItem value="__custom__">Type a name...</SelectItem>
+        </SelectGroup>
+      </SelectContent>
+    </Select>
+  );
+}
+
 function MealCard({
   meal,
-  families,
-  familyId,
+  personOptions,
   isOrganizer,
-  onAssignChef,
-  onVolunteer,
-  onUnvolunteer,
+  onUpdateChef,
   onAddFood,
   onRemoveFood,
+  onAddVolunteer,
+  onRemoveVolunteer,
   onDelete,
 }: {
   meal: MealWithDetails;
-  families: Family[];
-  familyId: number | null;
+  personOptions: { families: string[]; people: string[] };
   isOrganizer: boolean;
-  onAssignChef: (mealId: number, chefFamilyId: string) => void;
-  onVolunteer: (mealId: number) => void;
-  onUnvolunteer: (mealId: number) => void;
+  onUpdateChef: (mealId: number, chefName: string) => void;
   onAddFood: (mealId: number, name: string, isVegetarian: boolean) => void;
   onRemoveFood: (foodItemId: number) => void;
+  onAddVolunteer: (foodItemId: number, name: string) => void;
+  onRemoveVolunteer: (volunteerId: number) => void;
   onDelete: (mealId: number) => void;
 }) {
   const [foodName, setFoodName] = useState("");
   const [isVeg, setIsVeg] = useState(false);
-  const isVolunteered = meal.volunteers.some((v) => v.familyId === familyId);
+  const [volunteerInputs, setVolunteerInputs] = useState<Record<number, string>>({});
 
   const mealTypeColors: Record<string, string> = {
     breakfast: "bg-yellow-100 text-yellow-800",
@@ -209,47 +367,19 @@ function MealCard({
       <CardContent className="space-y-3">
         {/* Head Chef */}
         <div className="flex items-center gap-2">
-          <ChefHat className="h-4 w-4 text-muted-foreground" />
-          <Label className="text-sm">Head Chef:</Label>
-          <Select
-            value={meal.headChefFamilyId?.toString() || ""}
-            onValueChange={(v) => onAssignChef(meal.id, v)}
-          >
-            <SelectTrigger className="h-8 w-[180px] text-sm">
-              <SelectValue placeholder="Assign chef" />
-            </SelectTrigger>
-            <SelectContent>
-              {families.map((f) => (
-                <SelectItem key={f.id} value={f.id.toString()}>{f.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* Volunteers */}
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <HandHelping className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm font-medium">Volunteers:</span>
-            {isVolunteered ? (
-              <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => onUnvolunteer(meal.id)}>
-                Leave
-              </Button>
-            ) : (
-              <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => onVolunteer(meal.id)}>
-                Volunteer
-              </Button>
-            )}
-          </div>
-          {meal.volunteers.length > 0 && (
-            <div className="flex flex-wrap gap-1 ml-6">
-              {meal.volunteers.map((v) => (
-                <Badge key={v.id} variant="outline" className="text-xs">
-                  {v.family.name}
-                  {v.role && ` (${v.role})`}
-                </Badge>
-              ))}
+          <ChefHat className="h-4 w-4 text-muted-foreground shrink-0" />
+          <Label className="text-sm shrink-0">Head Chef:</Label>
+          {isOrganizer ? (
+            <div className="w-[220px]">
+              <PersonSelect
+                value={meal.headChefName || ""}
+                onChange={(v) => onUpdateChef(meal.id, v)}
+                options={personOptions}
+                placeholder="Assign chef"
+              />
             </div>
+          ) : (
+            <span className="text-sm">{meal.headChefName || <span className="text-muted-foreground">Not assigned</span>}</span>
           )}
         </div>
 
@@ -257,19 +387,34 @@ function MealCard({
         <div className="space-y-2">
           <span className="text-sm font-medium">Food Items:</span>
           {meal.foodItems.length > 0 && (
-            <div className="space-y-1 ml-2">
+            <div className="space-y-2 ml-2">
               {meal.foodItems.map((item) => (
-                <div key={item.id} className="flex items-center justify-between text-sm">
-                  <span className="flex items-center gap-1">
-                    {item.name}
-                    {item.isVegetarian && <Leaf className="h-3 w-3 text-green-600" />}
-                    {item.suggestedBy && (
-                      <span className="text-xs text-muted-foreground">by {item.suggestedBy.name}</span>
-                    )}
-                  </span>
-                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => onRemoveFood(item.id)}>
-                    <Trash2 className="h-3 w-3" />
-                  </Button>
+                <div key={item.id} className="space-y-1">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="flex items-center gap-1">
+                      {item.name}
+                      {item.isVegetarian && <Leaf className="h-3 w-3 text-green-600" />}
+                    </span>
+                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => onRemoveFood(item.id)}>
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </div>
+                  {/* Volunteers for this food item */}
+                  <div className="flex flex-wrap items-center gap-1 ml-2">
+                    {item.volunteers.map((v) => (
+                      <Badge key={v.id} variant="outline" className="text-xs gap-1">
+                        {v.name}
+                        <button onClick={() => onRemoveVolunteer(v.id)} className="hover:text-red-500">
+                          <X className="h-2.5 w-2.5" />
+                        </button>
+                      </Badge>
+                    ))}
+                    <VolunteerAdder
+                      foodItemId={item.id}
+                      personOptions={personOptions}
+                      onAdd={onAddVolunteer}
+                    />
+                  </div>
                 </div>
               ))}
             </div>
@@ -310,5 +455,52 @@ function MealCard({
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+/** Inline volunteer adder for a food item */
+function VolunteerAdder({
+  foodItemId,
+  personOptions,
+  onAdd,
+}: {
+  foodItemId: number;
+  personOptions: { families: string[]; people: string[] };
+  onAdd: (foodItemId: number, name: string) => void;
+}) {
+  const [adding, setAdding] = useState(false);
+  const [value, setValue] = useState("");
+
+  if (!adding) {
+    return (
+      <button
+        onClick={() => setAdding(true)}
+        className="inline-flex items-center gap-0.5 text-xs text-blue-600 hover:underline"
+      >
+        <Plus className="h-3 w-3" /> volunteer
+      </button>
+    );
+  }
+
+  return (
+    <div className="flex gap-1 items-center">
+      <div className="w-[180px]">
+        <PersonSelect
+          value={value}
+          onChange={(v) => {
+            if (v) {
+              onAdd(foodItemId, v);
+              setValue("");
+              setAdding(false);
+            }
+          }}
+          options={personOptions}
+          placeholder="Pick person"
+        />
+      </div>
+      <Button variant="ghost" size="sm" className="h-7 px-1" onClick={() => { setAdding(false); setValue(""); }}>
+        <X className="h-3 w-3" />
+      </Button>
+    </div>
   );
 }

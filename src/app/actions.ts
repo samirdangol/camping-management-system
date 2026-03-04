@@ -177,7 +177,7 @@ export async function removeSignup(eventId: number, familyId: number) {
 
 export async function createMeal(
   eventId: number,
-  data: { date: string; mealType: string; name?: string; headChefFamilyId?: number; notes?: string }
+  data: { date: string; mealType: string; name?: string; headChefName?: string; notes?: string }
 ) {
   await prisma.meal.create({
     data: {
@@ -185,7 +185,7 @@ export async function createMeal(
       date: new Date(data.date),
       mealType: data.mealType,
       name: data.name || null,
-      headChefFamilyId: data.headChefFamilyId || null,
+      headChefName: data.headChefName || null,
       notes: data.notes || null,
     },
   });
@@ -195,14 +195,14 @@ export async function createMeal(
 export async function updateMeal(
   mealId: number,
   eventId: number,
-  data: { name?: string; headChefFamilyId?: number | null; notes?: string }
+  data: { name?: string; headChefName?: string | null; notes?: string }
 ) {
   await prisma.meal.update({
     where: { id: mealId },
     data: {
-      name: data.name || null,
-      headChefFamilyId: data.headChefFamilyId ?? null,
-      notes: data.notes || null,
+      name: data.name !== undefined ? (data.name || null) : undefined,
+      headChefName: data.headChefName !== undefined ? (data.headChefName || null) : undefined,
+      notes: data.notes !== undefined ? (data.notes || null) : undefined,
     },
   });
   revalidatePath(`/events/${eventId}`);
@@ -230,13 +230,12 @@ export async function removeMealVolunteer(mealId: number, eventId: number, famil
 export async function addFoodItem(
   mealId: number,
   eventId: number,
-  data: { name: string; suggestedByFamilyId?: number; isVegetarian?: boolean }
+  data: { name: string; isVegetarian?: boolean }
 ) {
   await prisma.foodItem.create({
     data: {
       mealId,
       name: data.name,
-      suggestedByFamilyId: data.suggestedByFamilyId || null,
       isVegetarian: data.isVegetarian || false,
     },
   });
@@ -245,6 +244,18 @@ export async function addFoodItem(
 
 export async function removeFoodItem(foodItemId: number, eventId: number) {
   await prisma.foodItem.delete({ where: { id: foodItemId } });
+  revalidatePath(`/events/${eventId}`);
+}
+
+export async function addFoodItemVolunteer(foodItemId: number, eventId: number, name: string) {
+  await prisma.foodItemVolunteer.create({
+    data: { foodItemId, name },
+  });
+  revalidatePath(`/events/${eventId}`);
+}
+
+export async function removeFoodItemVolunteer(volunteerId: number, eventId: number) {
+  await prisma.foodItemVolunteer.delete({ where: { id: volunteerId } });
   revalidatePath(`/events/${eventId}`);
 }
 
@@ -607,29 +618,3 @@ export async function bulkCreateExpenses(
   revalidatePath(`/events/${eventId}`);
 }
 
-// ============ GENERATE MEALS ============
-
-export async function generateMealsForEvent(eventId: number) {
-  const event = await prisma.campingEvent.findUnique({ where: { id: eventId } });
-  if (!event) return;
-
-  const start = new Date(event.startDate);
-  const end = new Date(event.endDate);
-  const mealTypes = ["breakfast", "lunch", "dinner"];
-
-  const current = new Date(start);
-  while (current <= end) {
-    for (const mealType of mealTypes) {
-      const existing = await prisma.meal.findFirst({
-        where: { eventId, date: current, mealType },
-      });
-      if (!existing) {
-        await prisma.meal.create({
-          data: { eventId, date: new Date(current), mealType },
-        });
-      }
-    }
-    current.setDate(current.getDate() + 1);
-  }
-  revalidatePath(`/events/${eventId}`);
-}

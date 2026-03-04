@@ -5,6 +5,7 @@ import type {
   Meal,
   MealVolunteer,
   FoodItem,
+  FoodItemVolunteer,
   Activity,
   ActivityVolunteer,
   GroceryItem,
@@ -36,9 +37,8 @@ export type SignupWithFamily = EventSignup & {
 
 // Meal with related data
 export type MealWithDetails = Meal & {
-  headChef: Family | null;
   volunteers: (MealVolunteer & { family: Family })[];
-  foodItems: (FoodItem & { suggestedBy: Family | null })[];
+  foodItems: (FoodItem & { volunteers: FoodItemVolunteer[] })[];
 };
 
 // Activity with related data
@@ -104,6 +104,7 @@ export type {
   Meal,
   MealVolunteer,
   FoodItem,
+  FoodItemVolunteer,
   Activity,
   ActivityVolunteer,
   GroceryItem,

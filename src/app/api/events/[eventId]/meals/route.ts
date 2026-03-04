@@ -9,9 +9,8 @@ export async function GET(
   const meals = await prisma.meal.findMany({
     where: { eventId: parseInt(eventId, 10) },
     include: {
-      headChef: true,
       volunteers: { include: { family: true } },
-      foodItems: { include: { suggestedBy: true } },
+      foodItems: { include: { volunteers: true } },
     },
     orderBy: [{ date: "asc" }, { mealType: "asc" }],
   });

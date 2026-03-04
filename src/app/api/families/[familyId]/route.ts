@@ -39,7 +39,6 @@ export async function DELETE(
   const [
     signups,
     organizedEvents,
-    headChefMeals,
     mealVolunteers,
     ledActivities,
     activityVolunteers,
@@ -51,7 +50,6 @@ export async function DELETE(
   ] = await Promise.all([
     prisma.eventSignup.count({ where: { familyId: id } }),
     prisma.campingEvent.count({ where: { organizerFamilyId: id } }),
-    prisma.meal.count({ where: { headChefFamilyId: id } }),
     prisma.mealVolunteer.count({ where: { familyId: id } }),
     prisma.activity.count({ where: { leaderFamilyId: id } }),
     prisma.activityVolunteer.count({ where: { familyId: id } }),
@@ -65,7 +63,6 @@ export async function DELETE(
   const reasons: string[] = [];
   if (signups > 0) reasons.push(`Signed up for ${signups} event(s)`);
   if (organizedEvents > 0) reasons.push(`Organizer of ${organizedEvents} event(s)`);
-  if (headChefMeals > 0) reasons.push(`Head chef for ${headChefMeals} meal(s)`);
   if (mealVolunteers > 0) reasons.push(`Volunteered for ${mealVolunteers} meal(s)`);
   if (ledActivities > 0) reasons.push(`Leading ${ledActivities} activity(ies)`);
   if (activityVolunteers > 0) reasons.push(`Volunteered for ${activityVolunteers} activity(ies)`);
