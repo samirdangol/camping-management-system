@@ -17,9 +17,9 @@ const tabs = [
   { label: "Overview", href: "", icon: LayoutDashboard },
   { label: "Signup", href: "/signup", icon: Users },
   { label: "Meals", href: "/meals", icon: UtensilsCrossed },
-  { label: "Activities", href: "/activities", icon: TreePine },
   { label: "Groceries", href: "/groceries", icon: ShoppingCart },
   { label: "Supplies & Gear", href: "/equipment", icon: Backpack },
+  { label: "Activities", href: "/activities", icon: TreePine },
   { label: "Expenses", href: "/expenses", icon: DollarSign },
 ];
 

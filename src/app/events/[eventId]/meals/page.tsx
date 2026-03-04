@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams } from "next/navigation";
 import { format, addDays } from "date-fns";
 import { createMeal, updateMeal, deleteMeal, addFoodItem, removeFoodItem, addFoodItemVolunteer, removeFoodItemVolunteer } from "@/app/actions";
@@ -9,20 +9,17 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
-  SelectGroup,
   SelectItem,
-  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
 import { EmptyState } from "@/components/shared/empty-state";
 import { useCurrentFamily } from "@/hooks/use-current-family";
 import { MEAL_TYPE_LABELS } from "@/lib/constants";
-import { UtensilsCrossed, Plus, Trash2, ChefHat, Leaf, X, Hand, UserPlus } from "lucide-react";
+import { UtensilsCrossed, Plus, Trash2, ChefHat, Leaf, X, Hand, UserPlus, ChevronRight, ChevronDown, Check } from "lucide-react";
 import { useIsOrganizer } from "@/hooks/use-is-organizer";
 import { familyEmoji } from "@/lib/utils";
 import type { Family, MealWithDetails } from "@/types";
@@ -31,17 +28,6 @@ type EventInfo = {
   startDate: string;
   endDate: string;
 };
-
-/** Build list of person options from signed-up families */
-function buildPersonOptions(families: Family[]): { families: string[]; people: string[] } {
-  const familyNames = families.map((f) => f.name);
-  const people: string[] = [];
-  for (const f of families) {
-    if (f.contactName) people.push(`${f.contactName} (${f.name})`);
-    if (f.contactName2) people.push(`${f.contactName2} (${f.name})`);
-  }
-  return { families: familyNames, people };
-}
 
 /** Get camping days between start and end dates */
 function getCampingDays(startDate: string, endDate: string): { value: string; label: string }[] {
@@ -76,6 +62,7 @@ export default function MealsPage() {
   const [newMealName, setNewMealName] = useState("");
   const [newMealChef, setNewMealChef] = useState("");
   const [showAddMeal, setShowAddMeal] = useState(false);
+  const [showNewMealChefPanel, setShowNewMealChefPanel] = useState(false);
 
   const fetchData = useCallback(async () => {
     const [signups, mealsRes, eventRes] = await Promise.all([
@@ -91,7 +78,6 @@ export default function MealsPage() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  const personOptions = buildPersonOptions(families);
   const campingDays = eventInfo ? getCampingDays(eventInfo.startDate, eventInfo.endDate) : [];
 
   async function handleAddMeal() {
@@ -219,12 +205,37 @@ export default function MealsPage() {
             </div>
             <div className="space-y-1">
               <Label className="text-sm">Head Chef (optional)</Label>
-              <PersonSelect
-                value={newMealChef}
-                onChange={setNewMealChef}
-                options={personOptions}
-                placeholder="Assign head chef"
-              />
+              <div className="flex items-center gap-2 flex-wrap">
+                {newMealChef ? (
+                  <Badge variant="secondary" className="text-xs gap-1 bg-emerald-50 text-emerald-700 border-emerald-200">
+                    {newMealChef}
+                    <button onClick={() => setNewMealChef("")} className="ml-0.5 hover:text-red-500">
+                      <X className="h-2.5 w-2.5" />
+                    </button>
+                  </Badge>
+                ) : null}
+                <div className="relative">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs gap-1"
+                    onClick={() => setShowNewMealChefPanel((v) => !v)}
+                  >
+                    <UserPlus className="h-3 w-3" /> {newMealChef ? "Change" : "Pick chef"}
+                  </Button>
+                  {showNewMealChefPanel && (
+                    <AssignPanel
+                      families={families}
+                      onAssign={(name) => {
+                        setNewMealChef(name);
+                        setShowNewMealChefPanel(false);
+                      }}
+                      onClose={() => setShowNewMealChefPanel(false)}
+                    />
+                  )}
+                </div>
+              </div>
             </div>
             <div className="flex gap-2">
               <Button size="sm" disabled={!newMealDay || !newMealType} onClick={handleAddMeal}>
@@ -258,7 +269,6 @@ export default function MealsPage() {
                   meal={meal}
                   families={families}
                   currentFamilyId={familyId}
-                  personOptions={personOptions}
                   isOrganizer={isOrganizer}
                   onUpdateName={handleUpdateName}
                   onUpdateChef={handleUpdateChef}
@@ -276,68 +286,6 @@ export default function MealsPage() {
   );
 }
 
-/** Reusable person selector with families, individuals, and free text */
-function PersonSelect({
-  value,
-  onChange,
-  options,
-  placeholder,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  options: { families: string[]; people: string[] };
-  placeholder: string;
-}) {
-  const [customMode, setCustomMode] = useState(false);
-
-  if (customMode) {
-    return (
-      <div className="flex gap-1">
-        <Input
-          className="h-9 text-sm"
-          placeholder="Type a name..."
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          autoFocus
-          onKeyDown={(e) => { if (e.key === "Escape") setCustomMode(false); }}
-        />
-        <Button variant="ghost" size="sm" className="h-9" onClick={() => { setCustomMode(false); onChange(""); }}>
-          <X className="h-3 w-3" />
-        </Button>
-      </div>
-    );
-  }
-
-  return (
-    <Select value={value} onValueChange={(v) => { if (v === "__custom__") { setCustomMode(true); onChange(""); } else { onChange(v); } }}>
-      <SelectTrigger className="h-9 text-sm">
-        <SelectValue placeholder={placeholder} />
-      </SelectTrigger>
-      <SelectContent>
-        {options.families.length > 0 && (
-          <SelectGroup>
-            <SelectLabel>Families</SelectLabel>
-            {options.families.map((f) => (
-              <SelectItem key={`f-${f}`} value={f}>{f}</SelectItem>
-            ))}
-          </SelectGroup>
-        )}
-        {options.people.length > 0 && (
-          <SelectGroup>
-            <SelectLabel>People</SelectLabel>
-            {options.people.map((p) => (
-              <SelectItem key={`p-${p}`} value={p}>{p}</SelectItem>
-            ))}
-          </SelectGroup>
-        )}
-        <SelectGroup>
-          <SelectItem value="__custom__">Type a name...</SelectItem>
-        </SelectGroup>
-      </SelectContent>
-    </Select>
-  );
-}
-
 /** Get emoji for a volunteer name by matching against families */
 function volunteerEmoji(name: string, families: Family[]): string {
   const match = families.find(
@@ -350,7 +298,6 @@ function MealCard({
   meal,
   families,
   currentFamilyId,
-  personOptions,
   isOrganizer,
   onUpdateName,
   onUpdateChef,
@@ -363,7 +310,6 @@ function MealCard({
   meal: MealWithDetails;
   families: Family[];
   currentFamilyId: number | null;
-  personOptions: { families: string[]; people: string[] };
   isOrganizer: boolean;
   onUpdateName: (mealId: number, name: string) => void;
   onUpdateChef: (mealId: number, chefName: string) => void;
@@ -377,6 +323,8 @@ function MealCard({
   const [isVeg, setIsVeg] = useState(false);
   const [editingName, setEditingName] = useState(false);
   const [nameValue, setNameValue] = useState(meal.name || "");
+  const [showAssignPanelFor, setShowAssignPanelFor] = useState<number | null>(null);
+  const [showChefPanel, setShowChefPanel] = useState(false);
   const foodInputRef = useCallback((node: HTMLInputElement | null) => {
     if (node) node.focus();
   }, []);
@@ -432,20 +380,43 @@ function MealCard({
       </CardHeader>
       <CardContent className="space-y-3">
         {/* Head Chef */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <ChefHat className="h-4 w-4 text-muted-foreground shrink-0" />
           <Label className="text-sm shrink-0">Head Chef:</Label>
-          {isOrganizer ? (
-            <div className="w-[220px]">
-              <PersonSelect
-                value={meal.headChefName || ""}
-                onChange={(v) => onUpdateChef(meal.id, v)}
-                options={personOptions}
-                placeholder="Assign chef"
-              />
-            </div>
+          {meal.headChefName ? (
+            <Badge variant="secondary" className="text-xs gap-1 bg-emerald-50 text-emerald-700 border-emerald-200">
+              <span>{volunteerEmoji(meal.headChefName, families)}</span>
+              {meal.headChefName}
+              {isOrganizer && (
+                <button onClick={() => onUpdateChef(meal.id, "")} className="ml-0.5 hover:text-red-500">
+                  <X className="h-2.5 w-2.5" />
+                </button>
+              )}
+            </Badge>
           ) : (
-            <span className="text-sm">{meal.headChefName || <span className="text-muted-foreground">Not assigned</span>}</span>
+            !isOrganizer && <span className="text-sm text-muted-foreground">Not assigned</span>
+          )}
+          {isOrganizer && (
+            <div className="relative">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 text-xs gap-0.5 text-muted-foreground hover:text-blue-600"
+                onClick={() => setShowChefPanel((v) => !v)}
+              >
+                <UserPlus className="h-3 w-3" /> {meal.headChefName ? "Reassign" : "Assign"}
+              </Button>
+              {showChefPanel && (
+                <AssignPanel
+                  families={families}
+                  onAssign={(name) => {
+                    onUpdateChef(meal.id, name);
+                    setShowChefPanel(false);
+                  }}
+                  onClose={() => setShowChefPanel(false)}
+                />
+              )}
+            </div>
           )}
         </div>
 
@@ -459,25 +430,17 @@ function MealCard({
                 return (
                   <div
                     key={item.id}
-                    className={`rounded-lg border p-2.5 transition-colors ${
+                    className={`rounded-lg border p-2 transition-colors ${
                       hasVolunteers
                         ? "bg-white border-border"
                         : "bg-amber-50 border-amber-200"
                     }`}
                   >
-                    <div className="flex items-center justify-between mb-1.5">
+                    <div className="flex items-center gap-1.5 flex-wrap">
                       <span className="flex items-center gap-1.5 text-sm font-medium">
                         {item.isVegetarian && <Leaf className="h-3.5 w-3.5 text-green-600 shrink-0" />}
                         {item.name}
                       </span>
-                      {isOrganizer && (
-                        <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-red-500" onClick={() => onRemoveFood(item.id)}>
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
-                      )}
-                    </div>
-                    {/* Volunteers */}
-                    <div className="flex flex-wrap items-center gap-1.5">
                       {item.volunteers.map((v) => (
                         <Badge
                           key={v.id}
@@ -486,37 +449,53 @@ function MealCard({
                         >
                           <span>{volunteerEmoji(v.name, families)}</span>
                           {v.name}
-                          {isOrganizer && (
+                          {(isOrganizer || v.name === currentFamily?.name) && (
                             <button onClick={() => onRemoveVolunteer(v.id)} className="ml-0.5 hover:text-red-500">
                               <X className="h-2.5 w-2.5" />
                             </button>
                           )}
                         </Badge>
                       ))}
-                      {/* "I'll bring this!" button for signed-in family */}
                       {currentFamily && !item.volunteers.some((v) => v.name === currentFamily.name) && (
                         <Button
-                          variant="outline"
+                          variant="ghost"
                           size="sm"
-                          className="h-6 text-xs gap-1 border-dashed text-blue-600 border-blue-300 hover:bg-blue-50 hover:text-blue-700"
+                          className="h-5 text-[10px] gap-0.5 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
                           onClick={() => onAddVolunteer(item.id, currentFamily.name)}
                         >
                           <Hand className="h-3 w-3" />
-                          I&apos;ll bring this!
+                          Volunteer
                         </Button>
                       )}
-                      {/* Assign volunteer (organizer) */}
                       {isOrganizer && (
-                        <VolunteerAdder
-                          foodItemId={item.id}
-                          personOptions={personOptions}
-                          families={families}
-                          onAdd={onAddVolunteer}
-                        />
+                        <div className="relative">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-5 text-[10px] gap-0.5 text-muted-foreground hover:text-blue-600"
+                            onClick={() => setShowAssignPanelFor((prev) => prev === item.id ? null : item.id)}
+                          >
+                            <UserPlus className="h-3 w-3" /> Assign
+                          </Button>
+                          {showAssignPanelFor === item.id && (
+                            <AssignPanel
+                              families={families}
+                              onAssign={(name) => {
+                                onAddVolunteer(item.id, name);
+                                setShowAssignPanelFor(null);
+                              }}
+                              onClose={() => setShowAssignPanelFor(null)}
+                            />
+                          )}
+                        </div>
                       )}
-                      {/* No volunteers hint */}
                       {!hasVolunteers && !currentFamily && (
                         <span className="text-xs text-amber-600 italic">Needs a volunteer</span>
+                      )}
+                      {isOrganizer && (
+                        <Button variant="ghost" size="icon" className="h-5 w-5 text-muted-foreground hover:text-red-500 ml-auto shrink-0" onClick={() => onRemoveFood(item.id)}>
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
                       )}
                     </div>
                   </div>
@@ -573,53 +552,119 @@ function MealCard({
   );
 }
 
-/** Inline volunteer adder for a food item (organizer only) */
-function VolunteerAdder({
-  foodItemId,
-  personOptions,
-  families,
-  onAdd,
-}: {
-  foodItemId: number;
-  personOptions: { families: string[]; people: string[] };
-  families: Family[];
-  onAdd: (foodItemId: number, name: string) => void;
-}) {
-  const [adding, setAdding] = useState(false);
-  const [value, setValue] = useState("");
+/* ════════════════════════════════════════════════════════
+   Assign Panel (organizer picks a family, contact, or types free text)
+   ════════════════════════════════════════════════════════ */
 
-  if (!adding) {
-    return (
-      <Button
-        variant="ghost"
-        size="sm"
-        className="h-6 text-xs gap-0.5 text-muted-foreground hover:text-blue-600"
-        onClick={() => setAdding(true)}
-      >
-        <UserPlus className="h-3 w-3" /> assign
-      </Button>
-    );
-  }
+function AssignPanel({
+  families,
+  onAssign,
+  onClose,
+}: {
+  families: Family[];
+  onAssign: (name: string) => void;
+  onClose: () => void;
+}) {
+  const [expandedFamilyId, setExpandedFamilyId] = useState<number | null>(null);
+  const [customText, setCustomText] = useState("");
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
+        onClose();
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [onClose]);
 
   return (
-    <div className="flex gap-1 items-center">
-      <div className="w-[180px]">
-        <PersonSelect
-          value={value}
-          onChange={(v) => {
-            if (v) {
-              onAdd(foodItemId, v);
-              setValue("");
-              setAdding(false);
-            }
-          }}
-          options={personOptions}
-          placeholder="Pick person"
-        />
+    <div
+      ref={panelRef}
+      className="absolute z-20 top-full left-0 mt-1 bg-white border rounded-lg shadow-lg p-2 min-w-[280px] space-y-2"
+    >
+      {/* Family grid */}
+      <div className="grid grid-cols-2 gap-1">
+        {families.map((f) => (
+          <div key={f.id}>
+            <div className="flex items-center">
+              <button
+                onClick={() => onAssign(f.name)}
+                className="flex-1 text-left text-xs px-2.5 py-2 rounded bg-muted hover:bg-muted/80 truncate"
+                title={`Assign to ${f.name} family`}
+              >
+                {familyEmoji(f.id)} {f.name}
+              </button>
+              {(f.contactName || f.contactName2) && (
+                <button
+                  onClick={() =>
+                    setExpandedFamilyId((prev) =>
+                      prev === f.id ? null : f.id
+                    )
+                  }
+                  className="px-1 py-1.5 text-muted-foreground hover:text-foreground"
+                  title="Show individual contacts"
+                >
+                  {expandedFamilyId === f.id ? (
+                    <ChevronDown className="h-3 w-3" />
+                  ) : (
+                    <ChevronRight className="h-3 w-3" />
+                  )}
+                </button>
+              )}
+            </div>
+            {/* Expanded contacts */}
+            {expandedFamilyId === f.id && (
+              <div className="ml-3 mt-0.5 space-y-0.5">
+                {f.contactName && (
+                  <button
+                    onClick={() => onAssign(`${f.contactName} (${f.name})`)}
+                    className="block w-full text-left text-[10px] px-2 py-1 rounded hover:bg-blue-50 text-blue-600"
+                  >
+                    → {f.contactName}
+                  </button>
+                )}
+                {f.contactName2 && (
+                  <button
+                    onClick={() => onAssign(`${f.contactName2} (${f.name})`)}
+                    className="block w-full text-left text-[10px] px-2 py-1 rounded hover:bg-blue-50 text-blue-600"
+                  >
+                    → {f.contactName2}
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        ))}
       </div>
-      <Button variant="ghost" size="sm" className="h-7 px-1" onClick={() => { setAdding(false); setValue(""); }}>
-        <X className="h-3 w-3" />
-      </Button>
+
+      {/* Free text input */}
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (customText.trim()) {
+            onAssign(customText.trim());
+          }
+        }}
+        className="flex items-center gap-1 border-t pt-2"
+      >
+        <Input
+          value={customText}
+          onChange={(e) => setCustomText(e.target.value)}
+          placeholder="Custom name..."
+          className="h-7 text-xs flex-1"
+        />
+        <Button
+          type="submit"
+          size="icon"
+          variant="ghost"
+          className="h-7 w-7 text-blue-600"
+          disabled={!customText.trim()}
+        >
+          <Check className="h-3.5 w-3.5" />
+        </Button>
+      </form>
     </div>
   );
 }

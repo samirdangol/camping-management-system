@@ -19,9 +19,8 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Users, UtensilsCrossed, DollarSign, UserCheck, Pencil, Trash2, ExternalLink, Upload, X } from "lucide-react";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { formatCurrency, blobUrl, familyEmoji, emojiMembers } from "@/lib/utils";
+import { Users, UtensilsCrossed, DollarSign, UserCheck, Pencil, Trash2, ExternalLink, Upload, X, Clock, ClipboardList } from "lucide-react";
+import { formatCurrency, blobUrl } from "@/lib/utils";
 import { EVENT_STATUSES } from "@/lib/constants";
 import type { Family } from "@/types";
 
@@ -190,31 +189,51 @@ export function EventDashboardClient({ event }: { event: EventDashboardData }) {
 
       {/* Reservation & Campsite Info */}
       {(event.reservationNo || event.checkIn || event.checkOut || event.campsiteUrl || event.imageUrl) && (
-        <Card>
+        <Card className="border-l-4 border-l-teal-500 bg-gradient-to-r from-teal-50/40 to-white">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Reservation Details</CardTitle>
+            <CardTitle className="text-sm font-semibold text-teal-800 flex items-center gap-2">
+              <span className="bg-teal-100 text-teal-600 p-1.5 rounded-full inline-flex">
+                <ClipboardList className="h-4 w-4" />
+              </span>
+              Reservation Details
+            </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2 text-sm">
+          <CardContent className="text-sm space-y-2.5">
             {event.reservationNo && (
-              <div><span className="text-muted-foreground">Reservation:</span> <span className="font-medium">{event.reservationNo}</span></div>
+              <div className="flex items-center gap-2">
+                <span className="text-muted-foreground text-xs">Reservation</span>
+                <span className="font-mono text-xs font-medium bg-teal-100/60 text-teal-800 px-2 py-0.5 rounded">{event.reservationNo}</span>
+              </div>
             )}
-            {event.checkIn && (
-              <div><span className="text-muted-foreground">Check-in:</span> <span className="font-medium">{fmtTime(event.checkIn)}</span></div>
-            )}
-            {event.checkOut && (
-              <div><span className="text-muted-foreground">Check-out:</span> <span className="font-medium">{fmtTime(event.checkOut)}</span></div>
+            {(event.checkIn || event.checkOut) && (
+              <div className="flex items-center gap-4">
+                {event.checkIn && (
+                  <div className="flex items-center gap-1.5">
+                    <Clock className="h-3.5 w-3.5 text-teal-500 shrink-0" />
+                    <span className="text-muted-foreground text-xs">Check-in:</span>
+                    <span className="font-medium text-xs">{fmtTime(event.checkIn)}</span>
+                  </div>
+                )}
+                {event.checkOut && (
+                  <div className="flex items-center gap-1.5">
+                    <Clock className="h-3.5 w-3.5 text-teal-500 shrink-0" />
+                    <span className="text-muted-foreground text-xs">Check-out:</span>
+                    <span className="font-medium text-xs">{fmtTime(event.checkOut)}</span>
+                  </div>
+                )}
+              </div>
             )}
             {event.campsiteUrl && (
               <div>
-                <a href={event.campsiteUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline inline-flex items-center gap-1">
+                <a href={event.campsiteUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline inline-flex items-center gap-1 text-xs">
                   Campsite Official Page <ExternalLink className="h-3 w-3" />
                 </a>
               </div>
             )}
             {event.imageUrl && (
-              <div className="pt-1">
+              <div className="pt-3">
                 <button type="button" onClick={() => setImagePreview(true)} className="block cursor-zoom-in">
-                  <img src={blobUrl(event.imageUrl)} alt="Campsite info" className="rounded-lg border h-24 w-auto object-cover" />
+                  <img src={blobUrl(event.imageUrl)} alt="Campsite info" className="rounded-lg border h-28 w-auto object-cover shadow-sm" />
                   <span className="text-xs text-muted-foreground mt-0.5 block">Click to enlarge</span>
                 </button>
               </div>
@@ -226,10 +245,14 @@ export function EventDashboardClient({ event }: { event: EventDashboardData }) {
       <InviteLinkCard inviteCode={event.inviteCode} />
 
       <div className="grid grid-cols-2 gap-3">
-        <Card>
+        {/* Families Card — blue theme */}
+        <Card className="border-l-4 border-l-blue-500">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <Users className="h-4 w-4" /> Families
+            <CardTitle className="text-sm font-semibold text-blue-800 flex items-center gap-2">
+              <span className="bg-blue-100 text-blue-600 p-1.5 rounded-full inline-flex">
+                <Users className="h-4 w-4" />
+              </span>
+              Families
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -238,26 +261,34 @@ export function EventDashboardClient({ event }: { event: EventDashboardData }) {
           </CardContent>
         </Card>
 
-        <Card>
+        {/* Headcount Card — purple theme */}
+        <Card className="border-l-4 border-l-purple-500">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <UserCheck className="h-4 w-4" /> Headcount
+            <CardTitle className="text-sm font-semibold text-purple-800 flex items-center gap-2">
+              <span className="bg-purple-100 text-purple-600 p-1.5 rounded-full inline-flex">
+                <UserCheck className="h-4 w-4" />
+              </span>
+              Headcount
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-sm space-y-0.5">
               <div>{totalAdults} adults</div>
               <div>{totalKids} kids</div>
-              <div>{totalElderly} elderly</div>
-              <div>{totalVegetarians} vegetarian</div>
+              {totalElderly > 0 && <div>{totalElderly} elderly</div>}
+              {totalVegetarians > 0 && <div>{totalVegetarians} vegetarian</div>}
             </div>
           </CardContent>
         </Card>
 
-        <Card>
+        {/* Planning Card — amber theme */}
+        <Card className="border-l-4 border-l-amber-500">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <UtensilsCrossed className="h-4 w-4" /> Planning
+            <CardTitle className="text-sm font-semibold text-amber-800 flex items-center gap-2">
+              <span className="bg-amber-100 text-amber-600 p-1.5 rounded-full inline-flex">
+                <UtensilsCrossed className="h-4 w-4" />
+              </span>
+              Planning
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -270,10 +301,14 @@ export function EventDashboardClient({ event }: { event: EventDashboardData }) {
           </CardContent>
         </Card>
 
-        <Card>
+        {/* Expenses Card — emerald theme */}
+        <Card className="border-l-4 border-l-emerald-500">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <DollarSign className="h-4 w-4" /> Expenses
+            <CardTitle className="text-sm font-semibold text-emerald-800 flex items-center gap-2">
+              <span className="bg-emerald-100 text-emerald-600 p-1.5 rounded-full inline-flex">
+                <DollarSign className="h-4 w-4" />
+              </span>
+              Expenses
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -287,57 +322,6 @@ export function EventDashboardClient({ event }: { event: EventDashboardData }) {
         </Card>
       </div>
 
-      {event.signups.length > 0 && (() => {
-        const hasVeg = event.signups.some((s) => s.vegetarians > 0);
-        const hasNotes = event.signups.some((s) => s.notes);
-        const totals = event.signups.reduce(
-          (acc, s) => ({ adults: acc.adults + s.adults, kids: acc.kids + s.kids, elderly: acc.elderly + s.elderly, veg: acc.veg + s.vegetarians }),
-          { adults: 0, kids: 0, elderly: 0, veg: 0 }
-        );
-        return (
-          <div>
-            <h3 className="text-sm font-semibold mb-2">Signed Up Families</h3>
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Family</TableHead>
-                    <TableHead>Members</TableHead>
-                    {hasVeg && <TableHead>Veg</TableHead>}
-                    {hasNotes && <TableHead>Notes</TableHead>}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {event.signups.map((s) => (
-                    <TableRow key={s.id}>
-                      <TableCell>
-                        <div className="font-medium">{familyEmoji(s.family.id)} {s.family.name}</div>
-                        <div className="text-xs text-muted-foreground">
-                          {s.family.contactName}{s.family.contactName2 ? ` & ${s.family.contactName2}` : ""}
-                        </div>
-                      </TableCell>
-                      <TableCell className="whitespace-nowrap">{emojiMembers(s.adults, s.kids, s.elderly)}</TableCell>
-                      {hasVeg && <TableCell>{s.vegetarians > 0 ? `🌿${s.vegetarians}` : ""}</TableCell>}
-                      {hasNotes && <TableCell className="text-xs">{s.notes}</TableCell>}
-                    </TableRow>
-                  ))}
-                  <TableRow className="font-semibold border-t-2">
-                    <TableCell>Total: {event.signups.length} families</TableCell>
-                    <TableCell className="whitespace-nowrap">
-                      {totals.adults > 0 && `${totals.adults}×🧑‍🌾 `}
-                      {totals.kids > 0 && `${totals.kids}×🧒 `}
-                      {totals.elderly > 0 && `${totals.elderly}×👴 `}
-                      = {totals.adults + totals.kids + totals.elderly}
-                    </TableCell>
-                    {hasVeg && <TableCell>🌿{totals.veg}</TableCell>}
-                    {hasNotes && <TableCell />}
-                  </TableRow>
-                </TableBody>
-              </Table>
-            </div>
-          </div>
-        );
-      })()}
 
       {/* Edit Dialog */}
       <Dialog open={editing} onOpenChange={setEditing}>
