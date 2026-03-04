@@ -10,6 +10,8 @@ import {
   unclaimEquipment,
   addEquipmentVolunteer,
   removeEquipmentVolunteer,
+  renameEquipmentCategory,
+  clearEquipmentCategory,
 } from "@/app/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,6 +31,7 @@ import {
   ChevronDown,
   ChevronRight,
   AlertTriangle,
+  FolderPlus,
 } from "lucide-react";
 import { useIsOrganizer } from "@/hooks/use-is-organizer";
 import { familyEmoji } from "@/lib/utils";
@@ -55,6 +58,8 @@ export default function EquipmentPage() {
   const [items, setItems] = useState<EquipmentWithOwner[]>([]);
   const [filter, setFilter] = useState<Filter>("all");
   const [loading, setLoading] = useState(true);
+  const [newCategories, setNewCategories] = useState<string[]>([]);
+  const [newCatInput, setNewCatInput] = useState("");
 
   const fetchData = useCallback(async () => {
     const [signups, equip] = await Promise.all([
@@ -187,7 +192,45 @@ export default function EquipmentPage() {
     }[]
   ) {
     await bulkCreateEquipment(eid, rows);
+    const addedCats = rows.map((r) => r.category?.trim()).filter(Boolean) as string[];
+    if (addedCats.length > 0) {
+      setNewCategories((prev) => prev.filter((c) => !addedCats.includes(c)));
+    }
     await fetchData();
+  }
+
+  async function handleRenameCategory(oldName: string, newName: string) {
+    if (!newName.trim() || newName.trim() === oldName) return;
+    await renameEquipmentCategory(eid, oldName, newName.trim());
+    setNewCategories((prev) =>
+      prev.map((c) => (c === oldName ? newName.trim() : c))
+    );
+    await fetchData();
+  }
+
+  async function handleClearCategory(categoryName: string) {
+    await clearEquipmentCategory(eid, categoryName);
+    setNewCategories((prev) => prev.filter((c) => c !== categoryName));
+    await fetchData();
+  }
+
+  function handleAddNewCategory() {
+    const name = newCatInput.trim();
+    if (!name) return;
+    const allExisting = [
+      ...existingCategories.map((c) => c.toLowerCase()),
+      ...newCategories.map((c) => c.toLowerCase()),
+    ];
+    if (allExisting.includes(name.toLowerCase())) {
+      setNewCatInput("");
+      return;
+    }
+    setNewCategories((prev) => [...prev, name]);
+    setNewCatInput("");
+  }
+
+  function handleRemoveNewCategory(name: string) {
+    setNewCategories((prev) => prev.filter((c) => c !== name));
   }
 
   if (loading)
@@ -260,8 +303,38 @@ export default function EquipmentPage() {
           onUnvolunteer={handleUnvolunteer}
           onSaveEdit={handleSaveEdit}
           onBulkAdd={handleBulkAdd}
+          onRename={(newName) => handleRenameCategory(cat, newName)}
+          onClear={() => handleClearCategory(cat)}
         />
       ))}
+
+      {/* New (empty) categories */}
+      {newCategories.map((cat) =>
+        !categoryOrder.includes(cat) ? (
+          <EquipmentCategorySection
+            key={`new-${cat}`}
+            category={cat}
+            items={[]}
+            families={families}
+            familyId={familyId}
+            isOrganizer={isOrganizer}
+            allSuggestions={allSuggestions}
+            onDelete={handleDelete}
+            onClaim={handleClaim}
+            onUnclaim={handleUnclaim}
+            onVolunteer={handleVolunteer}
+            onUnvolunteer={handleUnvolunteer}
+            onSaveEdit={handleSaveEdit}
+            onBulkAdd={handleBulkAdd}
+            onRename={(newName) => {
+              setNewCategories((prev) =>
+                prev.map((c) => (c === cat ? newName : c))
+              );
+            }}
+            onClear={() => handleRemoveNewCategory(cat)}
+          />
+        ) : null
+      )}
 
       {/* Uncategorized */}
       {uncategorized.length > 0 && (
@@ -282,6 +355,34 @@ export default function EquipmentPage() {
           onBulkAdd={handleBulkAdd}
         />
       )}
+
+      {/* Add Category */}
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          handleAddNewCategory();
+        }}
+        className="flex items-center gap-2"
+      >
+        <FolderPlus className="h-4 w-4 text-muted-foreground shrink-0" />
+        <Input
+          list={DATALIST_ID}
+          value={newCatInput}
+          onChange={(e) => setNewCatInput(e.target.value)}
+          placeholder="New category name..."
+          className="h-8 text-sm flex-1 max-w-xs"
+        />
+        <Button
+          type="submit"
+          size="sm"
+          variant="outline"
+          className="h-8"
+          disabled={!newCatInput.trim()}
+        >
+          <Plus className="h-3.5 w-3.5 mr-1" />
+          Add Category
+        </Button>
+      </form>
 
       {/* Quick Add Section */}
       <EquipmentQuickAdd allSuggestions={allSuggestions} onBulkAdd={handleBulkAdd} />
@@ -307,6 +408,8 @@ function EquipmentCategorySection({
   onUnvolunteer,
   onSaveEdit,
   onBulkAdd,
+  onRename,
+  onClear,
 }: {
   category: string;
   items: EquipmentWithOwner[];
@@ -326,15 +429,20 @@ function EquipmentCategorySection({
   onBulkAdd: (
     rows: { name: string; category?: string; quantity?: number; notes?: string }[]
   ) => Promise<void>;
+  onRename?: (newName: string) => void;
+  onClear?: () => void;
 }) {
   const [collapsed, setCollapsed] = useState(false);
   const [addName, setAddName] = useState("");
   const [addQty, setAddQty] = useState("1");
   const [addNotes, setAddNotes] = useState("");
   const [adding, setAdding] = useState(false);
+  const [renaming, setRenaming] = useState(false);
+  const [renameValue, setRenameValue] = useState(category);
 
   const claimed = items.filter((i) => i.ownerFamilyId || i.volunteers.length > 0).length;
   const displayName = category || "Uncategorized";
+  const isUncategorized = !category;
 
   async function handleQuickAdd() {
     if (!addName.trim()) return;
@@ -353,23 +461,97 @@ function EquipmentCategorySection({
     setAdding(false);
   }
 
+  function startRename() {
+    setRenameValue(category);
+    setRenaming(true);
+  }
+
+  function submitRename() {
+    if (renameValue.trim() && renameValue.trim() !== category) {
+      onRename?.(renameValue.trim());
+    }
+    setRenaming(false);
+  }
+
   return (
     <div className="space-y-2">
       {/* Section header */}
-      <button
-        onClick={() => setCollapsed((c) => !c)}
-        className="flex items-center gap-2 w-full text-left group"
-      >
-        {collapsed ? (
-          <ChevronRight className="h-4 w-4 text-muted-foreground" />
+      <div className="flex items-center gap-2 w-full group">
+        <button
+          onClick={() => setCollapsed((c) => !c)}
+          className="flex items-center gap-2 text-left"
+        >
+          {collapsed ? (
+            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+          ) : (
+            <ChevronDown className="h-4 w-4 text-muted-foreground" />
+          )}
+          {renaming ? null : (
+            <span className="font-semibold text-sm">{displayName}</span>
+          )}
+        </button>
+        {renaming ? (
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              submitRename();
+            }}
+            className="flex items-center gap-1"
+          >
+            <Input
+              value={renameValue}
+              onChange={(e) => setRenameValue(e.target.value)}
+              className="h-7 text-sm w-36"
+              autoFocus
+            />
+            <Button
+              type="submit"
+              size="icon"
+              variant="ghost"
+              className="h-6 w-6 text-emerald-600"
+            >
+              <Check className="h-3.5 w-3.5" />
+            </Button>
+            <Button
+              type="button"
+              size="icon"
+              variant="ghost"
+              className="h-6 w-6"
+              onClick={() => setRenaming(false)}
+            >
+              <X className="h-3.5 w-3.5" />
+            </Button>
+          </form>
         ) : (
-          <ChevronDown className="h-4 w-4 text-muted-foreground" />
+          <>
+            <Badge variant="secondary" className="text-xs">
+              {claimed}/{items.length} claimed
+            </Badge>
+            {!isUncategorized && onRename && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                onClick={startRename}
+                title="Rename category"
+              >
+                <Pencil className="h-3 w-3" />
+              </Button>
+            )}
+            {!isUncategorized && onClear && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-red-500 hover:text-red-600"
+                onClick={onClear}
+                title="Remove category (items move to Uncategorized)"
+              >
+                <X className="h-3 w-3" />
+              </Button>
+            )}
+          </>
         )}
-        <span className="font-semibold text-sm">{displayName}</span>
-        <Badge variant="secondary" className="text-xs">
-          {claimed}/{items.length} claimed
-        </Badge>
-      </button>
+      </div>
 
       {!collapsed && (
         <div className="space-y-1.5 pl-6">

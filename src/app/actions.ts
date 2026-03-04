@@ -502,6 +502,40 @@ export async function unclaimEquipment(itemId: number, eventId: number) {
   revalidatePath(`/events/${eventId}`);
 }
 
+// ============ CATEGORY MANAGEMENT ACTIONS ============
+
+export async function renameGroceryCategory(eventId: number, oldName: string, newName: string) {
+  await prisma.groceryItem.updateMany({
+    where: { eventId, category: oldName },
+    data: { category: newName },
+  });
+  revalidatePath(`/events/${eventId}`);
+}
+
+export async function clearGroceryCategory(eventId: number, categoryName: string) {
+  await prisma.groceryItem.updateMany({
+    where: { eventId, category: categoryName },
+    data: { category: null },
+  });
+  revalidatePath(`/events/${eventId}`);
+}
+
+export async function renameEquipmentCategory(eventId: number, oldName: string, newName: string) {
+  await prisma.equipment.updateMany({
+    where: { eventId, category: oldName },
+    data: { category: newName },
+  });
+  revalidatePath(`/events/${eventId}`);
+}
+
+export async function clearEquipmentCategory(eventId: number, categoryName: string) {
+  await prisma.equipment.updateMany({
+    where: { eventId, category: categoryName },
+    data: { category: null },
+  });
+  revalidatePath(`/events/${eventId}`);
+}
+
 // ============ GROCERY VOLUNTEER ACTIONS ============
 
 export async function addGroceryVolunteer(groceryItemId: number, eventId: number, familyId: number) {
