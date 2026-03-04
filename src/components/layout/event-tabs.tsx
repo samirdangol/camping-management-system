@@ -19,7 +19,7 @@ const tabs = [
   { label: "Meals", href: "/meals", icon: UtensilsCrossed },
   { label: "Activities", href: "/activities", icon: TreePine },
   { label: "Groceries", href: "/groceries", icon: ShoppingCart },
-  { label: "Equipment", href: "/equipment", icon: Backpack },
+  { label: "Supplies & Gear", href: "/equipment", icon: Backpack },
   { label: "Expenses", href: "/expenses", icon: DollarSign },
 ];
 

@@ -29,13 +29,20 @@ export const GROCERY_CATEGORIES = [
   "other",
 ] as const;
 
+/** Suggested categories shown as autocomplete options — users can type anything */
+export const GROCERY_CATEGORY_SUGGESTIONS = GROCERY_CATEGORIES;
+
 export const EQUIPMENT_CATEGORIES = [
   "shelter",
   "cooking",
   "lighting",
+  "cleaning",
   "recreation",
   "other",
 ] as const;
+
+/** Suggested categories shown as autocomplete options — users can type anything */
+export const EQUIPMENT_CATEGORY_SUGGESTIONS = EQUIPMENT_CATEGORIES;
 
 export const EXPENSE_CATEGORIES = [
   "food",

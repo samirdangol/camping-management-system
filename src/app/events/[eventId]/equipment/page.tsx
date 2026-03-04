@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams } from "next/navigation";
 import {
   bulkCreateEquipment,
@@ -9,21 +9,13 @@ import {
   claimEquipment,
   addEquipmentVolunteer,
   removeEquipmentVolunteer,
-  reorderEquipment,
 } from "@/app/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { EmptyState } from "@/components/shared/empty-state";
 import { useCurrentFamily } from "@/hooks/use-current-family";
-import { EQUIPMENT_CATEGORIES } from "@/lib/constants";
+import { EQUIPMENT_CATEGORY_SUGGESTIONS } from "@/lib/constants";
 import {
   Backpack,
   Plus,
@@ -31,63 +23,37 @@ import {
   Pencil,
   Check,
   X,
-  Save,
-  ChevronUp,
+  Hand,
+  UserPlus,
   ChevronDown,
-  HandHelping,
+  ChevronRight,
+  AlertTriangle,
 } from "lucide-react";
 import { useIsOrganizer } from "@/hooks/use-is-organizer";
+import { familyEmoji } from "@/lib/utils";
 import type { Family, EquipmentWithOwner } from "@/types";
 
-interface NewRow {
-  id: string;
-  name: string;
-  category: string;
-  quantity: string;
-  notes: string;
+type Filter = "all" | "unclaimed" | "mine";
+
+/* ─── helpers ─── */
+
+function cap(s: string) {
+  return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-interface EditValues {
-  name: string;
-  category: string;
-  quantity: string;
-  notes: string;
-}
+const DATALIST_ID = "equip-cat-suggestions";
 
-function createEmptyRow(): NewRow {
-  return {
-    id: crypto.randomUUID(),
-    name: "",
-    category: "",
-    quantity: "1",
-    notes: "",
-  };
-}
+/* ─── Main Page ─── */
 
 export default function EquipmentPage() {
   const { eventId } = useParams<{ eventId: string }>();
+  const eid = parseInt(eventId, 10);
   const { familyId } = useCurrentFamily();
   const isOrganizer = useIsOrganizer(eventId);
   const [families, setFamilies] = useState<Family[]>([]);
   const [items, setItems] = useState<EquipmentWithOwner[]>([]);
+  const [filter, setFilter] = useState<Filter>("all");
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-
-  // Inline edit state
-  const [editingRowId, setEditingRowId] = useState<number | null>(null);
-  const [editValues, setEditValues] = useState<EditValues>({
-    name: "",
-    category: "",
-    quantity: "1",
-    notes: "",
-  });
-
-  // New rows for bulk add
-  const [newRows, setNewRows] = useState<NewRow[]>([
-    createEmptyRow(),
-    createEmptyRow(),
-    createEmptyRow(),
-  ]);
 
   const fetchData = useCallback(async () => {
     const [signups, equip] = await Promise.all([
@@ -103,97 +69,120 @@ export default function EquipmentPage() {
     fetchData();
   }, [fetchData]);
 
-  // --- Existing item actions ---
+  /* filtered items */
+  const filtered = useMemo(
+    () =>
+      items.filter((item) => {
+        if (filter === "unclaimed")
+          return !item.ownerFamilyId && item.volunteers.length === 0;
+        if (filter === "mine")
+          return (
+            item.ownerFamilyId === familyId ||
+            item.volunteers.some((v) => v.familyId === familyId)
+          );
+        return true;
+      }),
+    [items, filter, familyId]
+  );
 
-  function startEdit(item: EquipmentWithOwner) {
-    setEditingRowId(item.id);
-    setEditValues({
-      name: item.name,
-      category: item.category || "",
-      quantity: String(item.quantity),
-      notes: item.notes || "",
-    });
-  }
+  /* group by category */
+  const { grouped, categoryOrder, uncategorized } = useMemo(() => {
+    const map: Record<string, EquipmentWithOwner[]> = {};
+    const uncat: EquipmentWithOwner[] = [];
+    for (const item of filtered) {
+      const cat = item.category?.trim();
+      if (cat) {
+        if (!map[cat]) map[cat] = [];
+        map[cat].push(item);
+      } else {
+        uncat.push(item);
+      }
+    }
+    const order = Object.keys(map).sort((a, b) =>
+      a.toLowerCase().localeCompare(b.toLowerCase())
+    );
+    return { grouped: map, categoryOrder: order, uncategorized: uncat };
+  }, [filtered]);
 
-  function cancelEdit() {
-    setEditingRowId(null);
-  }
+  /* existing category names for suggestions */
+  const existingCategories = useMemo(() => {
+    const cats = new Set<string>();
+    for (const item of items) {
+      if (item.category?.trim()) cats.add(item.category.trim());
+    }
+    return Array.from(cats).sort((a, b) =>
+      a.toLowerCase().localeCompare(b.toLowerCase())
+    );
+  }, [items]);
 
-  async function saveEdit(itemId: number) {
-    await updateEquipment(itemId, parseInt(eventId, 10), {
-      name: editValues.name,
-      category: editValues.category || undefined,
-      quantity: parseInt(editValues.quantity) || 1,
-      notes: editValues.notes || undefined,
-    });
-    setEditingRowId(null);
-    await fetchData();
-  }
+  /* combined suggestions: existing + defaults */
+  const allSuggestions = useMemo(() => {
+    const set = new Set(existingCategories.map((c) => c.toLowerCase()));
+    const extra = EQUIPMENT_CATEGORY_SUGGESTIONS.filter(
+      (s) => !set.has(s.toLowerCase())
+    ).map(cap);
+    return [...existingCategories, ...extra];
+  }, [existingCategories]);
+
+  /* totals */
+  const unclaimedCount = items.filter(
+    (i) => !i.ownerFamilyId && i.volunteers.length === 0
+  ).length;
+  const myCount = items.filter(
+    (i) =>
+      i.ownerFamilyId === familyId ||
+      i.volunteers.some((v) => v.familyId === familyId)
+  ).length;
+
+  /* ─── actions ─── */
 
   async function handleDelete(itemId: number) {
-    await deleteEquipment(itemId, parseInt(eventId, 10));
+    await deleteEquipment(itemId, eid);
     await fetchData();
   }
 
   async function handleClaim(itemId: number) {
     if (!familyId) return;
-    await claimEquipment(itemId, parseInt(eventId, 10), familyId);
+    await claimEquipment(itemId, eid, familyId);
     await fetchData();
   }
 
   async function handleVolunteer(itemId: number) {
     if (!familyId) return;
-    await addEquipmentVolunteer(itemId, parseInt(eventId, 10), familyId);
+    await addEquipmentVolunteer(itemId, eid, familyId);
     await fetchData();
   }
 
   async function handleUnvolunteer(itemId: number) {
     if (!familyId) return;
-    await removeEquipmentVolunteer(itemId, parseInt(eventId, 10), familyId);
+    await removeEquipmentVolunteer(itemId, eid, familyId);
     await fetchData();
   }
 
-  async function handleReorder(itemId: number, direction: "up" | "down") {
-    await reorderEquipment(itemId, parseInt(eventId, 10), direction);
+  async function handleSaveEdit(
+    itemId: number,
+    vals: {
+      name: string;
+      category?: string;
+      quantity?: number;
+      notes?: string;
+    }
+  ) {
+    await updateEquipment(itemId, eid, vals);
     await fetchData();
   }
 
-  // --- New row actions ---
-
-  function updateNewRow(id: string, field: keyof NewRow, value: string) {
-    setNewRows((rows) =>
-      rows.map((r) => (r.id === id ? { ...r, [field]: value } : r))
-    );
-  }
-
-  function removeNewRow(id: string) {
-    setNewRows((rows) => rows.filter((r) => r.id !== id));
-  }
-
-  function addNewRow() {
-    setNewRows((rows) => [...rows, createEmptyRow()]);
-  }
-
-  async function handleBulkSave() {
-    const validRows = newRows.filter((r) => r.name.trim());
-    if (validRows.length === 0) return;
-
-    setSaving(true);
-    await bulkCreateEquipment(
-      parseInt(eventId, 10),
-      validRows.map((r) => ({
-        name: r.name.trim(),
-        category: r.category || undefined,
-        quantity: parseInt(r.quantity) || 1,
-        notes: r.notes || undefined,
-      }))
-    );
-    setNewRows([createEmptyRow(), createEmptyRow(), createEmptyRow()]);
+  async function handleBulkAdd(
+    rows: {
+      name: string;
+      category?: string;
+      quantity?: number;
+      notes?: string;
+    }[]
+  ) {
+    await bulkCreateEquipment(eid, rows);
     await fetchData();
-    setSaving(false);
   }
-
-  const hasNewData = newRows.some((r) => r.name.trim());
 
   if (loading)
     return (
@@ -202,343 +191,658 @@ export default function EquipmentPage() {
 
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold">Equipment</h2>
+        <h2 className="text-lg font-semibold">Supplies & Gear</h2>
+        <span className="text-sm text-muted-foreground">
+          {items.length} item{items.length !== 1 && "s"}
+        </span>
       </div>
 
-      {/* Table */}
-      <div className="border rounded-lg overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b bg-muted/50">
-              <th className="px-3 py-2 text-left font-medium">Name</th>
-              <th className="px-3 py-2 text-left font-medium w-[120px]">
-                Category
-              </th>
-              <th className="px-3 py-2 text-left font-medium w-[70px]">Qty</th>
-              <th className="px-3 py-2 text-left font-medium w-[180px]">
-                Owner / Volunteers
-              </th>
-              <th className="px-3 py-2 text-left font-medium">Notes</th>
-              <th className="px-3 py-2 text-right font-medium w-[120px]">
-                Actions
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {/* Existing items */}
-            {items.length === 0 && newRows.length === 0 ? (
-              <tr>
-                <td colSpan={6} className="py-8">
-                  <EmptyState
-                    icon={Backpack}
-                    title="No equipment listed"
-                    description="Add camping gear below!"
-                  />
-                </td>
-              </tr>
-            ) : (
-              items.map((item, idx) => {
-                const isEditing = editingRowId === item.id;
-                const isVolunteered = item.volunteers?.some(
-                  (v) => v.familyId === familyId
-                );
-                const isPrimaryOwner = item.ownerFamilyId === familyId;
-                return (
-                  <tr key={item.id} className="border-b last:border-0">
-                    {isEditing ? (
-                      <>
-                        <td className="px-3 py-1.5">
-                          <Input
-                            value={editValues.name}
-                            onChange={(e) =>
-                              setEditValues((v) => ({
-                                ...v,
-                                name: e.target.value,
-                              }))
-                            }
-                            className="h-8 text-sm"
-                          />
-                        </td>
-                        <td className="px-3 py-1.5">
-                          <Select
-                            value={editValues.category}
-                            onValueChange={(val) =>
-                              setEditValues((v) => ({ ...v, category: val }))
-                            }
-                          >
-                            <SelectTrigger className="h-8 text-sm">
-                              <SelectValue placeholder="—" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {EQUIPMENT_CATEGORIES.map((c) => (
-                                <SelectItem key={c} value={c}>
-                                  {c.charAt(0).toUpperCase() + c.slice(1)}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </td>
-                        <td className="px-3 py-1.5">
-                          <Input
-                            type="number"
-                            min={1}
-                            value={editValues.quantity}
-                            onChange={(e) =>
-                              setEditValues((v) => ({
-                                ...v,
-                                quantity: e.target.value,
-                              }))
-                            }
-                            className="h-8 text-sm"
-                          />
-                        </td>
-                        <td className="px-3 py-1.5 text-xs text-muted-foreground">
-                          {item.owner?.name || "—"}
-                        </td>
-                        <td className="px-3 py-1.5">
-                          <Input
-                            value={editValues.notes}
-                            onChange={(e) =>
-                              setEditValues((v) => ({
-                                ...v,
-                                notes: e.target.value,
-                              }))
-                            }
-                            className="h-8 text-sm"
-                            placeholder="Notes"
-                          />
-                        </td>
-                        <td className="px-3 py-1.5 text-right">
-                          <div className="flex items-center justify-end gap-1">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7 text-green-600"
-                              onClick={() => saveEdit(item.id)}
-                              disabled={!editValues.name.trim()}
-                            >
-                              <Check className="h-3.5 w-3.5" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7"
-                              onClick={cancelEdit}
-                            >
-                              <X className="h-3.5 w-3.5" />
-                            </Button>
-                          </div>
-                        </td>
-                      </>
-                    ) : (
-                      <>
-                        <td className="px-3 py-2 font-medium">{item.name}</td>
-                        <td className="px-3 py-2">
-                          {item.category && (
-                            <Badge variant="outline" className="text-xs">
-                              {item.category}
-                            </Badge>
-                          )}
-                        </td>
-                        <td className="px-3 py-2 text-muted-foreground">
-                          {item.quantity}
-                        </td>
-                        <td className="px-3 py-2">
-                          <div className="flex flex-wrap items-center gap-1">
-                            {item.owner ? (
-                              <span className="text-xs text-green-700 font-medium">
-                                {item.owner.name}
-                              </span>
-                            ) : (
-                              <Button
-                                variant="link"
-                                size="sm"
-                                className="h-auto p-0 text-xs text-blue-600"
-                                onClick={() => handleClaim(item.id)}
-                              >
-                                Claim
-                              </Button>
-                            )}
-                            {/* Volunteer badges */}
-                            {item.volunteers?.map((v) => (
-                              <Badge key={v.id} variant="outline" className="text-xs">
-                                {v.family.name}
-                              </Badge>
-                            ))}
-                            {/* Volunteer/Leave toggle */}
-                            {!isPrimaryOwner && (
-                              isVolunteered ? (
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="h-6 text-xs px-2"
-                                  onClick={() => handleUnvolunteer(item.id)}
-                                >
-                                  Leave
-                                </Button>
-                              ) : (
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="h-6 text-xs px-2"
-                                  onClick={() => handleVolunteer(item.id)}
-                                >
-                                  <HandHelping className="mr-1 h-3 w-3" />
-                                  Help
-                                </Button>
-                              )
-                            )}
-                          </div>
-                        </td>
-                        <td className="px-3 py-2 text-muted-foreground text-xs">
-                          {item.notes || "—"}
-                        </td>
-                        <td className="px-3 py-2 text-right">
-                          <div className="flex items-center justify-end gap-0.5">
-                            {/* Reorder buttons */}
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7"
-                              onClick={() => handleReorder(item.id, "up")}
-                              disabled={idx === 0}
-                            >
-                              <ChevronUp className="h-3.5 w-3.5" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7"
-                              onClick={() => handleReorder(item.id, "down")}
-                              disabled={idx === items.length - 1}
-                            >
-                              <ChevronDown className="h-3.5 w-3.5" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7"
-                              onClick={() => startEdit(item)}
-                            >
-                              <Pencil className="h-3.5 w-3.5" />
-                            </Button>
-                            {isOrganizer && (
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7 text-red-500"
-                                onClick={() => handleDelete(item.id)}
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </Button>
-                            )}
-                          </div>
-                        </td>
-                      </>
-                    )}
-                  </tr>
-                );
-              })
-            )}
+      {/* Filter tabs */}
+      <div className="flex gap-1">
+        {(["all", "unclaimed", "mine"] as Filter[]).map((f) => (
+          <Button
+            key={f}
+            variant={filter === f ? "default" : "outline"}
+            size="sm"
+            onClick={() => setFilter(f)}
+          >
+            {f === "all"
+              ? `All (${items.length})`
+              : f === "unclaimed"
+                ? `Needs Owner (${unclaimedCount})`
+                : `My Items (${myCount})`}
+          </Button>
+        ))}
+      </div>
 
-            {/* Separator */}
-            {items.length > 0 && newRows.length > 0 && (
-              <tr>
-                <td
-                  colSpan={6}
-                  className="px-3 py-2 text-xs font-medium text-muted-foreground bg-muted/30"
-                >
-                  Add new equipment
-                </td>
-              </tr>
-            )}
+      {/* Category suggestion datalist (shared) */}
+      <datalist id={DATALIST_ID}>
+        {allSuggestions.map((s) => (
+          <option key={s} value={s} />
+        ))}
+      </datalist>
 
-            {/* New rows */}
-            {newRows.map((row) => (
-              <tr
-                key={row.id}
-                className="border-b last:border-0 bg-green-50/30"
+      {/* No items */}
+      {filtered.length === 0 && (
+        <EmptyState
+          icon={Backpack}
+          title="No supplies or gear listed"
+          description={
+            filter !== "all"
+              ? "No items match this filter."
+              : "Add supplies and gear below!"
+          }
+        />
+      )}
+
+      {/* Category sections */}
+      {categoryOrder.map((cat) => (
+        <EquipmentCategorySection
+          key={cat}
+          category={cat}
+          items={grouped[cat]}
+          families={families}
+          familyId={familyId}
+          isOrganizer={isOrganizer}
+          allSuggestions={allSuggestions}
+          onDelete={handleDelete}
+          onClaim={handleClaim}
+          onVolunteer={handleVolunteer}
+          onUnvolunteer={handleUnvolunteer}
+          onSaveEdit={handleSaveEdit}
+          onBulkAdd={handleBulkAdd}
+        />
+      ))}
+
+      {/* Uncategorized */}
+      {uncategorized.length > 0 && (
+        <EquipmentCategorySection
+          key="__uncategorized__"
+          category=""
+          items={uncategorized}
+          families={families}
+          familyId={familyId}
+          isOrganizer={isOrganizer}
+          allSuggestions={allSuggestions}
+          onDelete={handleDelete}
+          onClaim={handleClaim}
+          onVolunteer={handleVolunteer}
+          onUnvolunteer={handleUnvolunteer}
+          onSaveEdit={handleSaveEdit}
+          onBulkAdd={handleBulkAdd}
+        />
+      )}
+
+      {/* Quick Add Section */}
+      <EquipmentQuickAdd allSuggestions={allSuggestions} onBulkAdd={handleBulkAdd} />
+    </div>
+  );
+}
+
+/* ════════════════════════════════════════════════════════
+   Category Section
+   ════════════════════════════════════════════════════════ */
+
+function EquipmentCategorySection({
+  category,
+  items,
+  families,
+  familyId,
+  isOrganizer,
+  allSuggestions,
+  onDelete,
+  onClaim,
+  onVolunteer,
+  onUnvolunteer,
+  onSaveEdit,
+  onBulkAdd,
+}: {
+  category: string;
+  items: EquipmentWithOwner[];
+  families: Family[];
+  familyId: number | null;
+  isOrganizer: boolean;
+  allSuggestions: string[];
+  onDelete: (id: number) => Promise<void>;
+  onClaim: (id: number) => Promise<void>;
+  onVolunteer: (id: number) => Promise<void>;
+  onUnvolunteer: (id: number) => Promise<void>;
+  onSaveEdit: (
+    id: number,
+    vals: { name: string; category?: string; quantity?: number; notes?: string }
+  ) => Promise<void>;
+  onBulkAdd: (
+    rows: { name: string; category?: string; quantity?: number; notes?: string }[]
+  ) => Promise<void>;
+}) {
+  const [collapsed, setCollapsed] = useState(false);
+  const [addName, setAddName] = useState("");
+  const [addQty, setAddQty] = useState("1");
+  const [addNotes, setAddNotes] = useState("");
+  const [adding, setAdding] = useState(false);
+
+  const claimed = items.filter((i) => i.ownerFamilyId || i.volunteers.length > 0).length;
+  const displayName = category || "Uncategorized";
+
+  async function handleQuickAdd() {
+    if (!addName.trim()) return;
+    setAdding(true);
+    await onBulkAdd([
+      {
+        name: addName.trim(),
+        category: category || undefined,
+        quantity: parseInt(addQty) || 1,
+        notes: addNotes.trim() || undefined,
+      },
+    ]);
+    setAddName("");
+    setAddQty("1");
+    setAddNotes("");
+    setAdding(false);
+  }
+
+  return (
+    <div className="space-y-2">
+      {/* Section header */}
+      <button
+        onClick={() => setCollapsed((c) => !c)}
+        className="flex items-center gap-2 w-full text-left group"
+      >
+        {collapsed ? (
+          <ChevronRight className="h-4 w-4 text-muted-foreground" />
+        ) : (
+          <ChevronDown className="h-4 w-4 text-muted-foreground" />
+        )}
+        <span className="font-semibold text-sm">{displayName}</span>
+        <Badge variant="secondary" className="text-xs">
+          {claimed}/{items.length} claimed
+        </Badge>
+      </button>
+
+      {!collapsed && (
+        <div className="space-y-1.5 pl-6">
+          {items.map((item) => (
+            <EquipmentItemCard
+              key={item.id}
+              item={item}
+              families={families}
+              familyId={familyId}
+              isOrganizer={isOrganizer}
+              allSuggestions={allSuggestions}
+              onDelete={onDelete}
+              onClaim={onClaim}
+              onVolunteer={onVolunteer}
+              onUnvolunteer={onUnvolunteer}
+              onSaveEdit={onSaveEdit}
+            />
+          ))}
+
+          {/* Inline quick-add */}
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleQuickAdd();
+            }}
+            className="flex items-center gap-2 pt-1"
+          >
+            <Input
+              value={addName}
+              onChange={(e) => setAddName(e.target.value)}
+              placeholder={`Add item to ${displayName}...`}
+              className="h-8 text-sm flex-1"
+            />
+            <Input
+              type="number"
+              min={1}
+              value={addQty}
+              onChange={(e) => setAddQty(e.target.value)}
+              placeholder="Qty"
+              className="h-8 text-sm w-16"
+            />
+            <Input
+              value={addNotes}
+              onChange={(e) => setAddNotes(e.target.value)}
+              placeholder="Notes"
+              className="h-8 text-sm w-28"
+            />
+            <Button
+              type="submit"
+              size="sm"
+              variant="outline"
+              className="h-8"
+              disabled={!addName.trim() || adding}
+            >
+              <Plus className="h-3.5 w-3.5" />
+            </Button>
+          </form>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ════════════════════════════════════════════════════════
+   Equipment Item Card
+   ════════════════════════════════════════════════════════ */
+
+function EquipmentItemCard({
+  item,
+  families,
+  familyId,
+  isOrganizer,
+  allSuggestions,
+  onDelete,
+  onClaim,
+  onVolunteer,
+  onUnvolunteer,
+  onSaveEdit,
+}: {
+  item: EquipmentWithOwner;
+  families: Family[];
+  familyId: number | null;
+  isOrganizer: boolean;
+  allSuggestions: string[];
+  onDelete: (id: number) => Promise<void>;
+  onClaim: (id: number) => Promise<void>;
+  onVolunteer: (id: number) => Promise<void>;
+  onUnvolunteer: (id: number) => Promise<void>;
+  onSaveEdit: (
+    id: number,
+    vals: { name: string; category?: string; quantity?: number; notes?: string }
+  ) => Promise<void>;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [editName, setEditName] = useState(item.name);
+  const [editCategory, setEditCategory] = useState(item.category || "");
+  const [editQty, setEditQty] = useState(String(item.quantity));
+  const [editNotes, setEditNotes] = useState(item.notes || "");
+  const [busy, setBusy] = useState(false);
+
+  const hasOwner = !!item.owner;
+  const hasVolunteers = item.volunteers.length > 0;
+  const isMyItem =
+    item.ownerFamilyId === familyId ||
+    item.volunteers.some((v) => v.familyId === familyId);
+  const needsVolunteer = !hasOwner && !hasVolunteers;
+
+  const bg = needsVolunteer
+    ? "bg-amber-50 border-amber-200"
+    : "bg-white border-border";
+
+  function startEdit() {
+    setEditName(item.name);
+    setEditCategory(item.category || "");
+    setEditQty(String(item.quantity));
+    setEditNotes(item.notes || "");
+    setEditing(true);
+  }
+
+  async function saveEdit() {
+    if (!editName.trim()) return;
+    setBusy(true);
+    await onSaveEdit(item.id, {
+      name: editName.trim(),
+      category: editCategory.trim() || undefined,
+      quantity: parseInt(editQty) || 1,
+      notes: editNotes.trim() || undefined,
+    });
+    setEditing(false);
+    setBusy(false);
+  }
+
+  /* ── Edit mode ── */
+  if (editing) {
+    return (
+      <div className="rounded-lg border p-2.5 space-y-2 bg-blue-50/30 border-blue-200">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <Input
+            value={editName}
+            onChange={(e) => setEditName(e.target.value)}
+            placeholder="Name"
+            className="h-8 text-sm col-span-2"
+            autoFocus
+          />
+          <Input
+            list={DATALIST_ID}
+            value={editCategory}
+            onChange={(e) => setEditCategory(e.target.value)}
+            placeholder="Category"
+            className="h-8 text-sm"
+          />
+          <Input
+            type="number"
+            min={1}
+            value={editQty}
+            onChange={(e) => setEditQty(e.target.value)}
+            placeholder="Qty"
+            className="h-8 text-sm"
+          />
+          <Input
+            value={editNotes}
+            onChange={(e) => setEditNotes(e.target.value)}
+            placeholder="Notes"
+            className="h-8 text-sm col-span-2 sm:col-span-4"
+          />
+        </div>
+        <div className="flex gap-1.5 justify-end">
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-7 text-xs"
+            onClick={() => setEditing(false)}
+          >
+            Cancel
+          </Button>
+          <Button
+            size="sm"
+            className="h-7 text-xs"
+            onClick={saveEdit}
+            disabled={!editName.trim() || busy}
+          >
+            <Check className="h-3 w-3 mr-1" />
+            Save
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  /* ── Display mode ── */
+  return (
+    <div className={`rounded-lg border p-2.5 ${bg}`}>
+      {/* Top row: name + details + actions */}
+      <div className="flex items-start gap-2">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-sm font-medium">{item.name}</span>
+            {item.quantity > 1 && (
+              <span className="text-xs text-muted-foreground">
+                ×{item.quantity}
+              </span>
+            )}
+          </div>
+
+          {/* Notes */}
+          {item.notes && (
+            <p className="text-xs text-muted-foreground mt-0.5">{item.notes}</p>
+          )}
+
+          {/* Volunteer row */}
+          <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+            {/* Owner */}
+            {item.owner && (
+              <Badge
+                variant="secondary"
+                className="text-[10px] px-1.5 py-0 bg-emerald-100 text-emerald-700"
               >
-                <td className="px-3 py-1.5">
-                  <Input
-                    value={row.name}
-                    onChange={(e) =>
-                      updateNewRow(row.id, "name", e.target.value)
-                    }
-                    className="h-8 text-sm"
-                    placeholder="Item name"
-                  />
-                </td>
-                <td className="px-3 py-1.5">
-                  <Select
-                    value={row.category}
-                    onValueChange={(val) =>
-                      updateNewRow(row.id, "category", val)
-                    }
+                {familyEmoji(item.owner.id)} {item.owner.name}
+              </Badge>
+            )}
+            {/* Volunteer badges */}
+            {item.volunteers.map((v) => (
+              <Badge
+                key={v.id}
+                variant="secondary"
+                className="text-[10px] px-1.5 py-0 bg-emerald-100 text-emerald-700"
+              >
+                {familyEmoji(v.family.id)} {v.family.name}
+                {v.familyId === familyId && (
+                  <button
+                    onClick={() => onUnvolunteer(item.id)}
+                    className="ml-0.5 hover:text-red-600"
                   >
-                    <SelectTrigger className="h-8 text-sm">
-                      <SelectValue placeholder="—" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {EQUIPMENT_CATEGORIES.map((c) => (
-                        <SelectItem key={c} value={c}>
-                          {c.charAt(0).toUpperCase() + c.slice(1)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </td>
-                <td className="px-3 py-1.5">
-                  <Input
-                    type="number"
-                    min={1}
-                    value={row.quantity}
-                    onChange={(e) =>
-                      updateNewRow(row.id, "quantity", e.target.value)
-                    }
-                    className="h-8 text-sm"
-                  />
-                </td>
-                <td className="px-3 py-1.5" />
-                <td className="px-3 py-1.5">
-                  <Input
-                    value={row.notes}
-                    onChange={(e) =>
-                      updateNewRow(row.id, "notes", e.target.value)
-                    }
-                    className="h-8 text-sm"
-                    placeholder="Notes"
-                  />
-                </td>
-                <td className="px-3 py-1.5 text-right">
-                  {newRows.length > 1 && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7 text-muted-foreground"
-                      onClick={() => removeNewRow(row.id)}
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </Button>
-                  )}
-                </td>
-              </tr>
+                    <X className="h-2.5 w-2.5" />
+                  </button>
+                )}
+              </Badge>
             ))}
-          </tbody>
-        </table>
+
+            {/* Needs volunteer warning */}
+            {needsVolunteer && (
+              <span className="text-[10px] text-amber-600 flex items-center gap-0.5">
+                <AlertTriangle className="h-3 w-3" /> Needs someone to bring
+              </span>
+            )}
+
+            {/* Self-volunteer button */}
+            {!isMyItem && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-5 text-[10px] px-1.5 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
+                onClick={() =>
+                  hasOwner ? onVolunteer(item.id) : onClaim(item.id)
+                }
+              >
+                <Hand className="h-3 w-3 mr-0.5" />
+                I&apos;ll bring this!
+              </Button>
+            )}
+
+            {/* Organizer assign */}
+            {isOrganizer && !hasOwner && (
+              <AssignDropdown
+                families={families}
+                onAssign={(fId) => {
+                  claimEquipment(item.id, parseInt(String(item.eventId), 10), fId).then(
+                    () => window.location.reload()
+                  );
+                }}
+              />
+            )}
+          </div>
+        </div>
+
+        {/* Action buttons */}
+        <div className="flex items-center gap-0.5 shrink-0">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6"
+            onClick={startEdit}
+          >
+            <Pencil className="h-3 w-3" />
+          </Button>
+          {isOrganizer && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 text-red-500 hover:text-red-600"
+              onClick={() => onDelete(item.id)}
+            >
+              <Trash2 className="h-3 w-3" />
+            </Button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ════════════════════════════════════════════════════════
+   Assign Dropdown
+   ════════════════════════════════════════════════════════ */
+
+function AssignDropdown({
+  families,
+  onAssign,
+}: {
+  families: Family[];
+  onAssign: (familyId: number) => void;
+}) {
+  const [open, setOpen] = useState(false);
+
+  if (!open) {
+    return (
+      <Button
+        variant="ghost"
+        size="sm"
+        className="h-5 text-[10px] px-1.5 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+        onClick={() => setOpen(true)}
+      >
+        <UserPlus className="h-3 w-3 mr-0.5" />
+        Assign
+      </Button>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-1">
+      {families.map((f) => (
+        <button
+          key={f.id}
+          onClick={() => {
+            onAssign(f.id);
+            setOpen(false);
+          }}
+          className="text-[10px] px-1.5 py-0.5 rounded bg-muted hover:bg-muted/80"
+          title={f.name}
+        >
+          {familyEmoji(f.id)} {f.name}
+        </button>
+      ))}
+      <button
+        onClick={() => setOpen(false)}
+        className="text-muted-foreground hover:text-foreground"
+      >
+        <X className="h-3 w-3" />
+      </button>
+    </div>
+  );
+}
+
+/* ════════════════════════════════════════════════════════
+   Quick Add Section
+   ════════════════════════════════════════════════════════ */
+
+interface QuickRow {
+  id: string;
+  name: string;
+  category: string;
+  quantity: string;
+  notes: string;
+}
+
+function createQuickRow(): QuickRow {
+  return {
+    id: crypto.randomUUID(),
+    name: "",
+    category: "",
+    quantity: "1",
+    notes: "",
+  };
+}
+
+function EquipmentQuickAdd({
+  allSuggestions,
+  onBulkAdd,
+}: {
+  allSuggestions: string[];
+  onBulkAdd: (
+    rows: { name: string; category?: string; quantity?: number; notes?: string }[]
+  ) => Promise<void>;
+}) {
+  const [rows, setRows] = useState<QuickRow[]>([
+    createQuickRow(),
+    createQuickRow(),
+    createQuickRow(),
+  ]);
+  const [saving, setSaving] = useState(false);
+
+  function update(id: string, field: keyof QuickRow, value: string) {
+    setRows((prev) =>
+      prev.map((r) => (r.id === id ? { ...r, [field]: value } : r))
+    );
+  }
+
+  function remove(id: string) {
+    setRows((prev) => prev.filter((r) => r.id !== id));
+  }
+
+  async function handleSave() {
+    const valid = rows.filter((r) => r.name.trim());
+    if (valid.length === 0) return;
+    setSaving(true);
+    await onBulkAdd(
+      valid.map((r) => ({
+        name: r.name.trim(),
+        category: r.category.trim() || undefined,
+        quantity: parseInt(r.quantity) || 1,
+        notes: r.notes.trim() || undefined,
+      }))
+    );
+    setRows([createQuickRow(), createQuickRow(), createQuickRow()]);
+    setSaving(false);
+  }
+
+  const hasData = rows.some((r) => r.name.trim());
+
+  return (
+    <div className="border rounded-lg p-4 space-y-3 bg-muted/10">
+      <h3 className="text-sm font-semibold flex items-center gap-2">
+        <Plus className="h-4 w-4" />
+        Quick Add Multiple Items
+      </h3>
+
+      <div className="space-y-2">
+        {rows.map((row) => (
+          <div key={row.id} className="flex items-center gap-2">
+            <Input
+              value={row.name}
+              onChange={(e) => update(row.id, "name", e.target.value)}
+              placeholder="Item name"
+              className="h-8 text-sm flex-1"
+            />
+            <Input
+              list={DATALIST_ID}
+              value={row.category}
+              onChange={(e) => update(row.id, "category", e.target.value)}
+              placeholder="Category"
+              className="h-8 text-sm w-28"
+            />
+            <Input
+              type="number"
+              min={1}
+              value={row.quantity}
+              onChange={(e) => update(row.id, "quantity", e.target.value)}
+              placeholder="Qty"
+              className="h-8 text-sm w-16"
+            />
+            <Input
+              value={row.notes}
+              onChange={(e) => update(row.id, "notes", e.target.value)}
+              placeholder="Notes"
+              className="h-8 text-sm w-28"
+            />
+            {rows.length > 1 && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 text-muted-foreground shrink-0"
+                onClick={() => remove(row.id)}
+              >
+                <X className="h-3.5 w-3.5" />
+              </Button>
+            )}
+          </div>
+        ))}
       </div>
 
-      {/* Bottom actions */}
       <div className="flex items-center gap-2">
-        <Button variant="outline" size="sm" onClick={addNewRow}>
-          <Plus className="mr-2 h-4 w-4" />
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setRows((r) => [...r, createQuickRow()])}
+        >
+          <Plus className="mr-1 h-3.5 w-3.5" />
           Add Row
         </Button>
-        {hasNewData && (
-          <Button size="sm" onClick={handleBulkSave} disabled={saving}>
-            <Save className="mr-2 h-4 w-4" />
-            {saving ? "Saving..." : "Save All New Items"}
+        {hasData && (
+          <Button size="sm" onClick={handleSave} disabled={saving}>
+            <Check className="mr-1 h-3.5 w-3.5" />
+            {saving ? "Saving..." : "Save All"}
           </Button>
         )}
       </div>
