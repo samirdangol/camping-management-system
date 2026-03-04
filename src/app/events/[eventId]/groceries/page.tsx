@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useParams } from "next/navigation";
 import {
   bulkCreateGroceryItems,
@@ -84,7 +84,7 @@ export default function GroceriesPage() {
     () =>
       items.filter((item) => {
         if (filter === "unassigned")
-          return !item.assignedFamilyId && item.volunteers.length === 0;
+          return !item.assignedFamilyId && !item.assignedLabel && item.volunteers.length === 0;
         if (filter === "mine")
           return (
             item.assignedFamilyId === familyId ||
@@ -136,7 +136,7 @@ export default function GroceriesPage() {
 
   /* totals for filter badges */
   const unassignedCount = items.filter(
-    (i) => !i.assignedFamilyId && i.volunteers.length === 0
+    (i) => !i.assignedFamilyId && !i.assignedLabel && i.volunteers.length === 0
   ).length;
   const myCount = items.filter(
     (i) =>
@@ -159,6 +159,15 @@ export default function GroceriesPage() {
 
   async function handleUnclaim(itemId: number) {
     await unclaimGroceryItem(itemId, eid);
+    await fetchData();
+  }
+
+  async function handleOrganizerAssign(
+    itemId: number,
+    assignFamilyId: number | null,
+    label?: string
+  ) {
+    await claimGroceryItem(itemId, eid, assignFamilyId, label);
     await fetchData();
   }
 
@@ -315,6 +324,7 @@ export default function GroceriesPage() {
           onDelete={handleDelete}
           onClaim={handleClaim}
           onUnclaim={handleUnclaim}
+          onOrganizerAssign={handleOrganizerAssign}
           onTogglePurchased={handleTogglePurchased}
           onVolunteer={handleVolunteer}
           onUnvolunteer={handleUnvolunteer}
@@ -340,6 +350,7 @@ export default function GroceriesPage() {
             onDelete={handleDelete}
             onClaim={handleClaim}
             onUnclaim={handleUnclaim}
+            onOrganizerAssign={handleOrganizerAssign}
             onTogglePurchased={handleTogglePurchased}
             onVolunteer={handleVolunteer}
             onUnvolunteer={handleUnvolunteer}
@@ -368,6 +379,7 @@ export default function GroceriesPage() {
           onDelete={handleDelete}
           onClaim={handleClaim}
           onUnclaim={handleUnclaim}
+          onOrganizerAssign={handleOrganizerAssign}
           onTogglePurchased={handleTogglePurchased}
           onVolunteer={handleVolunteer}
           onUnvolunteer={handleUnvolunteer}
@@ -427,6 +439,7 @@ function CategorySection({
   onDelete,
   onClaim,
   onUnclaim,
+  onOrganizerAssign,
   onTogglePurchased,
   onVolunteer,
   onUnvolunteer,
@@ -444,6 +457,7 @@ function CategorySection({
   onDelete: (id: number) => Promise<void>;
   onClaim: (id: number) => Promise<void>;
   onUnclaim: (id: number) => Promise<void>;
+  onOrganizerAssign: (id: number, familyId: number | null, label?: string) => Promise<void>;
   onTogglePurchased: (id: number, current: boolean) => Promise<void>;
   onVolunteer: (id: number) => Promise<void>;
   onUnvolunteer: (id: number) => Promise<void>;
@@ -600,6 +614,7 @@ function CategorySection({
               onDelete={onDelete}
               onClaim={onClaim}
               onUnclaim={onUnclaim}
+              onOrganizerAssign={onOrganizerAssign}
               onTogglePurchased={onTogglePurchased}
               onVolunteer={onVolunteer}
               onUnvolunteer={onUnvolunteer}
@@ -656,6 +671,7 @@ function GroceryItemCard({
   onDelete,
   onClaim,
   onUnclaim,
+  onOrganizerAssign,
   onTogglePurchased,
   onVolunteer,
   onUnvolunteer,
@@ -669,6 +685,7 @@ function GroceryItemCard({
   onDelete: (id: number) => Promise<void>;
   onClaim: (id: number) => Promise<void>;
   onUnclaim: (id: number) => Promise<void>;
+  onOrganizerAssign: (id: number, familyId: number | null, label?: string) => Promise<void>;
   onTogglePurchased: (id: number, current: boolean) => Promise<void>;
   onVolunteer: (id: number) => Promise<void>;
   onUnvolunteer: (id: number) => Promise<void>;
@@ -692,8 +709,9 @@ function GroceryItemCard({
   );
   const [editMealTag, setEditMealTag] = useState(item.mealTag || "");
   const [busy, setBusy] = useState(false);
+  const [showAssignPanel, setShowAssignPanel] = useState(false);
 
-  const hasOwner = !!item.assignedTo;
+  const hasOwner = !!item.assignedTo || !!item.assignedLabel;
   const hasVolunteers = item.volunteers.length > 0;
   const iAmOwner = item.assignedFamilyId === familyId;
   const iAmVolunteer = item.volunteers.some((v) => v.familyId === familyId);
@@ -819,14 +837,16 @@ function GroceryItemCard({
             </Badge>
           )}
 
-          {/* Owner / assignedTo badge (with unclaim X if mine) */}
-          {item.assignedTo && (
+          {/* Owner badge: family or free-text label */}
+          {(item.assignedTo || item.assignedLabel) && (
             <Badge
               variant="secondary"
               className="text-[10px] px-1.5 py-0 bg-emerald-100 text-emerald-700"
             >
-              {familyEmoji(item.assignedTo.id)} {item.assignedTo.name}
-              {iAmOwner && (
+              {item.assignedTo
+                ? <>{familyEmoji(item.assignedTo.id)} {item.assignedTo.name}</>
+                : item.assignedLabel}
+              {(iAmOwner || isOrganizer) && (
                 <button
                   onClick={() => onUnclaim(item.id)}
                   className="ml-0.5 hover:text-red-600"
@@ -877,16 +897,29 @@ function GroceryItemCard({
             </Button>
           )}
 
-          {/* Organizer assign */}
-          {isOrganizer && !hasOwner && !item.isPurchased && (
-            <AssignDropdown
-              families={families}
-              onAssign={(fId) => {
-                claimGroceryItem(item.id, parseInt(String(item.eventId), 10), fId).then(
-                  () => window.location.reload()
-                );
-              }}
-            />
+          {/* Organizer assign / reassign */}
+          {isOrganizer && !item.isPurchased && (
+            <div className="relative">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-5 text-[10px] px-1.5 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                onClick={() => setShowAssignPanel((v) => !v)}
+              >
+                <UserPlus className="h-3 w-3 mr-0.5" />
+                {hasOwner ? "Reassign" : "Assign"}
+              </Button>
+              {showAssignPanel && (
+                <AssignPanel
+                  families={families}
+                  onAssign={(fId, label) => {
+                    onOrganizerAssign(item.id, fId, label);
+                    setShowAssignPanel(false);
+                  }}
+                  onClose={() => setShowAssignPanel(false)}
+                />
+              )}
+            </div>
           )}
         </div>
 
@@ -917,53 +950,118 @@ function GroceryItemCard({
 }
 
 /* ════════════════════════════════════════════════════════
-   Assign Dropdown (organizer picks a family)
+   Assign Panel (organizer picks a family, contact, or types free text)
    ════════════════════════════════════════════════════════ */
 
-function AssignDropdown({
+function AssignPanel({
   families,
   onAssign,
+  onClose,
 }: {
   families: Family[];
-  onAssign: (familyId: number) => void;
+  onAssign: (familyId: number | null, label?: string) => void;
+  onClose: () => void;
 }) {
-  const [open, setOpen] = useState(false);
+  const [expandedFamilyId, setExpandedFamilyId] = useState<number | null>(null);
+  const [customText, setCustomText] = useState("");
+  const panelRef = useRef<HTMLDivElement>(null);
 
-  if (!open) {
-    return (
-      <Button
-        variant="ghost"
-        size="sm"
-        className="h-5 text-[10px] px-1.5 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-        onClick={() => setOpen(true)}
-      >
-        <UserPlus className="h-3 w-3 mr-0.5" />
-        Assign
-      </Button>
-    );
-  }
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
+        onClose();
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [onClose]);
 
   return (
-    <div className="flex items-center gap-1">
-      {families.map((f) => (
-        <button
-          key={f.id}
-          onClick={() => {
-            onAssign(f.id);
-            setOpen(false);
-          }}
-          className="text-[10px] px-1.5 py-0.5 rounded bg-muted hover:bg-muted/80"
-          title={f.name}
-        >
-          {familyEmoji(f.id)} {f.name}
-        </button>
-      ))}
-      <button
-        onClick={() => setOpen(false)}
-        className="text-muted-foreground hover:text-foreground"
+    <div
+      ref={panelRef}
+      className="absolute z-20 top-full left-0 mt-1 bg-white border rounded-lg shadow-lg p-2 min-w-[220px] space-y-2"
+    >
+      {/* Family grid */}
+      <div className="grid grid-cols-2 gap-1">
+        {families.map((f) => (
+          <div key={f.id}>
+            <div className="flex items-center">
+              <button
+                onClick={() => onAssign(f.id)}
+                className="flex-1 text-left text-xs px-2 py-1.5 rounded bg-muted hover:bg-muted/80 truncate"
+                title={`Assign to ${f.name} family`}
+              >
+                {familyEmoji(f.id)} {f.name}
+              </button>
+              {(f.contactName || f.contactName2) && (
+                <button
+                  onClick={() =>
+                    setExpandedFamilyId((prev) =>
+                      prev === f.id ? null : f.id
+                    )
+                  }
+                  className="px-1 py-1.5 text-muted-foreground hover:text-foreground"
+                  title="Show individual contacts"
+                >
+                  {expandedFamilyId === f.id ? (
+                    <ChevronDown className="h-3 w-3" />
+                  ) : (
+                    <ChevronRight className="h-3 w-3" />
+                  )}
+                </button>
+              )}
+            </div>
+            {/* Expanded contacts */}
+            {expandedFamilyId === f.id && (
+              <div className="ml-3 mt-0.5 space-y-0.5">
+                {f.contactName && (
+                  <button
+                    onClick={() => onAssign(null, f.contactName)}
+                    className="block w-full text-left text-[10px] px-2 py-1 rounded hover:bg-blue-50 text-blue-600"
+                  >
+                    → {f.contactName}
+                  </button>
+                )}
+                {f.contactName2 && (
+                  <button
+                    onClick={() => onAssign(null, f.contactName2!)}
+                    className="block w-full text-left text-[10px] px-2 py-1 rounded hover:bg-blue-50 text-blue-600"
+                  >
+                    → {f.contactName2}
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* Free text input */}
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (customText.trim()) {
+            onAssign(null, customText.trim());
+          }
+        }}
+        className="flex items-center gap-1 border-t pt-2"
       >
-        <X className="h-3 w-3" />
-      </button>
+        <Input
+          value={customText}
+          onChange={(e) => setCustomText(e.target.value)}
+          placeholder="Custom name..."
+          className="h-7 text-xs flex-1"
+        />
+        <Button
+          type="submit"
+          size="icon"
+          variant="ghost"
+          className="h-7 w-7 text-blue-600"
+          disabled={!customText.trim()}
+        >
+          <Check className="h-3.5 w-3.5" />
+        </Button>
+      </form>
     </div>
   );
 }

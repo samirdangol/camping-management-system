@@ -163,6 +163,7 @@ model GroceryItem {
   quantity         String?
   estimatedCost    Float?
   assignedFamilyId Int?
+  assignedLabel    String?
   isPurchased      Boolean  @default(false)
   mealTag          String?
   sortOrder        Int      @default(0)
@@ -194,6 +195,7 @@ model Equipment {
   category      String?
   quantity      Int      @default(1)
   ownerFamilyId Int?
+  ownerLabel    String?
   sortOrder     Int      @default(0)
   notes         String?
   createdAt     DateTime @default(now())
