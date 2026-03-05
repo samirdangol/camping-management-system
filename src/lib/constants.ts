@@ -19,12 +19,12 @@ export const TARGET_GROUP_LABELS: Record<TargetGroup, string> = {
 };
 
 export const GROCERY_CATEGORIES = [
-  "produce",
-  "dairy",
-  "meat",
-  "spices",
-  "grains",
+  "breakfast",
+  "lunch/dinner",
+  "bbq",
   "drinks",
+  "spices",
+  "dessert",
   "snacks",
   "other",
 ] as const;
@@ -33,11 +33,13 @@ export const GROCERY_CATEGORIES = [
 export const GROCERY_CATEGORY_SUGGESTIONS = GROCERY_CATEGORIES;
 
 export const EQUIPMENT_CATEGORIES = [
+  "cookwares",
+  "utensils",
+  "bbq utensils",
+  "campfire",
   "shelter",
-  "cooking",
   "lighting",
   "cleaning",
-  "recreation",
   "other",
 ] as const;
 

@@ -34,7 +34,10 @@ import {
   ChevronRight,
   AlertTriangle,
   FolderPlus,
+  ClipboardPaste,
 } from "lucide-react";
+import { PasteImportDialog } from "@/components/bulk-import/paste-import-dialog";
+import { CategoryBulkAdd } from "@/components/bulk-import/category-bulk-add";
 import { useIsOrganizer } from "@/hooks/use-is-organizer";
 import { familyEmoji } from "@/lib/utils";
 import type { Family, GroceryWithFamily } from "@/types";
@@ -64,6 +67,7 @@ export default function GroceriesPage() {
   const [loading, setLoading] = useState(true);
   const [newCategories, setNewCategories] = useState<string[]>([]);
   const [newCatInput, setNewCatInput] = useState("");
+  const [importOpen, setImportOpen] = useState(false);
 
   const fetchData = useCallback(async () => {
     const [signups, groceries] = await Promise.all([
@@ -265,7 +269,20 @@ export default function GroceriesPage() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold">Groceries</h2>
+        <div className="flex items-center gap-2">
+          <h2 className="text-lg font-semibold">Groceries</h2>
+          {familyId && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs gap-1"
+              onClick={() => setImportOpen(true)}
+            >
+              <ClipboardPaste className="h-3.5 w-3.5" />
+              Import List
+            </Button>
+          )}
+        </div>
         <span className="text-sm text-muted-foreground">
           {items.length} item{items.length !== 1 && "s"}
           {items.filter((i) => i.isPurchased).length > 0 &&
@@ -290,13 +307,6 @@ export default function GroceriesPage() {
           </Button>
         ))}
       </div>
-
-      {/* Category suggestion datalist (shared) */}
-      <datalist id={DATALIST_ID}>
-        {allSuggestions.map((s) => (
-          <option key={s} value={s} />
-        ))}
-      </datalist>
 
       {/* No items at all */}
       {filtered.length === 0 && (
@@ -417,9 +427,20 @@ export default function GroceriesPage() {
       </form>
 
       {/* Quick Add Section */}
-      <QuickAddSection
+      <CategoryBulkAdd
         allSuggestions={allSuggestions}
+        existingCategories={existingCategories}
+        datalistId={DATALIST_ID}
         onBulkAdd={handleBulkAdd}
+      />
+
+      {/* Import Dialog */}
+      <PasteImportDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        onImport={handleBulkAdd}
+        title="Import Groceries"
+        placeholder={"Breakfast: Milk, Tea, Coffee, Sugar\nLunch/Dinner: Chicken, Rice, Oil\nDrinks: Beer, Wine, Water"}
       />
     </div>
   );
@@ -1066,134 +1087,3 @@ function AssignPanel({
   );
 }
 
-/* ════════════════════════════════════════════════════════
-   Quick Add Section (bulk add with category picker)
-   ════════════════════════════════════════════════════════ */
-
-interface QuickRow {
-  id: string;
-  name: string;
-  category: string;
-  quantity: string;
-}
-
-function createQuickRow(): QuickRow {
-  return {
-    id: crypto.randomUUID(),
-    name: "",
-    category: "",
-    quantity: "",
-  };
-}
-
-function QuickAddSection({
-  allSuggestions,
-  onBulkAdd,
-}: {
-  allSuggestions: string[];
-  onBulkAdd: (
-    rows: {
-      name: string;
-      category?: string;
-      quantity?: string;
-      estimatedCost?: number;
-      mealTag?: string;
-    }[]
-  ) => Promise<void>;
-}) {
-  const [rows, setRows] = useState<QuickRow[]>([
-    createQuickRow(),
-    createQuickRow(),
-    createQuickRow(),
-  ]);
-  const [saving, setSaving] = useState(false);
-
-  function update(id: string, field: keyof QuickRow, value: string) {
-    setRows((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, [field]: value } : r))
-    );
-  }
-
-  function remove(id: string) {
-    setRows((prev) => prev.filter((r) => r.id !== id));
-  }
-
-  async function handleSave() {
-    const valid = rows.filter((r) => r.name.trim());
-    if (valid.length === 0) return;
-    setSaving(true);
-    await onBulkAdd(
-      valid.map((r) => ({
-        name: r.name.trim(),
-        category: r.category.trim() || undefined,
-        quantity: r.quantity.trim() || undefined,
-      }))
-    );
-    setRows([createQuickRow(), createQuickRow(), createQuickRow()]);
-    setSaving(false);
-  }
-
-  const hasData = rows.some((r) => r.name.trim());
-
-  return (
-    <div className="border rounded-lg p-4 space-y-3 bg-muted/10">
-      <h3 className="text-sm font-semibold flex items-center gap-2">
-        <Plus className="h-4 w-4" />
-        Quick Add Multiple Items
-      </h3>
-
-      <div className="space-y-2">
-        {rows.map((row) => (
-          <div key={row.id} className="flex items-center gap-2">
-            <Input
-              value={row.name}
-              onChange={(e) => update(row.id, "name", e.target.value)}
-              placeholder="Item name"
-              className="h-8 text-sm flex-1"
-            />
-            <Input
-              list={DATALIST_ID}
-              value={row.category}
-              onChange={(e) => update(row.id, "category", e.target.value)}
-              placeholder="Category"
-              className="h-8 text-sm w-28"
-            />
-            <Input
-              value={row.quantity}
-              onChange={(e) => update(row.id, "quantity", e.target.value)}
-              placeholder="Qty"
-              className="h-8 text-sm w-16"
-            />
-            {rows.length > 1 && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7 text-muted-foreground shrink-0"
-                onClick={() => remove(row.id)}
-              >
-                <X className="h-3.5 w-3.5" />
-              </Button>
-            )}
-          </div>
-        ))}
-      </div>
-
-      <div className="flex items-center gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setRows((r) => [...r, createQuickRow()])}
-        >
-          <Plus className="mr-1 h-3.5 w-3.5" />
-          Add Row
-        </Button>
-        {hasData && (
-          <Button size="sm" onClick={handleSave} disabled={saving}>
-            <Check className="mr-1 h-3.5 w-3.5" />
-            {saving ? "Saving..." : "Save All"}
-          </Button>
-        )}
-      </div>
-    </div>
-  );
-}
