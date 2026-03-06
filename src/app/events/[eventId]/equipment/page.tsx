@@ -705,7 +705,7 @@ function EquipmentItemCard({
   const needsVolunteer = !hasOwner && !hasVolunteers;
 
   const bg = needsVolunteer
-    ? "bg-amber-50 border-amber-200"
+    ? "bg-sky-50 border-sky-200"
     : "bg-white border-border";
 
   function startEdit() {

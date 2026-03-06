@@ -433,7 +433,7 @@ function MealCard({
                     className={`rounded-lg border p-2 transition-colors ${
                       hasVolunteers
                         ? "bg-white border-border"
-                        : "bg-amber-50 border-amber-200"
+                        : "bg-sky-50 border-sky-200"
                     }`}
                   >
                     <div className="flex items-center gap-1.5 flex-wrap">

@@ -742,7 +742,7 @@ function GroceryItemCard({
   const bg = item.isPurchased
     ? "opacity-50 bg-muted/20 border-muted"
     : needsVolunteer
-      ? "bg-amber-50 border-amber-200"
+      ? "bg-sky-50 border-sky-200"
       : "bg-white border-border";
 
   function startEdit() {
