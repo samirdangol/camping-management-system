@@ -2,36 +2,52 @@
 
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
+import { getCurrentGroup } from "@/lib/auth";
 
 // ============ FAMILY + SIGNUP ACTIONS ============
 
 export async function signupFamily(
   eventId: number,
-  familyData: { name: string; contactName: string; contactName2?: string; phone?: string; email?: string; pin?: string },
+  familyData: { name: string; contactName: string; contactName2?: string; phone?: string; email?: string; pin?: string; paypalMe?: string },
   headcount: { adults: number; kids: number; elderly: number; vegetarians: number; notes?: string }
 ) {
   if (familyData.pin && !/^\d{4}$/.test(familyData.pin)) {
     throw new Error("PIN must be exactly 4 digits");
   }
 
+  const { groupId } = await getCurrentGroup();
+
   const result = await prisma.$transaction(async (tx) => {
-    const family = await tx.family.upsert({
-      where: { name: familyData.name },
-      update: {
-        contactName: familyData.contactName,
-        contactName2: familyData.contactName2 || null,
-        phone: familyData.phone || null,
-        email: familyData.email || null,
-      },
-      create: {
-        name: familyData.name,
-        contactName: familyData.contactName,
-        contactName2: familyData.contactName2 || null,
-        phone: familyData.phone || null,
-        email: familyData.email || null,
-        pin: familyData.pin || null,
-      },
+    // Find existing family by name within the same group
+    let family = await tx.family.findFirst({
+      where: { name: familyData.name, groupId: groupId ?? null },
     });
+
+    if (family) {
+      family = await tx.family.update({
+        where: { id: family.id },
+        data: {
+          contactName: familyData.contactName,
+          contactName2: familyData.contactName2 || null,
+          phone: familyData.phone || null,
+          email: familyData.email || null,
+          paypalMe: familyData.paypalMe || null,
+        },
+      });
+    } else {
+      family = await tx.family.create({
+        data: {
+          name: familyData.name,
+          contactName: familyData.contactName,
+          contactName2: familyData.contactName2 || null,
+          phone: familyData.phone || null,
+          email: familyData.email || null,
+          paypalMe: familyData.paypalMe || null,
+          pin: familyData.pin || null,
+          groupId: groupId ?? null,
+        },
+      });
+    }
 
     const signup = await tx.eventSignup.upsert({
       where: { eventId_familyId: { eventId, familyId: family.id } },
@@ -83,11 +99,14 @@ export async function createEvent(formData: FormData) {
   const family = await prisma.family.findUnique({ where: { id: familyId } });
   if (!family) throw new Error("Family not found");
 
+  const { groupId } = await getCurrentGroup();
+
   const result = await prisma.$transaction(async (tx) => {
     const event = await tx.campingEvent.create({
       data: {
         title, location, locationUrl, description, startDate, endDate,
         organizerFamilyId: familyId,
+        groupId: groupId ?? null,
         reservationNo,
         checkIn,
         checkOut,
@@ -576,9 +595,9 @@ export async function removeEquipmentVolunteer(equipmentId: number, eventId: num
 
 // ============ REORDER ACTIONS ============
 
-export async function reorderGroceryItem(itemId: number, eventId: number, direction: "up" | "down") {
+export async function reorderGroceryItem(itemId: number, eventId: number, direction: "up" | "down", category?: string) {
   const items = await prisma.groceryItem.findMany({
-    where: { eventId },
+    where: { eventId, ...(category !== undefined ? { category: category || null } : {}) },
     orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
     select: { id: true, sortOrder: true },
   });
@@ -597,9 +616,9 @@ export async function reorderGroceryItem(itemId: number, eventId: number, direct
   revalidatePath(`/events/${eventId}`);
 }
 
-export async function reorderEquipment(itemId: number, eventId: number, direction: "up" | "down") {
+export async function reorderEquipment(itemId: number, eventId: number, direction: "up" | "down", category?: string) {
   const items = await prisma.equipment.findMany({
-    where: { eventId },
+    where: { eventId, ...(category !== undefined ? { category: category || null } : {}) },
     orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
     select: { id: true, sortOrder: true },
   });
@@ -674,3 +693,26 @@ export async function bulkCreateExpenses(
   revalidatePath(`/events/${eventId}`);
 }
 
+export async function confirmNoExpenses(eventId: number, familyId: number, noExpenses: boolean) {
+  await prisma.eventSignup.updateMany({
+    where: { eventId, familyId },
+    data: { noExpenses },
+  });
+  revalidatePath(`/events/${eventId}`);
+}
+
+export async function markSettlementPaid(eventId: number, fromFamilyId: number, toFamilyId: number, amount: number) {
+  await prisma.settlementPayment.upsert({
+    where: { eventId_fromFamilyId_toFamilyId: { eventId, fromFamilyId, toFamilyId } },
+    create: { eventId, fromFamilyId, toFamilyId, amount },
+    update: { amount, settledAt: new Date() },
+  });
+  revalidatePath(`/events/${eventId}`);
+}
+
+export async function unmarkSettlementPaid(eventId: number, fromFamilyId: number, toFamilyId: number) {
+  await prisma.settlementPayment.deleteMany({
+    where: { eventId, fromFamilyId, toFamilyId },
+  });
+  revalidatePath(`/events/${eventId}`);
+}

@@ -17,7 +17,7 @@ export function InviteLinkCard({ inviteCode }: { inviteCode: string }) {
   }
 
   return (
-    <Card className="bg-blue-50 border-blue-200">
+    <Card className="bg-blue-950/30 border-blue-800/50">
       <CardHeader className="pb-2">
         <CardTitle className="text-sm font-medium flex items-center gap-2">
           <Link2 className="h-4 w-4" />
@@ -29,9 +29,9 @@ export function InviteLinkCard({ inviteCode }: { inviteCode: string }) {
           Share this link so families can sign up — no login needed.
         </p>
         <div className="flex gap-2">
-          <Input value={url} readOnly className="text-xs bg-white" />
+          <Input value={url} readOnly className="text-xs bg-card" />
           <Button variant="outline" size="sm" onClick={handleCopy} className="shrink-0">
-            {copied ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
+            {copied ? <Check className="h-4 w-4 text-emerald-400" /> : <Copy className="h-4 w-4" />}
           </Button>
         </div>
       </CardContent>

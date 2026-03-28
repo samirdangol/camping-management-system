@@ -13,6 +13,7 @@ import {
   removeGroceryVolunteer,
   renameGroceryCategory,
   clearGroceryCategory,
+  reorderGroceryItem,
 } from "@/app/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,6 +36,7 @@ import {
   AlertTriangle,
   FolderPlus,
   ClipboardPaste,
+  ChevronUp,
 } from "lucide-react";
 import { PasteImportDialog } from "@/components/bulk-import/paste-import-dialog";
 import { CategoryBulkAdd } from "@/components/bulk-import/category-bulk-add";
@@ -224,6 +226,11 @@ export default function GroceriesPage() {
     await fetchData();
   }
 
+  async function handleReorder(itemId: number, direction: "up" | "down", category?: string) {
+    await reorderGroceryItem(itemId, eid, direction, category);
+    await fetchData();
+  }
+
   async function handleRenameCategory(oldName: string, newName: string) {
     if (!newName.trim() || newName.trim() === oldName) return;
     await renameGroceryCategory(eid, oldName, newName.trim());
@@ -267,6 +274,12 @@ export default function GroceriesPage() {
 
   return (
     <div className="space-y-6">
+      {/* Datalist for category suggestions */}
+      <datalist id={DATALIST_ID}>
+        {allSuggestions.map((s) => (
+          <option key={s} value={s} />
+        ))}
+      </datalist>
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -340,6 +353,7 @@ export default function GroceriesPage() {
           onUnvolunteer={handleUnvolunteer}
           onSaveEdit={handleSaveEdit}
           onBulkAdd={handleBulkAdd}
+          onReorder={handleReorder}
           onRename={(newName) => handleRenameCategory(cat, newName)}
           onClear={() => handleClearCategory(cat)}
         />
@@ -366,6 +380,7 @@ export default function GroceriesPage() {
             onUnvolunteer={handleUnvolunteer}
             onSaveEdit={handleSaveEdit}
             onBulkAdd={handleBulkAdd}
+            onReorder={handleReorder}
             onRename={(newName) => {
               setNewCategories((prev) =>
                 prev.map((c) => (c === cat ? newName : c))
@@ -395,6 +410,7 @@ export default function GroceriesPage() {
           onUnvolunteer={handleUnvolunteer}
           onSaveEdit={handleSaveEdit}
           onBulkAdd={handleBulkAdd}
+          onReorder={handleReorder}
         />
       )}
 
@@ -466,6 +482,7 @@ function CategorySection({
   onUnvolunteer,
   onSaveEdit,
   onBulkAdd,
+  onReorder,
   onRename,
   onClear,
 }: {
@@ -492,6 +509,7 @@ function CategorySection({
       mealTag?: string | null;
     }
   ) => Promise<void>;
+  onReorder: (id: number, direction: "up" | "down", category?: string) => Promise<void>;
   onBulkAdd: (
     rows: {
       name: string;
@@ -611,7 +629,7 @@ function CategorySection({
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-red-500 hover:text-red-600"
+                className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-red-500 hover:text-destructive"
                 onClick={onClear}
                 title="Remove category (items move to Uncategorized)"
               >
@@ -624,7 +642,7 @@ function CategorySection({
 
       {!collapsed && (
         <div className="space-y-1.5 pl-6">
-          {items.map((item) => (
+          {items.map((item, idx) => (
             <GroceryItemCard
               key={item.id}
               item={item}
@@ -632,6 +650,8 @@ function CategorySection({
               familyId={familyId}
               isOrganizer={isOrganizer}
               allSuggestions={allSuggestions}
+              isFirst={idx === 0}
+              isLast={idx === items.length - 1}
               onDelete={onDelete}
               onClaim={onClaim}
               onUnclaim={onUnclaim}
@@ -640,6 +660,7 @@ function CategorySection({
               onVolunteer={onVolunteer}
               onUnvolunteer={onUnvolunteer}
               onSaveEdit={onSaveEdit}
+              onReorder={(dir) => onReorder(item.id, dir, category || undefined)}
             />
           ))}
 
@@ -689,6 +710,8 @@ function GroceryItemCard({
   familyId,
   isOrganizer,
   allSuggestions,
+  isFirst,
+  isLast,
   onDelete,
   onClaim,
   onUnclaim,
@@ -697,12 +720,15 @@ function GroceryItemCard({
   onVolunteer,
   onUnvolunteer,
   onSaveEdit,
+  onReorder,
 }: {
   item: GroceryWithFamily;
   families: Family[];
   familyId: number | null;
   isOrganizer: boolean;
   allSuggestions: string[];
+  isFirst: boolean;
+  isLast: boolean;
   onDelete: (id: number) => Promise<void>;
   onClaim: (id: number) => Promise<void>;
   onUnclaim: (id: number) => Promise<void>;
@@ -720,6 +746,7 @@ function GroceryItemCard({
       mealTag?: string | null;
     }
   ) => Promise<void>;
+  onReorder: (direction: "up" | "down") => Promise<void>;
 }) {
   const [editing, setEditing] = useState(false);
   const [editName, setEditName] = useState(item.name);
@@ -742,8 +769,8 @@ function GroceryItemCard({
   const bg = item.isPurchased
     ? "opacity-50 bg-muted/20 border-muted"
     : needsVolunteer
-      ? "bg-sky-50 border-sky-200"
-      : "bg-white border-border";
+      ? "bg-sky-950/30 border-sky-800/50"
+      : "bg-card border-border";
 
   function startEdit() {
     setEditName(item.name);
@@ -771,7 +798,7 @@ function GroceryItemCard({
   /* ── Edit mode ── */
   if (editing) {
     return (
-      <div className="rounded-lg border p-2.5 space-y-2 bg-blue-50/30 border-blue-200">
+      <div className="rounded-lg border p-2.5 space-y-2 bg-blue-950/30 border-blue-800/50">
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           <Input
             value={editName}
@@ -853,7 +880,7 @@ function GroceryItemCard({
             </span>
           )}
           {item.mealTag && (
-            <Badge className="text-[10px] px-1.5 py-0 bg-purple-100 text-purple-700 hover:bg-purple-100">
+            <Badge className="text-[10px] px-1.5 py-0 bg-purple-900/40 text-purple-300 hover:bg-purple-900/50">
               {item.mealTag}
             </Badge>
           )}
@@ -862,7 +889,7 @@ function GroceryItemCard({
           {(item.assignedTo || item.assignedLabel) && (
             <Badge
               variant="secondary"
-              className="text-[10px] px-1.5 py-0 bg-emerald-100 text-emerald-700"
+              className="text-[10px] px-1.5 py-0 bg-emerald-900/40 text-emerald-300"
             >
               {item.assignedTo
                 ? <>{familyEmoji(item.assignedTo.id)} {item.assignedTo.name}</>
@@ -870,7 +897,7 @@ function GroceryItemCard({
               {(iAmOwner || isOrganizer) && (
                 <button
                   onClick={() => onUnclaim(item.id)}
-                  className="ml-0.5 hover:text-red-600"
+                  className="ml-0.5 hover:text-destructive"
                 >
                   <X className="h-2.5 w-2.5" />
                 </button>
@@ -882,13 +909,13 @@ function GroceryItemCard({
             <Badge
               key={v.id}
               variant="secondary"
-              className="text-[10px] px-1.5 py-0 bg-emerald-100 text-emerald-700"
+              className="text-[10px] px-1.5 py-0 bg-emerald-900/40 text-emerald-300"
             >
               {familyEmoji(v.family.id)} {v.family.name}
               {v.familyId === familyId && (
                 <button
                   onClick={() => onUnvolunteer(item.id)}
-                  className="ml-0.5 hover:text-red-600"
+                  className="ml-0.5 hover:text-destructive"
                 >
                   <X className="h-2.5 w-2.5" />
                 </button>
@@ -898,8 +925,8 @@ function GroceryItemCard({
 
           {/* Needs volunteer warning */}
           {needsVolunteer && !item.isPurchased && (
-            <span className="text-[10px] text-amber-600 flex items-center gap-0.5">
-              <AlertTriangle className="h-3 w-3" /> Needs a volunteer
+            <span className="text-amber-400" title="Needs a volunteer">
+              <AlertTriangle className="h-3 w-3" />
             </span>
           )}
 
@@ -908,7 +935,7 @@ function GroceryItemCard({
             <Button
               variant="ghost"
               size="sm"
-              className="h-5 text-[10px] px-1.5 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
+              className="h-5 text-[10px] px-1.5 text-emerald-400 hover:text-emerald-300 hover:bg-emerald-900/30"
               onClick={() =>
                 hasOwner ? onVolunteer(item.id) : onClaim(item.id)
               }
@@ -924,7 +951,7 @@ function GroceryItemCard({
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-5 text-[10px] px-1.5 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                className="h-5 text-[10px] px-1.5 text-blue-400 hover:text-blue-300 hover:bg-blue-900/30"
                 onClick={() => setShowAssignPanel((v) => !v)}
               >
                 <UserPlus className="h-3 w-3 mr-0.5" />
@@ -946,6 +973,22 @@ function GroceryItemCard({
 
         {/* Action buttons */}
         <div className="flex items-center gap-0.5 shrink-0">
+          <div className="flex flex-col -space-y-1">
+            <button
+              className="text-muted-foreground hover:text-foreground disabled:opacity-30 p-0 leading-none"
+              onClick={() => onReorder("up")}
+              disabled={isFirst}
+            >
+              <ChevronUp className="h-3.5 w-3.5" />
+            </button>
+            <button
+              className="text-muted-foreground hover:text-foreground disabled:opacity-30 p-0 leading-none rotate-180"
+              onClick={() => onReorder("down")}
+              disabled={isLast}
+            >
+              <ChevronUp className="h-3.5 w-3.5" />
+            </button>
+          </div>
           <Button
             variant="ghost"
             size="icon"
@@ -958,7 +1001,7 @@ function GroceryItemCard({
             <Button
               variant="ghost"
               size="icon"
-              className="h-6 w-6 text-red-500 hover:text-red-600"
+              className="h-6 w-6 text-red-500 hover:text-destructive"
               onClick={() => onDelete(item.id)}
             >
               <Trash2 className="h-3 w-3" />
@@ -1000,7 +1043,7 @@ function AssignPanel({
   return (
     <div
       ref={panelRef}
-      className="absolute z-20 top-full left-0 mt-1 bg-white border rounded-lg shadow-lg p-2 min-w-[280px] space-y-2"
+      className="absolute z-20 top-full left-0 mt-1 bg-popover border rounded-lg shadow-lg p-2 min-w-[280px] space-y-2"
     >
       {/* Family grid */}
       <div className="grid grid-cols-2 gap-1">
@@ -1038,7 +1081,7 @@ function AssignPanel({
                 {f.contactName && (
                   <button
                     onClick={() => onAssign(null, f.contactName)}
-                    className="block w-full text-left text-[10px] px-2 py-1 rounded hover:bg-blue-50 text-blue-600"
+                    className="block w-full text-left text-[10px] px-2 py-1 rounded hover:bg-blue-900/30 text-blue-400"
                   >
                     → {f.contactName}
                   </button>
@@ -1046,7 +1089,7 @@ function AssignPanel({
                 {f.contactName2 && (
                   <button
                     onClick={() => onAssign(null, f.contactName2!)}
-                    className="block w-full text-left text-[10px] px-2 py-1 rounded hover:bg-blue-50 text-blue-600"
+                    className="block w-full text-left text-[10px] px-2 py-1 rounded hover:bg-blue-900/30 text-blue-400"
                   >
                     → {f.contactName2}
                   </button>
@@ -1077,7 +1120,7 @@ function AssignPanel({
           type="submit"
           size="icon"
           variant="ghost"
-          className="h-7 w-7 text-blue-600"
+          className="h-7 w-7 text-blue-400"
           disabled={!customText.trim()}
         >
           <Check className="h-3.5 w-3.5" />

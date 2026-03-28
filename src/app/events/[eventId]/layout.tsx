@@ -20,9 +20,9 @@ export default async function EventLayout({
   if (!event) notFound();
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">{event.title}</h1>
+        <h1 className="text-xl font-bold tracking-tight">{event.title}</h1>
         <div className="flex flex-wrap gap-4 mt-1 text-sm text-muted-foreground">
           <a href={locationLink(event.location, event.locationUrl)} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 hover:underline">
             <MapPin className="h-3.5 w-3.5" />

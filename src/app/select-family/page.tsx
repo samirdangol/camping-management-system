@@ -21,7 +21,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { MountainSnow, Plus, Users, Check, Lock, Pencil } from "lucide-react";
+import { MountainSnow, Plus, Users, Check, Lock, Pencil, LogOut } from "lucide-react";
 import { familyEmoji } from "@/lib/utils";
 import type { FamilyPublic } from "@/types";
 
@@ -50,6 +50,7 @@ function SelectFamilyContent() {
   const [editContact2, setEditContact2] = useState("");
   const [editPhone, setEditPhone] = useState("");
   const [editEmail, setEditEmail] = useState("");
+  const [editPaypal, setEditPaypal] = useState("");
   const [editPin, setEditPin] = useState("");
   const [editSaving, setEditSaving] = useState(false);
   const [deleteError, setDeleteError] = useState("");
@@ -152,6 +153,7 @@ function SelectFamilyContent() {
     setEditContact2(data.contactName2 || "");
     setEditPhone(data.phone || "");
     setEditEmail(data.email || "");
+    setEditPaypal(data.paypalMe || "");
     setEditPin("");
     setDeleteError("");
   }
@@ -171,6 +173,7 @@ function SelectFamilyContent() {
           contactName2: editContact2.trim() || null,
           phone: editPhone.trim() || null,
           email: editEmail.trim() || null,
+          paypalMe: editPaypal.trim() || null,
           ...(editPin ? { pin: editPin } : {}),
         }),
       });
@@ -220,19 +223,19 @@ function SelectFamilyContent() {
   // Don't show anything while checking if we should auto-redirect
   if (!isLoaded || (familyId && !isSwitch)) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 to-emerald-100">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <p className="text-muted-foreground">Loading...</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 to-emerald-100 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <div className="w-full max-w-lg space-y-4">
         {/* Header */}
         <div className="text-center space-y-2">
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-green-100">
-            <MountainSnow className="h-6 w-6 text-green-700" />
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary/20">
+            <MountainSnow className="h-6 w-6 text-primary" />
           </div>
           <h1 className="text-2xl font-bold">Nepali Camping</h1>
           <p className="text-sm text-muted-foreground">
@@ -240,6 +243,18 @@ function SelectFamilyContent() {
               ? "Switch to a different family"
               : "Select your family to get started"}
           </p>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-xs text-muted-foreground"
+            onClick={async () => {
+              await fetch("/api/auth", { method: "DELETE" });
+              router.push("/login");
+            }}
+          >
+            <LogOut className="h-3 w-3 mr-1" />
+            Sign Out
+          </Button>
         </div>
 
         {/* PIN Verification View */}
@@ -275,7 +290,7 @@ function SelectFamilyContent() {
                   />
                 </div>
                 {verifyError && (
-                  <p className="text-sm text-red-600">{verifyError}</p>
+                  <p className="text-sm text-destructive">{verifyError}</p>
                 )}
                 <div className="flex gap-2">
                   <Button
@@ -318,9 +333,9 @@ function SelectFamilyContent() {
                     <div key={family.id} className="flex items-center gap-1">
                       <button
                         onClick={() => handleSelect(family)}
-                        className="flex-1 flex items-center gap-3 rounded-lg border p-3 text-left transition-colors hover:bg-green-50 hover:border-green-300 focus:outline-none focus:ring-2 focus:ring-green-500"
+                        className="flex-1 flex items-center gap-3 rounded-lg border p-3 text-left transition-colors hover:bg-accent hover:border-primary/40 focus:outline-none focus:ring-2 focus:ring-ring"
                       >
-                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-green-100 text-lg">
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/20 text-lg">
                           {familyEmoji(family.id)}
                         </div>
                         <div className="min-w-0 flex-1">
@@ -335,7 +350,7 @@ function SelectFamilyContent() {
                           <Lock className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                         )}
                         {familyId === family.id && (
-                          <Check className="h-4 w-4 text-green-600 shrink-0" />
+                          <Check className="h-4 w-4 text-primary shrink-0" />
                         )}
                       </button>
                       {familyId === family.id && (
@@ -519,6 +534,21 @@ function SelectFamilyContent() {
                 </div>
               </div>
               <div className="space-y-2">
+                <Label htmlFor="edit-paypal">PayPal.me Username (optional)</Label>
+                <div className="flex items-center gap-1">
+                  <span className="text-xs text-muted-foreground shrink-0">paypal.me/</span>
+                  <Input
+                    id="edit-paypal"
+                    value={editPaypal}
+                    onChange={(e) => setEditPaypal(e.target.value)}
+                    placeholder="yourusername"
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Used for easy PayPal payments in expense settlement
+                </p>
+              </div>
+              <div className="space-y-2">
                 <Label htmlFor="edit-pin">
                   Change PIN {editingFamily?.hasPin ? "(leave blank to keep current)" : "(optional)"}
                 </Label>
@@ -565,7 +595,7 @@ function SelectFamilyContent() {
                     {deleting ? "Deleting..." : "Delete Family"}
                   </Button>
                   {deleteError && (
-                    <p className="text-xs text-red-600 mt-2">
+                    <p className="text-xs text-destructive mt-2">
                       Cannot delete: {deleteError}
                     </p>
                   )}
@@ -583,7 +613,7 @@ export default function SelectFamilyPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 to-emerald-100">
+        <div className="min-h-screen flex items-center justify-center bg-background">
           <p className="text-muted-foreground">Loading...</p>
         </div>
       }

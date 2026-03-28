@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Users, Trash2, Pencil } from "lucide-react";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useIsOrganizer } from "@/hooks/use-is-organizer";
 import { familyEmoji, emojiMembers } from "@/lib/utils";
 import type { Family, SignupWithFamily, HeadcountSummary } from "@/types";
@@ -23,6 +22,7 @@ export default function SignupPage() {
   const [contactName2, setContactName2] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
+  const [paypalMe, setPaypalMe] = useState("");
   const [adults, setAdults] = useState(1);
   const [kids, setKids] = useState(0);
   const [elderly, setElderly] = useState(0);
@@ -79,6 +79,7 @@ export default function SignupPage() {
     setContactName2(family.contactName2 || "");
     setPhone(family.phone || "");
     setEmail(family.email || "");
+    setPaypalMe(family.paypalMe || "");
     setShowSuggestions(false);
 
     // If already signed up for this event, load their headcount
@@ -99,6 +100,7 @@ export default function SignupPage() {
     setContactName2(signup.family.contactName2 || "");
     setPhone(signup.family.phone || "");
     setEmail(signup.family.email || "");
+    setPaypalMe(signup.family.paypalMe || "");
     setAdults(signup.adults);
     setKids(signup.kids);
     setElderly(signup.elderly);
@@ -114,6 +116,7 @@ export default function SignupPage() {
     setContactName2("");
     setPhone("");
     setEmail("");
+    setPaypalMe("");
     setAdults(1);
     setKids(0);
     setElderly(0);
@@ -130,7 +133,7 @@ export default function SignupPage() {
     setLoading(true);
     await signupFamily(
       parseInt(eventId, 10),
-      { name: familyName.trim(), contactName: contactName.trim(), contactName2: contactName2.trim() || undefined, phone: phone || undefined, email: email || undefined },
+      { name: familyName.trim(), contactName: contactName.trim(), contactName2: contactName2.trim() || undefined, phone: phone || undefined, email: email || undefined, paypalMe: paypalMe.trim() || undefined },
       { adults, kids, elderly, vegetarians, notes: notes || undefined }
     );
     await fetchSignups();
@@ -156,7 +159,7 @@ export default function SignupPage() {
   return (
     <div className="space-y-6">
       {/* Summary Card */}
-      <Card className="bg-green-50 border-green-200">
+      <Card className="bg-emerald-950/30 border-emerald-800/50">
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-medium flex items-center gap-2">
             <Users className="h-4 w-4" />
@@ -186,76 +189,39 @@ export default function SignupPage() {
         </CardContent>
       </Card>
 
-      {/* Signup List */}
-      {signups.length > 0 && (() => {
-        const hasVeg = signups.some((s) => s.vegetarians > 0);
-        const hasNotes = signups.some((s) => s.notes);
-        const totals = signups.reduce(
-          (acc, s) => ({ adults: acc.adults + s.adults, kids: acc.kids + s.kids, elderly: acc.elderly + s.elderly, veg: acc.veg + s.vegetarians }),
-          { adults: 0, kids: 0, elderly: 0, veg: 0 }
-        );
-        return (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Signed Up Families</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Family</TableHead>
-                      <TableHead>Members</TableHead>
-                      {hasVeg && <TableHead>Veg</TableHead>}
-                      {hasNotes && <TableHead>Notes</TableHead>}
-                      <TableHead className="w-[80px]" />
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {signups.map((s) => (
-                      <TableRow key={s.id}>
-                        <TableCell>
-                          <div className="font-medium">{familyEmoji(s.family.id)} {s.family.name}</div>
-                          <div className="text-xs text-muted-foreground">
-                            {s.family.contactName}{s.family.contactName2 ? ` & ${s.family.contactName2}` : ""}
-                          </div>
-                        </TableCell>
-                        <TableCell className="whitespace-nowrap">{emojiMembers(s.adults, s.kids, s.elderly)}</TableCell>
-                        {hasVeg && <TableCell>{s.vegetarians > 0 ? `🌿${s.vegetarians}` : ""}</TableCell>}
-                        {hasNotes && <TableCell className="text-xs">{s.notes}</TableCell>}
-                        <TableCell>
-                          <div className="flex gap-1">
-                            <Button variant="ghost" size="icon" onClick={() => handleEdit(s)} className="text-gray-500 hover:text-gray-700">
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                            {isOrganizer && (
-                              <Button variant="ghost" size="icon" onClick={() => handleRemove(s.familyId)} className="text-red-500 hover:text-red-700">
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            )}
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                    <TableRow className="font-semibold border-t-2">
-                      <TableCell>Total: {signups.length} families</TableCell>
-                      <TableCell className="whitespace-nowrap">
-                        {totals.adults > 0 && `${totals.adults}×🧑‍🌾 `}
-                        {totals.kids > 0 && `${totals.kids}×🧒 `}
-                        {totals.elderly > 0 && `${totals.elderly}×👴 `}
-                        = {totals.adults + totals.kids + totals.elderly}
-                      </TableCell>
-                      {hasVeg && <TableCell>🌿{totals.veg}</TableCell>}
-                      {hasNotes && <TableCell />}
-                      <TableCell />
-                    </TableRow>
-                  </TableBody>
-                </Table>
+      {/* Signup List — mobile-friendly cards */}
+      {signups.length > 0 && (
+        <div className="space-y-2">
+          <h3 className="text-base font-semibold">Signed Up Families</h3>
+          <div className="grid gap-2">
+            {signups.map((s) => (
+              <div key={s.id} className="rounded-lg border bg-card p-3 flex items-center gap-3">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-medium text-sm">{familyEmoji(s.family.id)} {s.family.name}</span>
+                    {s.vegetarians > 0 && <span className="text-xs text-emerald-400">🌿{s.vegetarians}</span>}
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-0.5">
+                    {s.family.contactName}{s.family.contactName2 ? ` & ${s.family.contactName2}` : ""}
+                  </div>
+                  <div className="text-xs mt-0.5">{emojiMembers(s.adults, s.kids, s.elderly)}</div>
+                  {s.notes && <div className="text-xs text-muted-foreground mt-0.5 italic">{s.notes}</div>}
+                </div>
+                <div className="flex gap-0.5 shrink-0">
+                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEdit(s)}>
+                    <Pencil className="h-3.5 w-3.5" />
+                  </Button>
+                  {isOrganizer && (
+                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleRemove(s.familyId)}>
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
+                </div>
               </div>
-            </CardContent>
-          </Card>
-        );
-      })()}
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Signup Form */}
       <Card>
@@ -276,12 +242,12 @@ export default function SignupPage() {
                 required
               />
               {showSuggestions && suggestions.length > 0 && (
-                <div className="absolute top-full left-0 right-0 z-10 mt-1 bg-white border rounded-md shadow-lg max-h-48 overflow-y-auto">
+                <div className="absolute top-full left-0 right-0 z-10 mt-1 bg-popover border rounded-md shadow-lg max-h-48 overflow-y-auto">
                   {suggestions.map((f) => (
                     <button
                       key={f.id}
                       type="button"
-                      className="w-full text-left px-3 py-2 hover:bg-gray-100 text-sm"
+                      className="w-full text-left px-3 py-2 hover:bg-accent text-sm"
                       onClick={() => selectSuggestion(f)}
                     >
                       <div className="font-medium">{familyEmoji(f.id)} {f.name}</div>
@@ -330,6 +296,19 @@ export default function SignupPage() {
                   type="email"
                 />
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>PayPal.me Username (optional)</Label>
+              <div className="flex items-center gap-1">
+                <span className="text-xs text-muted-foreground shrink-0">paypal.me/</span>
+                <Input
+                  value={paypalMe}
+                  onChange={(e) => setPaypalMe(e.target.value)}
+                  placeholder="yourusername"
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">For easy PayPal payments in expense settlement</p>
             </div>
 
             <div className="grid grid-cols-2 gap-4">

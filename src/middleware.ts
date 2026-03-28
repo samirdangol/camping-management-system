@@ -9,10 +9,12 @@ const secret = new TextEncoder().encode(
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Allow login page, auth API, public join routes, and family lookup/verify for join flow
+  // Allow login page, auth API, public join routes, groups creation, and family lookup/verify for join flow
   if (
     pathname === "/login" ||
     pathname === "/api/auth" ||
+    pathname === "/api/groups" ||
+    pathname === "/api/groups/reset-password" ||
     pathname.startsWith("/join/") ||
     pathname.startsWith("/api/join/") ||
     (pathname === "/api/families" && request.method === "GET") ||

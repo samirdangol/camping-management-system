@@ -6,12 +6,16 @@ const secret = new TextEncoder().encode(
   process.env.AUTH_SECRET || "fallback-secret"
 );
 
-export function verifyPasscode(passcode: string): boolean {
-  return passcode === process.env.APP_PASSCODE;
+interface AuthPayload {
+  authenticated: true;
+  groupId?: number;
+  groupName?: string;
 }
 
-export async function createAuthToken(): Promise<string> {
-  return new SignJWT({ authenticated: true })
+export async function createAuthToken(groupId: number, groupName: string): Promise<string> {
+  const payload: AuthPayload = { authenticated: true, groupId, groupName };
+
+  return new SignJWT(payload as unknown as Record<string, unknown>)
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime("30d")
@@ -24,6 +28,19 @@ export async function verifyAuthToken(token: string): Promise<boolean> {
     return true;
   } catch {
     return false;
+  }
+}
+
+/** Extract groupId from the JWT token (returns undefined if no group) */
+export async function getGroupFromToken(token: string): Promise<{ groupId?: number; groupName?: string }> {
+  try {
+    const { payload } = await jwtVerify(token, secret);
+    return {
+      groupId: payload.groupId as number | undefined,
+      groupName: payload.groupName as string | undefined,
+    };
+  } catch {
+    return {};
   }
 }
 
@@ -46,4 +63,11 @@ export async function getAuthCookie(): Promise<string | undefined> {
 export async function removeAuthCookie() {
   const cookieStore = await cookies();
   cookieStore.delete(COOKIE_NAME);
+}
+
+/** Get the current group context from the auth cookie */
+export async function getCurrentGroup(): Promise<{ groupId?: number; groupName?: string }> {
+  const token = await getAuthCookie();
+  if (!token) return {};
+  return getGroupFromToken(token);
 }

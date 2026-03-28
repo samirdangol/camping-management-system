@@ -8,17 +8,32 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
-model Family {
+model FamilyGroup {
   id           Int      @id @default(autoincrement())
   name         String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  families Family[]
+  events   CampingEvent[]
+  feedback Feedback[]
+}
+
+model Family {
+  id           Int      @id @default(autoincrement())
+  name         String
   contactName  String
   contactName2 String?
   phone        String?
   email        String?
   pin          String?
+  paypalMe     String?
+  groupId      Int?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
+  group                FamilyGroup?          @relation(fields: [groupId], references: [id], onDelete: Cascade)
   organizedEvents      CampingEvent[]        @relation("EventOrganizer")
   signups              EventSignup[]
   mealVolunteers       MealVolunteer[]
@@ -29,6 +44,11 @@ model Family {
   ownedEquipment       Equipment[]
   equipmentVolunteers  EquipmentVolunteer[]
   paidExpenses         Expense[]
+  settlementsSent      SettlementPayment[]   @relation("SettlementFrom")
+  settlementsReceived  SettlementPayment[]   @relation("SettlementTo")
+  feedback             Feedback[]
+
+  @@unique([groupId, name])
 }
 
 model CampingEvent {
@@ -45,18 +65,21 @@ model CampingEvent {
   campsiteUrl       String?
   imageUrl          String?
   organizerFamilyId Int
+  groupId           Int?
   inviteCode        String    @unique @default(uuid())
   status            String    @default("upcoming")
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
   organizer    Family        @relation("EventOrganizer", fields: [organizerFamilyId], references: [id])
+  group        FamilyGroup?  @relation(fields: [groupId], references: [id], onDelete: Cascade)
   signups      EventSignup[]
   meals        Meal[]
   activities   Activity[]
   groceryItems GroceryItem[]
   equipment    Equipment[]
-  expenses     Expense[]
+  expenses            Expense[]
+  settlementPayments  SettlementPayment[]
 }
 
 model EventSignup {
@@ -68,6 +91,7 @@ model EventSignup {
   elderly     Int      @default(0)
   vegetarians Int      @default(0)
   notes       String?
+  noExpenses  Boolean  @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -232,4 +256,32 @@ model Expense {
 
   event  CampingEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
   paidBy Family       @relation(fields: [paidByFamilyId], references: [id])
+}
+
+model SettlementPayment {
+  id           Int      @id @default(autoincrement())
+  eventId      Int
+  fromFamilyId Int
+  toFamilyId   Int
+  amount       Float
+  settledAt    DateTime @default(now())
+
+  event CampingEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  from  Family       @relation("SettlementFrom", fields: [fromFamilyId], references: [id])
+  to    Family       @relation("SettlementTo", fields: [toFamilyId], references: [id])
+
+  @@unique([eventId, fromFamilyId, toFamilyId])
+}
+
+model Feedback {
+  id         Int      @id @default(autoincrement())
+  message    String
+  page       String?
+  familyId   Int?
+  familyName String?
+  groupId    Int?
+  createdAt  DateTime @default(now())
+
+  family Family?      @relation(fields: [familyId], references: [id], onDelete: SetNull)
+  group  FamilyGroup? @relation(fields: [groupId], references: [id], onDelete: SetNull)
 }

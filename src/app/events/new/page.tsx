@@ -18,6 +18,9 @@ export default function NewEventPage() {
   const [imageUrl, setImageUrl] = useState("");
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [endDateManual, setEndDateManual] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
   const { familyId, familyName, isLoaded } = useCurrentFamily();
@@ -77,9 +80,9 @@ export default function NewEventPage() {
         <CardContent className="pt-6">
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* Organizer info */}
-            <div className="flex items-center gap-3 rounded-lg border p-3 bg-green-50 border-green-200">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-green-100">
-                <Users className="h-4 w-4 text-green-700" />
+            <div className="flex items-center gap-3 rounded-lg border p-3 bg-emerald-950/30 border-emerald-800/50">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-900/40">
+                <Users className="h-4 w-4 text-emerald-400" />
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Organizing as</p>
@@ -105,11 +108,37 @@ export default function NewEventPage() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="startDate">Start Date</Label>
-                <Input id="startDate" name="startDate" type="date" required />
+                <Input
+                  id="startDate"
+                  name="startDate"
+                  type="date"
+                  required
+                  value={startDate}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setStartDate(val);
+                    if (val && !endDateManual) {
+                      const d = new Date(val + "T12:00:00");
+                      d.setDate(d.getDate() + 2);
+                      setEndDate(d.toISOString().split("T")[0]);
+                    }
+                  }}
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="endDate">End Date</Label>
-                <Input id="endDate" name="endDate" type="date" required />
+                <Input
+                  id="endDate"
+                  name="endDate"
+                  type="date"
+                  required
+                  value={endDate}
+                  min={startDate || undefined}
+                  onChange={(e) => {
+                    setEndDate(e.target.value);
+                    setEndDateManual(true);
+                  }}
+                />
               </div>
             </div>
 
@@ -170,7 +199,7 @@ export default function NewEventPage() {
                     <Upload className="h-4 w-4 mr-2" />
                     {uploading ? "Uploading..." : "Upload Image"}
                   </Button>
-                  {uploadError && <p className="text-xs text-red-600 mt-1">{uploadError}</p>}
+                  {uploadError && <p className="text-xs text-destructive mt-1">{uploadError}</p>}
                 </div>
               )}
             </div>

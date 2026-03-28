@@ -19,7 +19,7 @@ import {
 import { EmptyState } from "@/components/shared/empty-state";
 import { useCurrentFamily } from "@/hooks/use-current-family";
 import { MEAL_TYPE_LABELS } from "@/lib/constants";
-import { UtensilsCrossed, Plus, Trash2, ChefHat, Leaf, X, Hand, UserPlus, ChevronRight, ChevronDown, Check } from "lucide-react";
+import { UtensilsCrossed, Plus, Trash2, ChefHat, Leaf, X, Hand, UserPlus, ChevronRight, ChevronDown, Check, AlertTriangle } from "lucide-react";
 import { useIsOrganizer } from "@/hooks/use-is-organizer";
 import { familyEmoji } from "@/lib/utils";
 import type { Family, MealWithDetails } from "@/types";
@@ -207,7 +207,7 @@ export default function MealsPage() {
               <Label className="text-sm">Head Chef (optional)</Label>
               <div className="flex items-center gap-2 flex-wrap">
                 {newMealChef ? (
-                  <Badge variant="secondary" className="text-xs gap-1 bg-emerald-50 text-emerald-700 border-emerald-200">
+                  <Badge variant="secondary" className="text-xs gap-1 bg-emerald-900/40 text-emerald-300 border-emerald-800/50">
                     {newMealChef}
                     <button onClick={() => setNewMealChef("")} className="ml-0.5 hover:text-red-500">
                       <X className="h-2.5 w-2.5" />
@@ -332,10 +332,10 @@ function MealCard({
   const currentFamily = families.find((f) => f.id === currentFamilyId);
 
   const mealTypeColors: Record<string, string> = {
-    breakfast: "bg-yellow-100 text-yellow-800",
-    lunch: "bg-orange-100 text-orange-800",
-    dinner: "bg-purple-100 text-purple-800",
-    snack: "bg-blue-100 text-blue-800",
+    breakfast: "bg-yellow-900/40 text-yellow-300",
+    lunch: "bg-orange-900/40 text-orange-300",
+    dinner: "bg-purple-900/40 text-purple-300",
+    snack: "bg-blue-900/40 text-blue-300",
   };
 
   return (
@@ -384,7 +384,7 @@ function MealCard({
           <ChefHat className="h-4 w-4 text-muted-foreground shrink-0" />
           <Label className="text-sm shrink-0">Head Chef:</Label>
           {meal.headChefName ? (
-            <Badge variant="secondary" className="text-xs gap-1 bg-emerald-50 text-emerald-700 border-emerald-200">
+            <Badge variant="secondary" className="text-xs gap-1 bg-emerald-900/40 text-emerald-300 border-emerald-800/50">
               <span>{volunteerEmoji(meal.headChefName, families)}</span>
               {meal.headChefName}
               {isOrganizer && (
@@ -401,7 +401,7 @@ function MealCard({
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-6 text-xs gap-0.5 text-muted-foreground hover:text-blue-600"
+                className="h-6 text-xs gap-0.5 text-muted-foreground hover:text-blue-400"
                 onClick={() => setShowChefPanel((v) => !v)}
               >
                 <UserPlus className="h-3 w-3" /> {meal.headChefName ? "Reassign" : "Assign"}
@@ -432,20 +432,20 @@ function MealCard({
                     key={item.id}
                     className={`rounded-lg border p-2 transition-colors ${
                       hasVolunteers
-                        ? "bg-white border-border"
-                        : "bg-sky-50 border-sky-200"
+                        ? "bg-card border-border"
+                        : "bg-sky-950/30 border-sky-800/50"
                     }`}
                   >
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <span className="flex items-center gap-1.5 text-sm font-medium">
-                        {item.isVegetarian && <Leaf className="h-3.5 w-3.5 text-green-600 shrink-0" />}
+                        {item.isVegetarian && <Leaf className="h-3.5 w-3.5 text-emerald-400 shrink-0" />}
                         {item.name}
                       </span>
                       {item.volunteers.map((v) => (
                         <Badge
                           key={v.id}
                           variant="secondary"
-                          className="text-xs gap-1 bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100"
+                          className="text-xs gap-1 bg-emerald-900/40 text-emerald-300 border-emerald-800/50 hover:bg-emerald-900/50"
                         >
                           <span>{volunteerEmoji(v.name, families)}</span>
                           {v.name}
@@ -460,7 +460,7 @@ function MealCard({
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="h-5 text-[10px] gap-0.5 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
+                          className="h-5 text-[10px] gap-0.5 text-emerald-400 hover:text-emerald-300 hover:bg-emerald-900/30"
                           onClick={() => onAddVolunteer(item.id, currentFamily.name)}
                         >
                           <Hand className="h-3 w-3" />
@@ -472,7 +472,7 @@ function MealCard({
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="h-5 text-[10px] gap-0.5 text-muted-foreground hover:text-blue-600"
+                            className="h-5 text-[10px] gap-0.5 text-muted-foreground hover:text-blue-400"
                             onClick={() => setShowAssignPanelFor((prev) => prev === item.id ? null : item.id)}
                           >
                             <UserPlus className="h-3 w-3" /> Assign
@@ -490,7 +490,9 @@ function MealCard({
                         </div>
                       )}
                       {!hasVolunteers && !currentFamily && (
-                        <span className="text-xs text-amber-600 italic">Needs a volunteer</span>
+                        <span className="text-amber-400" title="Needs a volunteer">
+                          <AlertTriangle className="h-3 w-3" />
+                        </span>
                       )}
                       {isOrganizer && (
                         <Button variant="ghost" size="icon" className="h-5 w-5 text-muted-foreground hover:text-red-500 ml-auto shrink-0" onClick={() => onRemoveFood(item.id)}>
@@ -524,8 +526,8 @@ function MealCard({
               onClick={() => setIsVeg(!isVeg)}
               className={`flex items-center gap-1 px-2 h-8 rounded-md border text-xs transition-colors shrink-0 ${
                 isVeg
-                  ? "bg-green-100 border-green-300 text-green-700"
-                  : "bg-white border-border text-muted-foreground hover:bg-muted"
+                  ? "bg-primary/20 border-primary/40 text-primary"
+                  : "bg-muted border-border text-muted-foreground hover:bg-accent"
               }`}
               title="Toggle vegetarian"
             >
@@ -582,7 +584,7 @@ function AssignPanel({
   return (
     <div
       ref={panelRef}
-      className="absolute z-20 top-full left-0 mt-1 bg-white border rounded-lg shadow-lg p-2 min-w-[280px] space-y-2"
+      className="absolute z-20 top-full left-0 mt-1 bg-popover border rounded-lg shadow-lg p-2 min-w-[280px] space-y-2"
     >
       {/* Family grid */}
       <div className="grid grid-cols-2 gap-1">
@@ -620,7 +622,7 @@ function AssignPanel({
                 {f.contactName && (
                   <button
                     onClick={() => onAssign(`${f.contactName} (${f.name})`)}
-                    className="block w-full text-left text-[10px] px-2 py-1 rounded hover:bg-blue-50 text-blue-600"
+                    className="block w-full text-left text-[10px] px-2 py-1 rounded hover:bg-blue-900/30 text-blue-400"
                   >
                     → {f.contactName}
                   </button>
@@ -628,7 +630,7 @@ function AssignPanel({
                 {f.contactName2 && (
                   <button
                     onClick={() => onAssign(`${f.contactName2} (${f.name})`)}
-                    className="block w-full text-left text-[10px] px-2 py-1 rounded hover:bg-blue-50 text-blue-600"
+                    className="block w-full text-left text-[10px] px-2 py-1 rounded hover:bg-blue-900/30 text-blue-400"
                   >
                     → {f.contactName2}
                   </button>
@@ -659,7 +661,7 @@ function AssignPanel({
           type="submit"
           size="icon"
           variant="ghost"
-          className="h-7 w-7 text-blue-600"
+          className="h-7 w-7 text-blue-400"
           disabled={!customText.trim()}
         >
           <Check className="h-3.5 w-3.5" />

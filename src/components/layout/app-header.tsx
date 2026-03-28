@@ -1,14 +1,16 @@
 "use client";
 
 import { useRouter, usePathname } from "next/navigation";
-import { MountainSnow, LogOut, ArrowLeftRight, Pencil } from "lucide-react";
+import { MountainSnow, LogOut, ArrowLeftRight, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useCurrentFamily } from "@/hooks/use-current-family";
+import { useCurrentGroup } from "@/hooks/use-current-group";
 import { familyEmoji } from "@/lib/utils";
 import Link from "next/link";
 
 export function AppHeader() {
   const { familyId, familyName, setCurrentFamily, isLoaded } = useCurrentFamily();
+  const { groupId, groupName } = useCurrentGroup();
   const router = useRouter();
   const pathname = usePathname();
 
@@ -27,38 +29,32 @@ export function AppHeader() {
     return null;
 
   return (
-    <header className="sticky top-0 z-50 border-b bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60">
-      <div className="mx-auto flex h-14 max-w-4xl items-center justify-between px-4">
+    <header className="sticky top-0 z-50 border-b border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
+      <div className="mx-auto flex h-12 max-w-4xl items-center justify-between px-3 sm:px-4">
         <Link
           href="/events"
-          className="flex items-center gap-2 font-semibold text-green-700"
+          className="flex items-center gap-2 font-semibold text-primary"
         >
           <MountainSnow className="h-5 w-5" />
           <span className="hidden sm:inline">Nepali Camping</span>
         </Link>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
+          {groupName && (
+            <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded hidden sm:inline">
+              {groupName}
+            </span>
+          )}
           {isLoaded && familyName && (
-            <div className="flex items-center gap-1.5 text-sm">
-              <span className="text-base">{familyId ? familyEmoji(familyId) : "👤"}</span>
-              <span className="font-medium max-w-[140px] truncate">
+            <div className="flex items-center gap-1 text-sm">
+              <span className="text-base">{familyId ? familyEmoji(familyId) : ""}</span>
+              <span className="font-medium max-w-[120px] truncate text-xs">
                 {familyName}
               </span>
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-7 px-1.5 text-xs text-muted-foreground"
-                asChild
-                title="Edit family"
-              >
-                <Link href="/select-family?switch=true">
-                  <Pencil className="h-3 w-3" />
-                </Link>
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 px-1.5 text-xs text-muted-foreground"
+                className="h-7 w-7 p-0 text-muted-foreground"
                 asChild
                 title="Switch family"
               >
@@ -71,6 +67,18 @@ export function AppHeader() {
           <Button
             variant="ghost"
             size="icon"
+            className="h-8 w-8"
+            asChild
+            title="Group settings"
+          >
+            <Link href="/group-settings">
+              <Settings className="h-4 w-4" />
+            </Link>
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
             onClick={handleLogout}
             title="Sign out"
           >

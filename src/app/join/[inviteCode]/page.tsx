@@ -178,7 +178,7 @@ export default function JoinPage() {
     return (
       <Card>
         <CardContent className="py-12 text-center space-y-3">
-          <CheckCircle2 className="h-12 w-12 text-green-600 mx-auto" />
+          <CheckCircle2 className="h-12 w-12 text-emerald-400 mx-auto" />
           <p className="text-lg font-medium">You&apos;re already signed up!</p>
           <p className="text-sm text-muted-foreground">
             Your family is already part of {event.title}.
@@ -195,7 +195,7 @@ export default function JoinPage() {
     return (
       <Card>
         <CardContent className="py-12 text-center space-y-3">
-          <CheckCircle2 className="h-12 w-12 text-green-600 mx-auto" />
+          <CheckCircle2 className="h-12 w-12 text-emerald-400 mx-auto" />
           <p className="text-lg font-medium">You&apos;re signed up!</p>
           <p className="text-sm text-muted-foreground">
             {signedUpName} has been signed up for {event.title}.
@@ -219,7 +219,7 @@ export default function JoinPage() {
   return (
     <div className="space-y-4">
       {/* Event Info */}
-      <Card className="bg-green-50 border-green-200">
+      <Card className="bg-emerald-950/30 border-emerald-800/50">
         <CardHeader className="pb-2">
           <CardTitle className="text-lg">{event.title}</CardTitle>
         </CardHeader>
@@ -238,7 +238,7 @@ export default function JoinPage() {
           </div>
           {event.campsiteUrl && (
             <div>
-              <a href={event.campsiteUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline inline-flex items-center gap-1">
+              <a href={event.campsiteUrl} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline inline-flex items-center gap-1">
                 Campsite Official Page <ExternalLink className="h-3 w-3" />
               </a>
             </div>
@@ -332,7 +332,7 @@ export default function JoinPage() {
                         onChange={(e) => { setPinInput(e.target.value.replace(/\D/g, "").slice(0, 4)); setPinError(""); }}
                         autoFocus
                       />
-                      {pinError && <p className="text-xs text-red-600">{pinError}</p>}
+                      {pinError && <p className="text-xs text-destructive">{pinError}</p>}
                     </div>
                     <Button type="button" onClick={verifyPin} disabled={pinInput.length !== 4} className="w-full">
                       Verify PIN
@@ -340,10 +340,10 @@ export default function JoinPage() {
                   </div>
                 ) : (
                   /* Verified - show summary */
-                  <div className="rounded-md bg-green-50 border border-green-200 p-3">
+                  <div className="rounded-md bg-emerald-950/30 border border-emerald-800/50 p-3">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <ShieldCheck className="h-4 w-4 text-green-600" />
+                        <ShieldCheck className="h-4 w-4 text-emerald-400" />
                         <div>
                           <p className="font-medium text-sm">{selectedFamily.name}</p>
                           <p className="text-xs text-muted-foreground">

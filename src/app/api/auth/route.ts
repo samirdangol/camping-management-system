@@ -1,21 +1,29 @@
 import { NextResponse } from "next/server";
-import { verifyPasscode, createAuthToken, setAuthCookie, removeAuthCookie } from "@/lib/auth";
+import { createAuthToken, setAuthCookie, removeAuthCookie } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import bcrypt from "bcryptjs";
 
 export async function POST(request: Request) {
   const body = await request.json();
-  const { passcode } = body;
+  const { groupName, password } = body;
 
-  if (!verifyPasscode(passcode)) {
+  if (!groupName?.trim() || !password) {
+    return NextResponse.json({ error: "Group name and password are required" }, { status: 400 });
+  }
+
+  const group = await prisma.familyGroup.findUnique({
+    where: { name: groupName.trim() },
+  });
+  if (!group || !await bcrypt.compare(password, group.passwordHash)) {
     return NextResponse.json(
-      { error: "Invalid passcode" },
+      { error: "Invalid group name or password" },
       { status: 401 }
     );
   }
 
-  const token = await createAuthToken();
+  const token = await createAuthToken(group.id, group.name);
   await setAuthCookie(token);
-
-  return NextResponse.json({ success: true });
+  return NextResponse.json({ success: true, groupId: group.id, groupName: group.name });
 }
 
 export async function DELETE() {

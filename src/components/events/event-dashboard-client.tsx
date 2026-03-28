@@ -60,10 +60,10 @@ type EventDashboardData = {
 };
 
 const STATUS_COLORS: Record<string, string> = {
-  upcoming: "bg-blue-100 text-blue-700",
-  active: "bg-green-100 text-green-700",
-  completed: "bg-gray-100 text-gray-700",
-  cancelled: "bg-red-100 text-red-700",
+  upcoming: "bg-blue-900/40 text-blue-300",
+  active: "bg-emerald-900/40 text-emerald-300",
+  completed: "bg-muted text-muted-foreground",
+  cancelled: "bg-red-900/40 text-red-300",
 };
 
 export function EventDashboardClient({ event }: { event: EventDashboardData }) {
@@ -189,10 +189,10 @@ export function EventDashboardClient({ event }: { event: EventDashboardData }) {
 
       {/* Reservation & Campsite Info */}
       {(event.reservationNo || event.checkIn || event.checkOut || event.campsiteUrl || event.imageUrl) && (
-        <Card className="border-l-4 border-l-teal-500 bg-gradient-to-r from-teal-50/40 to-white">
+        <Card className="border-l-4 border-l-teal-600">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold text-teal-800 flex items-center gap-2">
-              <span className="bg-teal-100 text-teal-600 p-1.5 rounded-full inline-flex">
+            <CardTitle className="text-sm font-semibold text-teal-400 flex items-center gap-2">
+              <span className="bg-teal-900/40 text-teal-400 p-1.5 rounded-full inline-flex">
                 <ClipboardList className="h-4 w-4" />
               </span>
               Reservation Details
@@ -202,21 +202,21 @@ export function EventDashboardClient({ event }: { event: EventDashboardData }) {
             {event.reservationNo && (
               <div className="flex items-center gap-2">
                 <span className="text-muted-foreground text-xs">Reservation</span>
-                <span className="font-mono text-xs font-medium bg-teal-100/60 text-teal-800 px-2 py-0.5 rounded">{event.reservationNo}</span>
+                <span className="font-mono text-xs font-medium bg-teal-900/40 text-teal-300 px-2 py-0.5 rounded">{event.reservationNo}</span>
               </div>
             )}
             {(event.checkIn || event.checkOut) && (
               <div className="flex items-center gap-4">
                 {event.checkIn && (
                   <div className="flex items-center gap-1.5">
-                    <Clock className="h-3.5 w-3.5 text-teal-500 shrink-0" />
+                    <Clock className="h-3.5 w-3.5 text-teal-400 shrink-0" />
                     <span className="text-muted-foreground text-xs">Check-in:</span>
                     <span className="font-medium text-xs">{fmtTime(event.checkIn)}</span>
                   </div>
                 )}
                 {event.checkOut && (
                   <div className="flex items-center gap-1.5">
-                    <Clock className="h-3.5 w-3.5 text-teal-500 shrink-0" />
+                    <Clock className="h-3.5 w-3.5 text-teal-400 shrink-0" />
                     <span className="text-muted-foreground text-xs">Check-out:</span>
                     <span className="font-medium text-xs">{fmtTime(event.checkOut)}</span>
                   </div>
@@ -225,7 +225,7 @@ export function EventDashboardClient({ event }: { event: EventDashboardData }) {
             )}
             {event.campsiteUrl && (
               <div>
-                <a href={event.campsiteUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline inline-flex items-center gap-1 text-xs">
+                <a href={event.campsiteUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline inline-flex items-center gap-1 text-xs">
                   Campsite Official Page <ExternalLink className="h-3 w-3" />
                 </a>
               </div>
@@ -248,8 +248,8 @@ export function EventDashboardClient({ event }: { event: EventDashboardData }) {
         {/* Families Card — blue theme */}
         <Card className="border-l-4 border-l-blue-500">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold text-blue-800 flex items-center gap-2">
-              <span className="bg-blue-100 text-blue-600 p-1.5 rounded-full inline-flex">
+            <CardTitle className="text-sm font-semibold text-blue-300 flex items-center gap-2">
+              <span className="bg-blue-900/40 text-blue-400 p-1.5 rounded-full inline-flex">
                 <Users className="h-4 w-4" />
               </span>
               Families
@@ -264,8 +264,8 @@ export function EventDashboardClient({ event }: { event: EventDashboardData }) {
         {/* Headcount Card — purple theme */}
         <Card className="border-l-4 border-l-purple-500">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold text-purple-800 flex items-center gap-2">
-              <span className="bg-purple-100 text-purple-600 p-1.5 rounded-full inline-flex">
+            <CardTitle className="text-sm font-semibold text-purple-300 flex items-center gap-2">
+              <span className="bg-purple-900/40 text-purple-400 p-1.5 rounded-full inline-flex">
                 <UserCheck className="h-4 w-4" />
               </span>
               Headcount
@@ -284,8 +284,8 @@ export function EventDashboardClient({ event }: { event: EventDashboardData }) {
         {/* Planning Card — amber theme */}
         <Card className="border-l-4 border-l-amber-500">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold text-amber-800 flex items-center gap-2">
-              <span className="bg-amber-100 text-amber-600 p-1.5 rounded-full inline-flex">
+            <CardTitle className="text-sm font-semibold text-amber-300 flex items-center gap-2">
+              <span className="bg-amber-900/40 text-amber-400 p-1.5 rounded-full inline-flex">
                 <UtensilsCrossed className="h-4 w-4" />
               </span>
               Planning
@@ -304,8 +304,8 @@ export function EventDashboardClient({ event }: { event: EventDashboardData }) {
         {/* Expenses Card — emerald theme */}
         <Card className="border-l-4 border-l-emerald-500">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold text-emerald-800 flex items-center gap-2">
-              <span className="bg-emerald-100 text-emerald-600 p-1.5 rounded-full inline-flex">
+            <CardTitle className="text-sm font-semibold text-emerald-300 flex items-center gap-2">
+              <span className="bg-emerald-900/40 text-emerald-400 p-1.5 rounded-full inline-flex">
                 <DollarSign className="h-4 w-4" />
               </span>
               Expenses

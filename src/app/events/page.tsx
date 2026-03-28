@@ -29,10 +29,10 @@ type EventWithOrganizer = {
 };
 
 const statusColors: Record<string, string> = {
-  upcoming: "bg-blue-100 text-blue-800",
-  active: "bg-green-100 text-green-800",
-  completed: "bg-gray-100 text-gray-800",
-  cancelled: "bg-red-100 text-red-800",
+  upcoming: "bg-blue-900/40 text-blue-300 border-blue-700/50",
+  active: "bg-emerald-900/40 text-emerald-300 border-emerald-700/50",
+  completed: "bg-muted text-muted-foreground",
+  cancelled: "bg-red-900/40 text-red-300 border-red-700/50",
 };
 
 export default function EventsPage() {
@@ -81,7 +81,7 @@ export default function EventsPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <PageHeader title="Camping Trips" description="Plan and manage group camping trips">
         <Button asChild>
           <Link href="/events/new">
@@ -107,40 +107,33 @@ export default function EventsPage() {
       ) : (
         <>
           {upcoming.length > 0 && (
-            <section className="space-y-3">
-              <h2 className="text-lg font-semibold">Upcoming Trips</h2>
-              <div className="grid gap-3">
+            <section className="space-y-2">
+              <h2 className="text-base font-semibold">Upcoming Trips</h2>
+              <div className="grid gap-2">
                 {upcoming.map((event) => (
                   <Link key={event.id} href={`/events/${event.id}`}>
-                    <Card className="hover:shadow-md transition-shadow cursor-pointer">
-                      <CardHeader className="pb-2">
+                    <Card className="hover:border-primary/40 transition-colors cursor-pointer">
+                      <CardHeader className="pb-1.5 px-3 pt-3">
                         <div className="flex items-start justify-between">
-                          <CardTitle className="text-lg">{event.title}</CardTitle>
+                          <CardTitle className="text-base">{event.title}</CardTitle>
                           <Badge className={statusColors[event.status]} variant="secondary">
                             {event.status}
                           </Badge>
                         </div>
                       </CardHeader>
-                      <CardContent className="space-y-2 text-sm text-muted-foreground">
-                        <a href={locationLink(event.location, event.locationUrl)} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 hover:underline" onClick={(e) => e.stopPropagation()}>
-                          <MapPin className="h-4 w-4 shrink-0" />
+                      <CardContent className="space-y-1 text-sm text-muted-foreground px-3 pb-3">
+                        <a href={locationLink(event.location, event.locationUrl)} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 hover:underline hover:text-foreground" onClick={(e) => e.stopPropagation()}>
+                          <MapPin className="h-3.5 w-3.5 shrink-0" />
                           {event.location} <ExternalLink className="h-3 w-3" />
                         </a>
                         <div className="flex items-center gap-2">
-                          <Calendar className="h-4 w-4 shrink-0" />
+                          <Calendar className="h-3.5 w-3.5 shrink-0" />
                           {formatDateRange(new Date(event.startDate), new Date(event.endDate))}
                         </div>
                         <div className="flex items-center gap-2">
-                          <Users className="h-4 w-4 shrink-0" />
-                          {event._count.signups} {event._count.signups === 1 ? "family" : "families"} signed up
+                          <Users className="h-3.5 w-3.5 shrink-0" />
+                          {event._count.signups} {event._count.signups === 1 ? "family" : "families"}
                         </div>
-                        {event.campsiteUrl && (
-                          <div>
-                            <a href={event.campsiteUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline inline-flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-                              Campsite Official Page <ExternalLink className="h-3 w-3" />
-                            </a>
-                          </div>
-                        )}
                         {event.description && <p className="text-xs">{event.description}</p>}
                         <div className="text-xs">Organized by {familyEmoji(event.organizer.id)} {event.organizer.name}</div>
                       </CardContent>
@@ -152,44 +145,32 @@ export default function EventsPage() {
           )}
 
           {communityEvents.length > 0 && (
-            <section className="space-y-3">
-              <h2 className="text-lg font-semibold">Community Trips</h2>
-              <p className="text-sm text-muted-foreground">Upcoming trips from the community — sign up to join!</p>
-              <div className="grid gap-3">
+            <section className="space-y-2">
+              <h2 className="text-base font-semibold">Community Trips</h2>
+              <p className="text-xs text-muted-foreground">Upcoming trips from the community</p>
+              <div className="grid gap-2">
                 {communityEvents
                   .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())
                   .map((event) => (
                     <Link key={event.id} href={`/join/${event.inviteCode}`}>
-                      <Card className="hover:shadow-md transition-shadow cursor-pointer border-dashed">
-                        <CardHeader className="pb-2">
+                      <Card className="hover:border-primary/40 transition-colors cursor-pointer border-dashed">
+                        <CardHeader className="pb-1.5 px-3 pt-3">
                           <div className="flex items-start justify-between">
-                            <CardTitle className="text-lg">{event.title}</CardTitle>
-                            <Badge className="bg-amber-100 text-amber-800" variant="secondary">
+                            <CardTitle className="text-base">{event.title}</CardTitle>
+                            <Badge className="bg-amber-900/40 text-amber-300 border-amber-700/50" variant="secondary">
                               open
                             </Badge>
                           </div>
                         </CardHeader>
-                        <CardContent className="space-y-2 text-sm text-muted-foreground">
-                          <a href={locationLink(event.location, event.locationUrl)} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 hover:underline" onClick={(e) => e.stopPropagation()}>
-                            <MapPin className="h-4 w-4 shrink-0" />
-                            {event.location} <ExternalLink className="h-3 w-3" />
-                          </a>
+                        <CardContent className="space-y-1 text-sm text-muted-foreground px-3 pb-3">
                           <div className="flex items-center gap-2">
-                            <Calendar className="h-4 w-4 shrink-0" />
+                            <MapPin className="h-3.5 w-3.5 shrink-0" />
+                            {event.location}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Calendar className="h-3.5 w-3.5 shrink-0" />
                             {formatDateRange(new Date(event.startDate), new Date(event.endDate))}
                           </div>
-                          <div className="flex items-center gap-2">
-                            <Users className="h-4 w-4 shrink-0" />
-                            {event._count.signups} {event._count.signups === 1 ? "family" : "families"} signed up
-                          </div>
-                          {event.campsiteUrl && (
-                            <div>
-                              <a href={event.campsiteUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline inline-flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-                                Campsite Official Page <ExternalLink className="h-3 w-3" />
-                              </a>
-                            </div>
-                          )}
-                          {event.description && <p className="text-xs">{event.description}</p>}
                           <div className="text-xs">Organized by {familyEmoji(event.organizer.id)} {event.organizer.name}</div>
                         </CardContent>
                       </Card>
@@ -200,27 +181,27 @@ export default function EventsPage() {
           )}
 
           {past.length > 0 && (
-            <section className="space-y-3">
-              <h2 className="text-lg font-semibold text-muted-foreground">Past Trips</h2>
-              <div className="grid gap-3">
+            <section className="space-y-2">
+              <h2 className="text-base font-semibold text-muted-foreground">Past Trips</h2>
+              <div className="grid gap-2">
                 {past.map((event) => (
                   <Link key={event.id} href={`/events/${event.id}`}>
-                    <Card className="hover:shadow-md transition-shadow cursor-pointer opacity-75">
-                      <CardHeader className="pb-2">
+                    <Card className="hover:border-primary/40 transition-colors cursor-pointer opacity-60">
+                      <CardHeader className="pb-1.5 px-3 pt-3">
                         <div className="flex items-start justify-between">
-                          <CardTitle className="text-lg">{event.title}</CardTitle>
+                          <CardTitle className="text-base">{event.title}</CardTitle>
                           <Badge className={statusColors[event.status]} variant="secondary">
                             {event.status}
                           </Badge>
                         </div>
                       </CardHeader>
-                      <CardContent className="space-y-1 text-sm text-muted-foreground">
+                      <CardContent className="space-y-1 text-sm text-muted-foreground px-3 pb-3">
                         <div className="flex items-center gap-2">
-                          <MapPin className="h-4 w-4" />
+                          <MapPin className="h-3.5 w-3.5" />
                           {event.location}
                         </div>
                         <div className="flex items-center gap-2">
-                          <Calendar className="h-4 w-4" />
+                          <Calendar className="h-3.5 w-3.5" />
                           {formatDateRange(new Date(event.startDate), new Date(event.endDate))}
                         </div>
                       </CardContent>

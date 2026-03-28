@@ -3,6 +3,7 @@ import { Geist } from "next/font/google";
 import "./globals.css";
 import { AppHeader } from "@/components/layout/app-header";
 import { Toaster } from "@/components/ui/sonner";
+import { FeedbackButton } from "@/components/shared/feedback-button";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -24,12 +25,13 @@ export default function RootLayout({
       <head>
         <meta name="google" content="notranslate" />
       </head>
-      <body className={`${geistSans.variable} font-sans antialiased bg-gray-50 min-h-screen`}>
+      <body className={`${geistSans.variable} font-sans antialiased bg-background text-foreground min-h-screen`}>
         <AppHeader />
-        <main className="mx-auto max-w-4xl px-4 py-6">
+        <main className="mx-auto max-w-4xl px-3 py-4 sm:px-4 sm:py-6">
           {children}
         </main>
         <Toaster />
+        <FeedbackButton />
       </body>
     </html>
   );
