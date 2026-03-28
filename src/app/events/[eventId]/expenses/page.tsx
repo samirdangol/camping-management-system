@@ -575,7 +575,7 @@ export default function ExpensesPage() {
                                 {(() => {
                                   const toFamily = families.find((f) => f.id === s.to.id);
                                   const paypalMe = toFamily?.paypalMe;
-                                  return paypalMe && familyId === s.from.id ? (
+                                  return paypalMe ? (
                                     <a
                                       href={`https://paypal.me/${paypalMe}/${s.amount.toFixed(2)}`}
                                       target="_blank"
