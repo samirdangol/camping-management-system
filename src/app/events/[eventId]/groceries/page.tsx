@@ -399,6 +399,7 @@ export default function GroceriesPage() {
             familyId={familyId}
             isOrganizer={isOrganizer}
             allSuggestions={allSuggestions}
+            categoryOptions={categoryOptions}
             onDelete={handleDelete}
             onClaim={handleClaim}
             onUnclaim={handleUnclaim}
@@ -409,6 +410,7 @@ export default function GroceriesPage() {
             onSaveEdit={handleSaveEdit}
             onBulkAdd={handleBulkAdd}
             onReorder={handleReorder}
+            onMoveCategory={handleMoveCategory}
             onRename={(newName) => {
               setNewCategories((prev) =>
                 prev.map((c) => (c === cat ? newName : c))
