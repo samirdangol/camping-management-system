@@ -31,11 +31,23 @@ import {
   UserPlus,
   ChevronDown,
   ChevronRight,
-  AlertTriangle,
   FolderPlus,
   ClipboardPaste,
-  ChevronUp,
+  MoreVertical,
+  ArrowUp,
+  ArrowDown,
+  FolderInput,
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { PasteImportDialog } from "@/components/bulk-import/paste-import-dialog";
 import { CategoryBulkAdd } from "@/components/bulk-import/category-bulk-add";
 import { useIsOrganizer } from "@/hooks/use-is-organizer";
@@ -127,6 +139,15 @@ export default function EquipmentPage() {
     );
   }, [items]);
 
+  /* move-to-category targets: real categories + user-added empty ones */
+  const categoryOptions = useMemo(() => {
+    const set = new Set<string>(existingCategories);
+    newCategories.forEach((c) => set.add(c));
+    return Array.from(set).sort((a, b) =>
+      a.toLowerCase().localeCompare(b.toLowerCase())
+    );
+  }, [existingCategories, newCategories]);
+
   /* combined suggestions: existing + defaults */
   const allSuggestions = useMemo(() => {
     const set = new Set(existingCategories.map((c) => c.toLowerCase()));
@@ -195,6 +216,11 @@ export default function EquipmentPage() {
     }
   ) {
     await updateEquipment(itemId, eid, vals);
+    await fetchData();
+  }
+
+  async function handleMoveCategory(itemId: number, newCategory: string) {
+    await updateEquipment(itemId, eid, { category: newCategory });
     await fetchData();
   }
 
@@ -329,6 +355,7 @@ export default function EquipmentPage() {
           familyId={familyId}
           isOrganizer={isOrganizer}
           allSuggestions={allSuggestions}
+          categoryOptions={categoryOptions}
           onDelete={handleDelete}
           onClaim={handleClaim}
           onUnclaim={handleUnclaim}
@@ -338,6 +365,7 @@ export default function EquipmentPage() {
           onSaveEdit={handleSaveEdit}
           onBulkAdd={handleBulkAdd}
           onReorder={handleReorder}
+          onMoveCategory={handleMoveCategory}
           onRename={(newName) => handleRenameCategory(cat, newName)}
           onClear={() => handleClearCategory(cat)}
         />
@@ -383,6 +411,7 @@ export default function EquipmentPage() {
           familyId={familyId}
           isOrganizer={isOrganizer}
           allSuggestions={allSuggestions}
+          categoryOptions={categoryOptions}
           onDelete={handleDelete}
           onClaim={handleClaim}
           onUnclaim={handleUnclaim}
@@ -392,6 +421,7 @@ export default function EquipmentPage() {
           onSaveEdit={handleSaveEdit}
           onBulkAdd={handleBulkAdd}
           onReorder={handleReorder}
+          onMoveCategory={handleMoveCategory}
         />
       )}
 
@@ -454,6 +484,7 @@ function EquipmentCategorySection({
   familyId,
   isOrganizer,
   allSuggestions,
+  categoryOptions,
   onDelete,
   onClaim,
   onUnclaim,
@@ -463,6 +494,7 @@ function EquipmentCategorySection({
   onSaveEdit,
   onBulkAdd,
   onReorder,
+  onMoveCategory,
   onRename,
   onClear,
 }: {
@@ -472,6 +504,7 @@ function EquipmentCategorySection({
   familyId: number | null;
   isOrganizer: boolean;
   allSuggestions: string[];
+  categoryOptions: string[];
   onDelete: (id: number) => Promise<void>;
   onClaim: (id: number) => Promise<void>;
   onUnclaim: (id: number) => Promise<void>;
@@ -483,6 +516,7 @@ function EquipmentCategorySection({
     vals: { name: string; category?: string; quantity?: number; notes?: string }
   ) => Promise<void>;
   onReorder: (id: number, direction: "up" | "down", category?: string) => Promise<void>;
+  onMoveCategory: (id: number, newCategory: string) => Promise<void>;
   onBulkAdd: (
     rows: { name: string; category?: string; quantity?: number; notes?: string }[]
   ) => Promise<void>;
@@ -620,6 +654,7 @@ function EquipmentCategorySection({
               familyId={familyId}
               isOrganizer={isOrganizer}
               allSuggestions={allSuggestions}
+              categoryOptions={categoryOptions}
               isFirst={idx === 0}
               isLast={idx === items.length - 1}
               onDelete={onDelete}
@@ -630,6 +665,7 @@ function EquipmentCategorySection({
               onUnvolunteer={onUnvolunteer}
               onSaveEdit={onSaveEdit}
               onReorder={(dir) => onReorder(item.id, dir, category || undefined)}
+              onMoveCategory={onMoveCategory}
             />
           ))}
 
@@ -687,6 +723,7 @@ function EquipmentItemCard({
   familyId,
   isOrganizer,
   allSuggestions,
+  categoryOptions,
   isFirst,
   isLast,
   onDelete,
@@ -697,12 +734,14 @@ function EquipmentItemCard({
   onUnvolunteer,
   onSaveEdit,
   onReorder,
+  onMoveCategory,
 }: {
   item: EquipmentWithOwner;
   families: Family[];
   familyId: number | null;
   isOrganizer: boolean;
   allSuggestions: string[];
+  categoryOptions: string[];
   isFirst: boolean;
   isLast: boolean;
   onDelete: (id: number) => Promise<void>;
@@ -716,6 +755,7 @@ function EquipmentItemCard({
     vals: { name: string; category?: string; quantity?: number; notes?: string }
   ) => Promise<void>;
   onReorder: (direction: "up" | "down") => Promise<void>;
+  onMoveCategory: (id: number, newCategory: string) => Promise<void>;
 }) {
   const [editing, setEditing] = useState(false);
   const [editName, setEditName] = useState(item.name);
@@ -733,8 +773,8 @@ function EquipmentItemCard({
   const needsVolunteer = !hasOwner && !hasVolunteers;
 
   const bg = needsVolunteer
-    ? "bg-sky-950/30 border-sky-800/50"
-    : "bg-card border-border";
+    ? "bg-card border-border"
+    : "bg-emerald-950/30 border-l-4 border-l-emerald-600 border-emerald-900/40";
 
   function startEdit() {
     setEditName(item.name);
@@ -815,11 +855,26 @@ function EquipmentItemCard({
   }
 
   /* ── Display mode ── */
+  const showSelfVolunteer = !isMyItem;
+  const showAssign = isOrganizer;
+  const hasPrimaryActions = showSelfVolunteer || showAssign;
+  const hasBadges =
+    !!item.owner ||
+    !!item.ownerLabel ||
+    item.volunteers.length > 0;
+
   return (
     <div className={`rounded-lg border p-2.5 ${bg}`}>
-      <div className="flex items-center gap-2">
-        {/* Single line: name + qty + notes + owner/volunteers + actions */}
-        <div className="flex items-center gap-1.5 flex-wrap flex-1 min-w-0">
+      {/* Row 1: name + qty + notes + small icon actions on the right */}
+      <div className="flex items-start gap-2">
+        <div className="flex-1 min-w-0 flex items-center gap-1.5 flex-wrap">
+          {needsVolunteer && (
+            <span
+              className="h-2 w-2 rounded-full bg-red-500 shrink-0"
+              title="No owner yet — needs help"
+              aria-label="Needs an owner"
+            />
+          )}
           <span className="text-sm font-medium">{item.name}</span>
           {item.quantity > 1 && (
             <span className="text-xs text-muted-foreground">
@@ -831,8 +886,63 @@ function EquipmentItemCard({
               {item.notes}
             </span>
           )}
+        </div>
 
-          {/* Owner badge: family or free-text label */}
+        {/* Overflow menu: edit, reorder, delete */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9 shrink-0 text-muted-foreground"
+              aria-label="Item actions"
+            >
+              <MoreVertical className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-44">
+            <DropdownMenuItem onClick={startEdit}>
+              <Pencil className="h-4 w-4" />
+              Edit
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => onReorder("up")}
+              disabled={isFirst}
+            >
+              <ArrowUp className="h-4 w-4" />
+              Move up
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => onReorder("down")}
+              disabled={isLast}
+            >
+              <ArrowDown className="h-4 w-4" />
+              Move down
+            </DropdownMenuItem>
+            <MoveCategorySubmenu
+              currentCategory={item.category || ""}
+              categoryOptions={categoryOptions}
+              onMove={(target) => onMoveCategory(item.id, target)}
+            />
+            {isOrganizer && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={() => onDelete(item.id)}
+                  variant="destructive"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Delete
+                </DropdownMenuItem>
+              </>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+
+      {/* Row 2: owner / volunteer / warning badges */}
+      {hasBadges && (
+        <div className="flex items-center gap-1.5 flex-wrap mt-2">
           {(item.owner || item.ownerLabel) && (
             <Badge
               variant="secondary"
@@ -851,7 +961,6 @@ function EquipmentItemCard({
               )}
             </Badge>
           )}
-          {/* Volunteer badges (with X if mine) */}
           {item.volunteers.map((v) => (
             <Badge
               key={v.id}
@@ -869,39 +978,34 @@ function EquipmentItemCard({
               )}
             </Badge>
           ))}
+        </div>
+      )}
 
-          {/* Needs volunteer warning */}
-          {needsVolunteer && (
-            <span className="text-amber-400" title="Needs someone to bring">
-              <AlertTriangle className="h-3 w-3" />
-            </span>
-          )}
-
-          {/* Self-volunteer button */}
-          {!isMyItem && (
+      {/* Row 3: primary actions — full-width on mobile, compact on desktop */}
+      {hasPrimaryActions && (
+        <div className="flex gap-2 mt-2">
+          {showSelfVolunteer && (
             <Button
-              variant="ghost"
+              variant="outline"
               size="sm"
-              className="h-5 text-[10px] px-1.5 text-emerald-400 hover:text-emerald-300 hover:bg-emerald-900/30"
+              className="flex-1 sm:flex-initial h-9 sm:h-8 text-xs sm:text-[11px] border-emerald-700/50 text-emerald-400 hover:text-emerald-300 hover:bg-emerald-900/30"
               onClick={() =>
                 hasOwner ? onVolunteer(item.id) : onClaim(item.id)
               }
             >
-              <Hand className="h-3 w-3 mr-0.5" />
+              <Hand className="h-3.5 w-3.5 mr-1" />
               I&apos;ll bring this!
             </Button>
           )}
-
-          {/* Organizer assign / reassign */}
-          {isOrganizer && (
-            <div className="relative">
+          {showAssign && (
+            <div className="relative flex-1 sm:flex-initial">
               <Button
-                variant="ghost"
+                variant="outline"
                 size="sm"
-                className="h-5 text-[10px] px-1.5 text-blue-400 hover:text-blue-300 hover:bg-blue-900/30"
+                className="w-full sm:w-auto h-9 sm:h-8 text-xs sm:text-[11px] border-blue-700/50 text-blue-400 hover:text-blue-300 hover:bg-blue-900/30"
                 onClick={() => setShowAssignPanel((v) => !v)}
               >
-                <UserPlus className="h-3 w-3 mr-0.5" />
+                <UserPlus className="h-3.5 w-3.5 mr-1" />
                 {hasOwner ? "Reassign" : "Assign"}
               </Button>
               {showAssignPanel && (
@@ -917,45 +1021,7 @@ function EquipmentItemCard({
             </div>
           )}
         </div>
-
-        {/* Action buttons */}
-        <div className="flex items-center gap-0.5 shrink-0">
-          <div className="flex flex-col -space-y-1">
-            <button
-              className="text-muted-foreground hover:text-foreground disabled:opacity-30 p-0 leading-none"
-              onClick={() => onReorder("up")}
-              disabled={isFirst}
-            >
-              <ChevronUp className="h-3.5 w-3.5" />
-            </button>
-            <button
-              className="text-muted-foreground hover:text-foreground disabled:opacity-30 p-0 leading-none rotate-180"
-              onClick={() => onReorder("down")}
-              disabled={isLast}
-            >
-              <ChevronUp className="h-3.5 w-3.5" />
-            </button>
-          </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-6 w-6"
-            onClick={startEdit}
-          >
-            <Pencil className="h-3 w-3" />
-          </Button>
-          {isOrganizer && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-6 w-6 text-red-500 hover:text-destructive"
-              onClick={() => onDelete(item.id)}
-            >
-              <Trash2 className="h-3 w-3" />
-            </Button>
-          )}
-        </div>
-      </div>
+      )}
     </div>
   );
 }
@@ -1074,6 +1140,48 @@ function AssignPanel({
         </Button>
       </form>
     </div>
+  );
+}
+
+/* ════════════════════════════════════════════════════════
+   Move-to-category submenu (used inside the item dropdown)
+   ════════════════════════════════════════════════════════ */
+
+function MoveCategorySubmenu({
+  currentCategory,
+  categoryOptions,
+  onMove,
+}: {
+  currentCategory: string;
+  categoryOptions: string[];
+  onMove: (target: string) => void;
+}) {
+  const targets = categoryOptions.filter((c) => c !== currentCategory);
+  const canUncategorize = !!currentCategory;
+  if (targets.length === 0 && !canUncategorize) return null;
+
+  return (
+    <DropdownMenuSub>
+      <DropdownMenuSubTrigger>
+        <FolderInput className="h-4 w-4" />
+        Move to category
+      </DropdownMenuSubTrigger>
+      <DropdownMenuSubContent className="max-h-72 overflow-y-auto">
+        {targets.map((c) => (
+          <DropdownMenuItem key={c} onClick={() => onMove(c)}>
+            {c}
+          </DropdownMenuItem>
+        ))}
+        {canUncategorize && (
+          <>
+            {targets.length > 0 && <DropdownMenuSeparator />}
+            <DropdownMenuItem onClick={() => onMove("")}>
+              Uncategorized
+            </DropdownMenuItem>
+          </>
+        )}
+      </DropdownMenuSubContent>
+    </DropdownMenuSub>
   );
 }
 
