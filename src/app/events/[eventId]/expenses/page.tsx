@@ -41,6 +41,7 @@ import {
 } from "lucide-react";
 import { useIsOrganizer } from "@/hooks/use-is-organizer";
 import { familyEmoji } from "@/lib/utils";
+import { ConfirmDeleteDialog } from "@/components/shared/confirm-delete-dialog";
 import type { Family, ExpenseWithFamily, ExpenseSummary } from "@/types";
 import { format } from "date-fns";
 
@@ -102,6 +103,8 @@ export default function ExpensesPage() {
     paidByFamilyId: "",
     category: "",
   });
+
+  const [pendingDeleteId, setPendingDeleteId] = useState<number | null>(null);
 
   // New rows for bulk add
   const defaultFamilyId = familyId ? familyId.toString() : "";
@@ -173,8 +176,14 @@ export default function ExpensesPage() {
     await fetchData();
   }
 
-  async function handleDelete(expenseId: number) {
-    await deleteExpense(expenseId, parseInt(eventId, 10));
+  function handleDelete(expenseId: number) {
+    setPendingDeleteId(expenseId);
+  }
+
+  async function confirmDelete() {
+    if (pendingDeleteId === null) return;
+    await deleteExpense(pendingDeleteId, parseInt(eventId, 10));
+    setPendingDeleteId(null);
     await fetchData();
   }
 
@@ -620,6 +629,14 @@ export default function ExpensesPage() {
           )}
         </TabsContent>
       </Tabs>
+
+      <ConfirmDeleteDialog
+        open={pendingDeleteId !== null}
+        title="Delete expense?"
+        description="This will permanently remove the expense and may affect settlement calculations."
+        onConfirm={confirmDelete}
+        onCancel={() => setPendingDeleteId(null)}
+      />
     </div>
   );
 }

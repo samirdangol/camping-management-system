@@ -54,6 +54,7 @@ import { PasteImportDialog } from "@/components/bulk-import/paste-import-dialog"
 import { CategoryBulkAdd } from "@/components/bulk-import/category-bulk-add";
 import { useIsOrganizer } from "@/hooks/use-is-organizer";
 import { familyEmoji } from "@/lib/utils";
+import { ConfirmDeleteDialog } from "@/components/shared/confirm-delete-dialog";
 import type { Family, GroceryWithFamily } from "@/types";
 
 type Filter = "all" | "unassigned" | "mine";
@@ -82,6 +83,7 @@ export default function GroceriesPage() {
   const [newCategories, setNewCategories] = useState<string[]>([]);
   const [newCatInput, setNewCatInput] = useState("");
   const [importOpen, setImportOpen] = useState(false);
+  const [pendingDeleteId, setPendingDeleteId] = useState<number | null>(null);
 
   const fetchData = useCallback(async () => {
     const [signups, groceries] = await Promise.all([
@@ -173,8 +175,15 @@ export default function GroceriesPage() {
 
   /* ─── item actions ─── */
 
-  async function handleDelete(itemId: number) {
-    await deleteGroceryItem(itemId, eid);
+  function handleDelete(itemId: number) {
+    setPendingDeleteId(itemId);
+  }
+
+  async function confirmDelete() {
+    if (pendingDeleteId === null) return;
+    const id = pendingDeleteId;
+    setPendingDeleteId(null);
+    await deleteGroceryItem(id, eid);
     await fetchData();
   }
 
@@ -490,6 +499,14 @@ export default function GroceriesPage() {
         title="Import Groceries"
         placeholder={"Breakfast: Milk, Tea, Coffee, Sugar\nLunch/Dinner: Chicken, Rice, Oil\nDrinks: Beer, Wine, Water"}
       />
+
+      <ConfirmDeleteDialog
+        open={pendingDeleteId !== null}
+        title="Delete grocery item?"
+        description="This will permanently remove the item and any volunteer assignments."
+        onConfirm={confirmDelete}
+        onCancel={() => setPendingDeleteId(null)}
+      />
     </div>
   );
 }
@@ -527,7 +544,7 @@ function CategorySection({
   isOrganizer: boolean;
   allSuggestions: string[];
   categoryOptions: string[];
-  onDelete: (id: number) => Promise<void>;
+  onDelete: (id: number) => void | Promise<void>;
   onClaim: (id: number) => Promise<void>;
   onUnclaim: (id: number) => Promise<void>;
   onOrganizerAssign: (id: number, familyId: number | null, label?: string) => Promise<void>;
@@ -772,7 +789,7 @@ function GroceryItemCard({
   categoryOptions: string[];
   isFirst: boolean;
   isLast: boolean;
-  onDelete: (id: number) => Promise<void>;
+  onDelete: (id: number) => void | Promise<void>;
   onClaim: (id: number) => Promise<void>;
   onUnclaim: (id: number) => Promise<void>;
   onOrganizerAssign: (id: number, familyId: number | null, label?: string) => Promise<void>;
@@ -903,23 +920,18 @@ function GroceryItemCard({
   }
 
   /* ── Display mode ── */
-  const showSelfVolunteer = !isMyItem;
+  const showSelfVolunteer = !hasOwner && !isMyItem;
   const showAssign = isOrganizer;
-  const hasPrimaryActions = showSelfVolunteer || showAssign;
-  const hasBadges =
-    !!item.assignedTo ||
-    !!item.assignedLabel ||
-    item.volunteers.length > 0;
 
   return (
     <div className={`rounded-lg border p-2.5 ${bg}`}>
-      {/* Row 1: checkbox + name/qty/mealTag + small icon actions on the right */}
-      <div className="flex items-start gap-2">
+      <div className="flex items-center gap-2">
         <Checkbox
           checked={item.isPurchased}
           onCheckedChange={() => onTogglePurchased(item.id, item.isPurchased)}
-          className="shrink-0 mt-0.5"
+          className="shrink-0"
         />
+        {/* Left: name + qty + tags + volunteer badges — owner badge moves to right column */}
         <div className="flex-1 min-w-0 flex items-center gap-1.5 flex-wrap">
           {needsVolunteer && (
             <span
@@ -928,157 +940,108 @@ function GroceryItemCard({
               aria-label="Needs an owner"
             />
           )}
-          <span
-            className={`text-sm font-medium ${item.isPurchased ? "line-through text-muted-foreground" : ""}`}
-          >
+          <span className={`text-sm font-medium ${item.isPurchased ? "line-through text-muted-foreground" : ""}`}>
             {item.name}
           </span>
           {item.quantity && (
-            <span className="text-xs text-muted-foreground">
-              ×{item.quantity}
-            </span>
+            <span className="text-xs text-muted-foreground">×{item.quantity}</span>
           )}
           {item.mealTag && (
             <Badge className="text-[10px] px-1.5 py-0 bg-purple-900/40 text-purple-300 hover:bg-purple-900/50">
               {item.mealTag}
             </Badge>
           )}
-        </div>
-
-        {/* Overflow menu: edit, reorder, delete */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-9 w-9 shrink-0 text-muted-foreground"
-              aria-label="Item actions"
-            >
-              <MoreVertical className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-44">
-            <DropdownMenuItem onClick={startEdit}>
-              <Pencil className="h-4 w-4" />
-              Edit
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => onReorder("up")}
-              disabled={isFirst}
-            >
-              <ArrowUp className="h-4 w-4" />
-              Move up
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => onReorder("down")}
-              disabled={isLast}
-            >
-              <ArrowDown className="h-4 w-4" />
-              Move down
-            </DropdownMenuItem>
-            <MoveCategorySubmenu
-              currentCategory={item.category || ""}
-              categoryOptions={categoryOptions}
-              onMove={(target) => onMoveCategory(item.id, target)}
-            />
-            {isOrganizer && (
-              <>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  onClick={() => onDelete(item.id)}
-                  variant="destructive"
-                >
-                  <Trash2 className="h-4 w-4" />
-                  Delete
-                </DropdownMenuItem>
-              </>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-
-      {/* Row 2: owner / volunteer / warning badges */}
-      {hasBadges && (
-        <div className="flex items-center gap-1.5 flex-wrap mt-2 pl-7">
-          {(item.assignedTo || item.assignedLabel) && (
-            <Badge
-              variant="secondary"
-              className="text-[10px] px-1.5 py-0 bg-emerald-900/40 text-emerald-300"
-            >
-              {item.assignedTo
-                ? <>{familyEmoji(item.assignedTo.id)} {item.assignedTo.name}</>
-                : item.assignedLabel}
-              {(iAmOwner || isOrganizer) && (
-                <button
-                  onClick={() => onUnclaim(item.id)}
-                  className="ml-0.5 hover:text-destructive"
-                >
-                  <X className="h-2.5 w-2.5" />
-                </button>
-              )}
-            </Badge>
-          )}
           {item.volunteers.map((v) => (
-            <Badge
-              key={v.id}
-              variant="secondary"
-              className="text-[10px] px-1.5 py-0 bg-emerald-900/40 text-emerald-300"
-            >
+            <Badge key={v.id} variant="secondary" className="text-[10px] px-1.5 py-0 bg-emerald-900/40 text-emerald-300">
               {familyEmoji(v.family.id)} {v.family.name}
               {v.familyId === familyId && (
-                <button
-                  onClick={() => onUnvolunteer(item.id)}
-                  className="ml-0.5 hover:text-destructive"
-                >
+                <button onClick={() => onUnvolunteer(item.id)} className="ml-0.5 hover:text-destructive">
                   <X className="h-2.5 w-2.5" />
                 </button>
               )}
             </Badge>
           ))}
         </div>
-      )}
-
-      {/* Row 3: primary actions — full-width on mobile, compact on desktop */}
-      {hasPrimaryActions && (
-        <div className="flex gap-2 mt-2 pl-7 sm:pl-7">
-          {showSelfVolunteer && (
+        {/* Right: owner badge OR volunteer button — same position, then overflow menu */}
+        <div className="flex items-center gap-0.5 shrink-0 relative">
+          {hasOwner ? (
+            <Badge variant="secondary" className="text-[10px] px-1.5 py-0 bg-emerald-900/40 text-emerald-300">
+              {item.assignedTo
+                ? <>{familyEmoji(item.assignedTo.id)} {item.assignedTo.name}</>
+                : item.assignedLabel}
+              {(iAmOwner || isOrganizer) && (
+                <button onClick={() => onUnclaim(item.id)} className="ml-0.5 hover:text-destructive">
+                  <X className="h-2.5 w-2.5" />
+                </button>
+              )}
+            </Badge>
+          ) : showSelfVolunteer ? (
             <Button
               variant="outline"
               size="sm"
-              className="flex-1 sm:flex-initial h-9 sm:h-8 text-xs sm:text-[11px] border-emerald-700/50 text-emerald-400 hover:text-emerald-300 hover:bg-emerald-900/30"
-              onClick={() =>
-                hasOwner ? onVolunteer(item.id) : onClaim(item.id)
-              }
+              className="h-8 text-xs gap-1 border-emerald-700/50 text-emerald-400 hover:text-emerald-300 hover:bg-emerald-900/30"
+              onClick={() => onClaim(item.id)}
             >
-              <Hand className="h-3.5 w-3.5 mr-1" />
+              <Hand className="h-3.5 w-3.5" />
               I&apos;ll bring this!
             </Button>
-          )}
-          {showAssign && (
-            <div className="relative flex-1 sm:flex-initial">
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full sm:w-auto h-9 sm:h-8 text-xs sm:text-[11px] border-blue-700/50 text-blue-400 hover:text-blue-300 hover:bg-blue-900/30"
-                onClick={() => setShowAssignPanel((v) => !v)}
-              >
-                <UserPlus className="h-3.5 w-3.5 mr-1" />
-                {hasOwner ? "Reassign" : "Assign"}
+          ) : null}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-muted-foreground" aria-label="Item actions">
+                <MoreVertical className="h-4 w-4" />
               </Button>
-              {showAssignPanel && (
-                <AssignPanel
-                  families={families}
-                  onAssign={(fId, label) => {
-                    onOrganizerAssign(item.id, fId, label);
-                    setShowAssignPanel(false);
-                  }}
-                  onClose={() => setShowAssignPanel(false)}
-                />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-44">
+              {showAssign && (
+                <>
+                  <DropdownMenuItem onClick={() => setShowAssignPanel((v) => !v)}>
+                    <UserPlus className="h-4 w-4" />
+                    {hasOwner ? "Reassign" : "Assign"}
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                </>
               )}
-            </div>
+              <DropdownMenuItem onClick={startEdit}>
+                <Pencil className="h-4 w-4" />
+                Edit
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onReorder("up")} disabled={isFirst}>
+                <ArrowUp className="h-4 w-4" />
+                Move up
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onReorder("down")} disabled={isLast}>
+                <ArrowDown className="h-4 w-4" />
+                Move down
+              </DropdownMenuItem>
+              <MoveCategorySubmenu
+                currentCategory={item.category || ""}
+                categoryOptions={categoryOptions}
+                onMove={(target) => onMoveCategory(item.id, target)}
+              />
+              {isOrganizer && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => onDelete(item.id)} variant="destructive">
+                    <Trash2 className="h-4 w-4" />
+                    Delete
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          {showAssignPanel && (
+            <AssignPanel
+              families={families}
+              onAssign={(fId, label) => {
+                onOrganizerAssign(item.id, fId, label);
+                setShowAssignPanel(false);
+              }}
+              onClose={() => setShowAssignPanel(false)}
+            />
           )}
         </div>
-      )}
+      </div>
     </div>
   );
 }
@@ -1113,7 +1076,7 @@ function AssignPanel({
   return (
     <div
       ref={panelRef}
-      className="absolute z-20 top-full left-0 mt-1 bg-popover border rounded-lg shadow-lg p-2 min-w-[280px] space-y-2"
+      className="absolute z-20 top-full right-0 mt-1 bg-popover border rounded-lg shadow-lg p-2 min-w-[280px] space-y-2"
     >
       {/* Family grid */}
       <div className="grid grid-cols-2 gap-1">

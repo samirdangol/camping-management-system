@@ -1,0 +1,51 @@
+[      80ms] [VERBOSE] [DOM] Input elements should have autocomplete attributes (suggested: "current-password"): (More info: https://goo.gl/9p2vKq) %o @ http://localhost:3000/login:0
+[     116ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[     161ms] [LOG] [HMR] connected @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[     211ms] Unexpected token '<', "<!DOCTYPE "... is not valid JSON
+[   32348ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/auth:0
+[   38445ms] [VERBOSE] [DOM] Input elements should have autocomplete attributes (suggested: "new-password"): (More info: https://goo.gl/9p2vKq) %o @ http://localhost:3000/select-family:0
+[   40953ms] [ERROR] In HTML, %s cannot be a descendant of <%s>.
+This will cause a hydration error.%s <a> a 
+
+  ...
+    <HTTPAccessFallbackBoundary notFound={undefined} forbidden={undefined} unauthorized={undefined}>
+      <RedirectBoundary>
+        <RedirectErrorBoundary router={{...}}>
+          <InnerLayoutRouter url="/events" tree={[...]} params={{}} cacheNode={{rsc:<Fragment>, ...}} segmentPath={[...]} ...>
+            <SegmentViewNode type="page" pagePath="events/pag...">
+              <SegmentTrieNode>
+              <ClientPageRoot Component={function EventsPage} serverProvidedParams={{...}}>
+                <EventsPage params={Promise} searchParams={Promise}>
+                  <div className="space-y-5">
+                    <PageHeader>
+                    <section className="space-y-2">
+                      <h2>
+                      <div className="grid gap-2">
+                        <LinkComponent href="/events/5">
+>                         <a
+>                           ref={function}
+>                           onClick={function onClick}
+>                           onMouseEnter={function onMouseEnter}
+>                           onTouchStart={function onTouchStart}
+>                           href="/events/5"
+>                         >
+                            <Card className="hover:bord...">
+                              <div data-slot="card" className="bg-card te...">
+                                <CardHeader>
+                                <CardContent className="space-y-1 ...">
+                                  <div data-slot="card-content" className="space-y-1 ...">
+>                                   <a
+>                                     href="https://www.google.com/maps/search/Millersylvania%20State%20Park"
+>                                     target="_blank"
+>                                     rel="noopener noreferrer"
+>                                     className="flex items-center gap-2 hover:underline hover:text-foreground"
+>                                     onClick={function onClick}
+>                                   >
+                                    ...
+                        ...
+                    ...
+            ...
+          ...
+ @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[   40954ms] [ERROR] <%s> cannot contain a nested %s.
+See this log for the ancestor stack trace. a <a> @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127

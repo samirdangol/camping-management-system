@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Users, Trash2, Pencil } from "lucide-react";
 import { useIsOrganizer } from "@/hooks/use-is-organizer";
 import { familyEmoji, emojiMembers } from "@/lib/utils";
+import { ConfirmDeleteDialog } from "@/components/shared/confirm-delete-dialog";
 import type { Family, SignupWithFamily, HeadcountSummary } from "@/types";
 
 export default function SignupPage() {
@@ -32,6 +33,7 @@ export default function SignupPage() {
   const [suggestions, setSuggestions] = useState<Family[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [editingFamilyId, setEditingFamilyId] = useState<number | null>(null);
+  const [pendingDeleteId, setPendingDeleteId] = useState<number | null>(null);
   const suggestionsRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(null);
 
@@ -141,10 +143,17 @@ export default function SignupPage() {
     setLoading(false);
   }
 
-  async function handleRemove(familyId: number) {
-    await removeSignup(parseInt(eventId, 10), familyId);
+  function handleRemove(familyId: number) {
+    setPendingDeleteId(familyId);
+  }
+
+  async function confirmRemove() {
+    if (pendingDeleteId === null) return;
+    const idToDelete = pendingDeleteId;
+    setPendingDeleteId(null);
+    await removeSignup(parseInt(eventId, 10), idToDelete);
     await fetchSignups();
-    if (editingFamilyId === familyId) resetForm();
+    if (editingFamilyId === idToDelete) resetForm();
   }
 
   const summary: HeadcountSummary = {
@@ -352,6 +361,14 @@ export default function SignupPage() {
           </form>
         </CardContent>
       </Card>
+
+      <ConfirmDeleteDialog
+        open={pendingDeleteId !== null}
+        title="Remove signup?"
+        description="This will remove the family's registration and all their headcount data for this trip."
+        onConfirm={confirmRemove}
+        onCancel={() => setPendingDeleteId(null)}
+      />
     </div>
   );
 }

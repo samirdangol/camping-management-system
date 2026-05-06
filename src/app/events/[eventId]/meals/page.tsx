@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams } from "next/navigation";
 import { format, addDays } from "date-fns";
-import { createMeal, updateMeal, deleteMeal, addFoodItem, removeFoodItem, addFoodItemVolunteer, removeFoodItemVolunteer } from "@/app/actions";
+import { createMeal, updateMeal, deleteMeal, addFoodItem, updateFoodItem, removeFoodItem, addFoodItemVolunteer, removeFoodItemVolunteer } from "@/app/actions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -19,9 +19,17 @@ import {
 import { EmptyState } from "@/components/shared/empty-state";
 import { useCurrentFamily } from "@/hooks/use-current-family";
 import { MEAL_TYPE_LABELS } from "@/lib/constants";
-import { UtensilsCrossed, Plus, Trash2, ChefHat, Leaf, X, Hand, UserPlus, ChevronRight, ChevronDown, Check, AlertTriangle } from "lucide-react";
+import { UtensilsCrossed, Plus, Trash2, ChefHat, Leaf, X, Hand, UserPlus, ChevronRight, ChevronDown, Check, AlertTriangle, MoreVertical, Pencil } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useIsOrganizer } from "@/hooks/use-is-organizer";
 import { familyEmoji } from "@/lib/utils";
+import { ConfirmDeleteDialog } from "@/components/shared/confirm-delete-dialog";
 import type { Family, MealWithDetails } from "@/types";
 
 type EventInfo = {
@@ -55,6 +63,8 @@ export default function MealsPage() {
   const [meals, setMeals] = useState<MealWithDetails[]>([]);
   const [eventInfo, setEventInfo] = useState<EventInfo | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const [pendingDelete, setPendingDelete] = useState<{ type: "meal" | "food"; id: number } | null>(null);
 
   // Add meal form
   const [newMealDay, setNewMealDay] = useState("");
@@ -115,9 +125,13 @@ export default function MealsPage() {
     await fetchData();
   }
 
-  async function handleRemoveFood(foodItemId: number) {
-    await removeFoodItem(foodItemId, parseInt(eventId, 10));
+  async function handleUpdateFood(foodItemId: number, name: string, isVegetarian: boolean) {
+    await updateFoodItem(foodItemId, parseInt(eventId, 10), { name, isVegetarian });
     await fetchData();
+  }
+
+  function handleRemoveFood(foodItemId: number) {
+    setPendingDelete({ type: "food", id: foodItemId });
   }
 
   async function handleAddVolunteer(foodItemId: number, name: string) {
@@ -130,8 +144,19 @@ export default function MealsPage() {
     await fetchData();
   }
 
-  async function handleDeleteMeal(mealId: number) {
-    await deleteMeal(mealId, parseInt(eventId, 10));
+  function handleDeleteMeal(mealId: number) {
+    setPendingDelete({ type: "meal", id: mealId });
+  }
+
+  async function confirmDelete() {
+    if (!pendingDelete) return;
+    const { type, id } = pendingDelete;
+    setPendingDelete(null);
+    if (type === "meal") {
+      await deleteMeal(id, parseInt(eventId, 10));
+    } else {
+      await removeFoodItem(id, parseInt(eventId, 10));
+    }
     await fetchData();
   }
 
@@ -273,6 +298,7 @@ export default function MealsPage() {
                   onUpdateName={handleUpdateName}
                   onUpdateChef={handleUpdateChef}
                   onAddFood={handleAddFood}
+                  onUpdateFood={handleUpdateFood}
                   onRemoveFood={handleRemoveFood}
                   onAddVolunteer={handleAddVolunteer}
                   onRemoveVolunteer={handleRemoveVolunteer}
@@ -282,6 +308,18 @@ export default function MealsPage() {
           </div>
         ))
       )}
+
+      <ConfirmDeleteDialog
+        open={pendingDelete !== null}
+        title={pendingDelete?.type === "meal" ? "Delete meal?" : "Remove food item?"}
+        description={
+          pendingDelete?.type === "meal"
+            ? "This will permanently remove the meal, all food items, and volunteer assignments."
+            : "This will permanently remove the food item and its volunteer assignments."
+        }
+        onConfirm={confirmDelete}
+        onCancel={() => setPendingDelete(null)}
+      />
     </div>
   );
 }
@@ -302,6 +340,7 @@ function MealCard({
   onUpdateName,
   onUpdateChef,
   onAddFood,
+  onUpdateFood,
   onRemoveFood,
   onAddVolunteer,
   onRemoveVolunteer,
@@ -314,6 +353,7 @@ function MealCard({
   onUpdateName: (mealId: number, name: string) => void;
   onUpdateChef: (mealId: number, chefName: string) => void;
   onAddFood: (mealId: number, name: string, isVegetarian: boolean) => void;
+  onUpdateFood: (foodItemId: number, name: string, isVegetarian: boolean) => void;
   onRemoveFood: (foodItemId: number) => void;
   onAddVolunteer: (foodItemId: number, name: string) => void;
   onRemoveVolunteer: (volunteerId: number) => void;
@@ -323,6 +363,9 @@ function MealCard({
   const [isVeg, setIsVeg] = useState(false);
   const [editingName, setEditingName] = useState(false);
   const [nameValue, setNameValue] = useState(meal.name || "");
+  const [editingFoodId, setEditingFoodId] = useState<number | null>(null);
+  const [editFoodName, setEditFoodName] = useState("");
+  const [editFoodIsVeg, setEditFoodIsVeg] = useState(false);
   const [showAssignPanelFor, setShowAssignPanelFor] = useState<number | null>(null);
   const [showChefPanel, setShowChefPanel] = useState(false);
   const foodInputRef = useCallback((node: HTMLInputElement | null) => {
@@ -427,79 +470,137 @@ function MealCard({
             <div className="grid gap-2">
               {meal.foodItems.map((item) => {
                 const hasVolunteers = item.volunteers.length > 0;
+                const isEditingThis = editingFoodId === item.id;
                 return (
                   <div
                     key={item.id}
                     className={`rounded-lg border p-2 transition-colors ${
-                      hasVolunteers
-                        ? "bg-card border-border"
-                        : "bg-sky-950/30 border-sky-800/50"
+                      isEditingThis
+                        ? "bg-blue-950/30 border-blue-800/50"
+                        : hasVolunteers
+                          ? "bg-card border-border"
+                          : "bg-sky-950/30 border-sky-800/50"
                     }`}
                   >
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="flex items-center gap-1.5 text-sm font-medium">
-                        {item.isVegetarian && <Leaf className="h-3.5 w-3.5 text-emerald-400 shrink-0" />}
-                        {item.name}
-                      </span>
-                      {item.volunteers.map((v) => (
-                        <Badge
-                          key={v.id}
-                          variant="secondary"
-                          className="text-xs gap-1 bg-emerald-900/40 text-emerald-300 border-emerald-800/50 hover:bg-emerald-900/50"
+                    {isEditingThis ? (
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setEditFoodIsVeg((v) => !v)}
+                          className={`shrink-0 flex items-center justify-center h-7 w-7 rounded-md border transition-colors ${
+                            editFoodIsVeg
+                              ? "bg-emerald-900/40 border-emerald-700/50 text-emerald-400"
+                              : "bg-muted border-border text-muted-foreground hover:bg-accent"
+                          }`}
+                          title="Toggle vegetarian"
                         >
-                          <span>{volunteerEmoji(v.name, families)}</span>
-                          {v.name}
-                          {(isOrganizer || v.name === currentFamily?.name) && (
-                            <button onClick={() => onRemoveVolunteer(v.id)} className="ml-0.5 hover:text-red-500">
-                              <X className="h-2.5 w-2.5" />
-                            </button>
-                          )}
-                        </Badge>
-                      ))}
-                      {currentFamily && !item.volunteers.some((v) => v.name === currentFamily.name) && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-5 text-[10px] gap-0.5 text-emerald-400 hover:text-emerald-300 hover:bg-emerald-900/30"
-                          onClick={() => onAddVolunteer(item.id, currentFamily.name)}
+                          <Leaf className="h-3.5 w-3.5" />
+                        </button>
+                        <Input
+                          className="h-7 text-sm flex-1"
+                          value={editFoodName}
+                          autoFocus
+                          onChange={(e) => setEditFoodName(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" && editFoodName.trim()) {
+                              onUpdateFood(item.id, editFoodName.trim(), editFoodIsVeg);
+                              setEditingFoodId(null);
+                            }
+                            if (e.key === "Escape") setEditingFoodId(null);
+                          }}
+                        />
+                        <Button size="icon" variant="ghost" className="h-7 w-7 text-emerald-400 shrink-0"
+                          disabled={!editFoodName.trim()}
+                          onClick={() => { onUpdateFood(item.id, editFoodName.trim(), editFoodIsVeg); setEditingFoodId(null); }}
                         >
-                          <Hand className="h-3 w-3" />
-                          Volunteer
+                          <Check className="h-3.5 w-3.5" />
                         </Button>
-                      )}
-                      {isOrganizer && (
-                        <div className="relative">
+                        <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0"
+                          onClick={() => setEditingFoodId(null)}
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    ) : (
+                    <div className="flex items-center gap-2 min-w-0">
+                      {/* Left: name only */}
+                      <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                        <span className="flex items-center gap-1.5 text-sm font-medium">
+                          {item.isVegetarian && <Leaf className="h-3.5 w-3.5 text-emerald-400 shrink-0" />}
+                          {item.name}
+                        </span>
+                      </div>
+                      {/* Right: family chips OR Volunteer button (same slot) + ⋮ for organizer */}
+                      <div className="flex items-center gap-1 shrink-0 relative">
+                        {hasVolunteers ? (
+                          item.volunteers.map((v) => (
+                            <Badge
+                              key={v.id}
+                              variant="secondary"
+                              className="text-xs gap-1 bg-emerald-900/40 text-emerald-300 border-emerald-800/50 hover:bg-emerald-900/50"
+                            >
+                              <span>{volunteerEmoji(v.name, families)}</span>
+                              {v.name}
+                              {(isOrganizer || v.name === currentFamily?.name) && (
+                                <button onClick={() => onRemoveVolunteer(v.id)} className="ml-0.5 hover:text-red-500">
+                                  <X className="h-2.5 w-2.5" />
+                                </button>
+                              )}
+                            </Badge>
+                          ))
+                        ) : currentFamily ? (
                           <Button
-                            variant="ghost"
+                            variant="outline"
                             size="sm"
-                            className="h-5 text-[10px] gap-0.5 text-muted-foreground hover:text-blue-400"
+                            className="h-6 text-[10px] gap-0.5 border-emerald-700/50 text-emerald-400 hover:text-emerald-300 hover:bg-emerald-900/30"
                             onClick={() => setShowAssignPanelFor((prev) => prev === item.id ? null : item.id)}
                           >
-                            <UserPlus className="h-3 w-3" /> Assign
+                            <Hand className="h-3 w-3" />
+                            Volunteer
                           </Button>
-                          {showAssignPanelFor === item.id && (
-                            <AssignPanel
-                              families={families}
-                              onAssign={(name) => {
-                                onAddVolunteer(item.id, name);
-                                setShowAssignPanelFor(null);
-                              }}
-                              onClose={() => setShowAssignPanelFor(null)}
-                            />
-                          )}
-                        </div>
-                      )}
-                      {!hasVolunteers && !currentFamily && (
-                        <span className="text-amber-400" title="Needs a volunteer">
-                          <AlertTriangle className="h-3 w-3" />
-                        </span>
-                      )}
-                      {isOrganizer && (
-                        <Button variant="ghost" size="icon" className="h-5 w-5 text-muted-foreground hover:text-red-500 ml-auto shrink-0" onClick={() => onRemoveFood(item.id)}>
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
-                      )}
+                        ) : (
+                          <span className="text-amber-400" title="Needs a volunteer">
+                            <AlertTriangle className="h-3 w-3" />
+                          </span>
+                        )}
+                        {isOrganizer && (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground">
+                                <MoreVertical className="h-3.5 w-3.5" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-40">
+                              <DropdownMenuItem onClick={() => setShowAssignPanelFor((prev) => prev === item.id ? null : item.id)}>
+                                <UserPlus className="h-4 w-4" />
+                                Assign
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem onClick={() => { setEditFoodName(item.name); setEditFoodIsVeg(item.isVegetarian); setEditingFoodId(item.id); }}>
+                                <Pencil className="h-4 w-4" />
+                                Edit
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem onClick={() => onRemoveFood(item.id)} variant="destructive">
+                                <Trash2 className="h-4 w-4" />
+                                Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        )}
+                        {showAssignPanelFor === item.id && (
+                          <AssignPanel
+                            families={families}
+                            onAssign={(name) => {
+                              onAddVolunteer(item.id, name);
+                              setShowAssignPanelFor(null);
+                            }}
+                            onClose={() => setShowAssignPanelFor(null)}
+                          />
+                        )}
+                      </div>
                     </div>
+                    )}
                   </div>
                 );
               })}
@@ -584,7 +685,7 @@ function AssignPanel({
   return (
     <div
       ref={panelRef}
-      className="absolute z-20 top-full left-0 mt-1 bg-popover border rounded-lg shadow-lg p-2 min-w-[280px] space-y-2"
+      className="absolute z-20 top-full right-0 mt-1 bg-popover border rounded-lg shadow-lg p-2 min-w-[280px] space-y-2"
     >
       {/* Family grid */}
       <div className="grid grid-cols-2 gap-1">
