@@ -34,9 +34,18 @@ import {
   UserPlus,
   ChevronRight,
   ChevronDown,
+  MoreVertical,
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useIsOrganizer } from "@/hooks/use-is-organizer";
 import { familyEmoji } from "@/lib/utils";
+import { ConfirmDeleteDialog } from "@/components/shared/confirm-delete-dialog";
 import type { Family, ActivityWithDetails } from "@/types";
 
 interface NewRow {
@@ -61,12 +70,12 @@ const groupColors: Record<string, string> = {
   elderly: "bg-amber-900/40 text-amber-300",
 };
 
-function createEmptyRow(): NewRow {
+function createEmptyRow(defaultLeaderFamilyId = ""): NewRow {
   return {
     id: crypto.randomUUID(),
     name: "",
     targetGroup: "all",
-    leaderFamilyId: "",
+    leaderFamilyId: defaultLeaderFamilyId,
     leaderLabel: "",
   };
 }
@@ -80,7 +89,6 @@ export default function ActivitiesPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  // Inline edit state
   const [editingRowId, setEditingRowId] = useState<number | null>(null);
   const [editValues, setEditValues] = useState<EditValues>({
     name: "",
@@ -89,7 +97,9 @@ export default function ActivitiesPage() {
     leaderLabel: "",
   });
 
-  // New rows for bulk add
+  const [pendingDeleteId, setPendingDeleteId] = useState<number | null>(null);
+  const [volPickerActivityId, setVolPickerActivityId] = useState<number | null>(null);
+
   const [newRows, setNewRows] = useState<NewRow[]>([
     createEmptyRow(),
     createEmptyRow(),
@@ -110,17 +120,23 @@ export default function ActivitiesPage() {
     fetchData();
   }, [fetchData]);
 
-  // --- Existing item actions ---
+  // Default new rows' leader to the current family once we know who it is
+  useEffect(() => {
+    if (!familyId) return;
+    setNewRows((prev) =>
+      prev.map((row) =>
+        row.leaderFamilyId === "" ? { ...row, leaderFamilyId: String(familyId) } : row
+      )
+    );
+  }, [familyId]);
 
   function startEdit(activity: ActivityWithDetails) {
     setEditingRowId(activity.id);
     setEditValues({
       name: activity.name,
       targetGroup: activity.targetGroup || "all",
-      leaderFamilyId: activity.leaderFamilyId
-        ? String(activity.leaderFamilyId)
-        : "",
-      leaderLabel: activity.leader?.name || "",
+      leaderFamilyId: activity.leaderFamilyId ? String(activity.leaderFamilyId) : "",
+      leaderLabel: activity.leaderLabel || "",
     });
   }
 
@@ -132,32 +148,33 @@ export default function ActivitiesPage() {
     await updateActivity(activityId, parseInt(eventId, 10), {
       name: editValues.name,
       targetGroup: editValues.targetGroup,
-      leaderFamilyId: editValues.leaderFamilyId
-        ? parseInt(editValues.leaderFamilyId, 10)
-        : null,
+      leaderFamilyId: editValues.leaderFamilyId ? parseInt(editValues.leaderFamilyId, 10) : null,
+      leaderLabel: editValues.leaderLabel || null,
     });
     setEditingRowId(null);
     await fetchData();
   }
 
   async function handleDelete(activityId: number) {
-    await deleteActivity(activityId, parseInt(eventId, 10));
+    setPendingDeleteId(activityId);
+  }
+
+  async function confirmDelete() {
+    if (pendingDeleteId === null) return;
+    await deleteActivity(pendingDeleteId, parseInt(eventId, 10));
+    setPendingDeleteId(null);
     await fetchData();
   }
 
-  async function handleVolunteer(activityId: number) {
-    if (!familyId) return;
-    await addActivityVolunteer(activityId, parseInt(eventId, 10), familyId);
+  async function handleVolunteer(activityId: number, fId: number, label?: string) {
+    await addActivityVolunteer(activityId, parseInt(eventId, 10), fId, label);
     await fetchData();
   }
 
-  async function handleUnvolunteer(activityId: number) {
-    if (!familyId) return;
-    await removeActivityVolunteer(activityId, parseInt(eventId, 10), familyId);
+  async function handleUnvolunteer(activityId: number, fId: number) {
+    await removeActivityVolunteer(activityId, parseInt(eventId, 10), fId);
     await fetchData();
   }
-
-  // --- New row actions ---
 
   function updateNewRow(id: string, field: keyof NewRow, value: string) {
     setNewRows((rows) =>
@@ -170,7 +187,7 @@ export default function ActivitiesPage() {
   }
 
   function addNewRow() {
-    setNewRows((rows) => [...rows, createEmptyRow()]);
+    setNewRows((rows) => [...rows, createEmptyRow(familyId ? String(familyId) : "")]);
   }
 
   async function handleBulkSave() {
@@ -183,12 +200,12 @@ export default function ActivitiesPage() {
       validRows.map((r) => ({
         name: r.name.trim(),
         targetGroup: r.targetGroup || undefined,
-        leaderFamilyId: r.leaderFamilyId
-          ? parseInt(r.leaderFamilyId, 10)
-          : undefined,
+        leaderFamilyId: r.leaderFamilyId ? parseInt(r.leaderFamilyId, 10) : undefined,
+        leaderLabel: r.leaderLabel || undefined,
       }))
     );
-    setNewRows([createEmptyRow(), createEmptyRow(), createEmptyRow()]);
+    const defaultLeader = familyId ? String(familyId) : "";
+    setNewRows([createEmptyRow(defaultLeader), createEmptyRow(defaultLeader), createEmptyRow(defaultLeader)]);
     await fetchData();
     setSaving(false);
   }
@@ -206,7 +223,7 @@ export default function ActivitiesPage() {
         <h2 className="text-lg font-semibold">Activities</h2>
       </div>
 
-      {/* Existing Activities — card layout */}
+      {/* Existing Activities */}
       {activities.length === 0 && newRows.length === 0 ? (
         <EmptyState
           icon={TreePine}
@@ -217,71 +234,126 @@ export default function ActivitiesPage() {
         <div className="space-y-2">
           {activities.map((activity) => {
             const isEditing = editingRowId === activity.id;
-            const isVolunteered = activity.volunteers.some((v) => v.familyId === familyId);
+            const myVolunteer = activity.volunteers.find((v) => v.familyId === familyId);
+            const isVolunteered = !!myVolunteer;
+
             if (isEditing) {
               return (
                 <div key={activity.id} className="rounded-lg border bg-blue-950/20 border-blue-800/40 p-3 space-y-2">
-                  <Input value={editValues.name} onChange={(e) => setEditValues((v) => ({ ...v, name: e.target.value }))} className="h-8 text-sm" placeholder="Name" />
+                  <Input
+                    value={editValues.name}
+                    onChange={(e) => setEditValues((v) => ({ ...v, name: e.target.value }))}
+                    className="h-8 text-sm"
+                    placeholder="Name"
+                  />
                   <div className="flex gap-2 items-center flex-wrap">
-                    <Select value={editValues.targetGroup} onValueChange={(val) => setEditValues((v) => ({ ...v, targetGroup: val }))}>
+                    <Select
+                      value={editValues.targetGroup}
+                      onValueChange={(val) => setEditValues((v) => ({ ...v, targetGroup: val }))}
+                    >
                       <SelectTrigger className="h-8 text-sm w-auto min-w-[100px]"><SelectValue /></SelectTrigger>
-                      <SelectContent>{Object.entries(TARGET_GROUP_LABELS).map(([val, label]) => (<SelectItem key={val} value={val}>{label}</SelectItem>))}</SelectContent>
+                      <SelectContent>
+                        {Object.entries(TARGET_GROUP_LABELS).map(([val, label]) => (
+                          <SelectItem key={val} value={val}>{label}</SelectItem>
+                        ))}
+                      </SelectContent>
                     </Select>
-                    <div className="flex items-center gap-1.5 flex-wrap flex-1">
-                      <span className="text-xs text-muted-foreground shrink-0">Leader:</span>
-                      {editValues.leaderLabel ? (
-                        <Badge variant="secondary" className="text-xs gap-1 bg-emerald-900/40 text-emerald-300 border-emerald-800/50">
-                          {editValues.leaderLabel}
-                          <button onClick={() => setEditValues((v) => ({ ...v, leaderFamilyId: "", leaderLabel: "" }))} className="ml-0.5 hover:text-red-500">
-                            <X className="h-2.5 w-2.5" />
-                          </button>
-                        </Badge>
-                      ) : null}
-                      <LeaderAssignPanel
-                        families={families}
-                        onAssign={(fId, label) => setEditValues((v) => ({ ...v, leaderFamilyId: fId, leaderLabel: label }))}
-                        buttonLabel={editValues.leaderLabel ? "Change" : "Assign"}
-                      />
-                    </div>
+                    <LeaderPickerButton
+                      families={families}
+                      familyId={editValues.leaderFamilyId}
+                      label={editValues.leaderLabel}
+                      onPick={(fId, lbl) => setEditValues((v) => ({ ...v, leaderFamilyId: String(fId), leaderLabel: lbl || "" }))}
+                      onClear={() => setEditValues((v) => ({ ...v, leaderFamilyId: "", leaderLabel: "" }))}
+                    />
                   </div>
                   <div className="flex gap-1 justify-end">
                     <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={cancelEdit}>Cancel</Button>
-                    <Button size="sm" className="h-7 text-xs" onClick={() => saveEdit(activity.id)} disabled={!editValues.name.trim()}><Check className="h-3 w-3 mr-1" />Save</Button>
+                    <Button size="sm" className="h-7 text-xs" onClick={() => saveEdit(activity.id)} disabled={!editValues.name.trim()}>
+                      <Check className="h-3 w-3 mr-1" />Save
+                    </Button>
                   </div>
                 </div>
               );
             }
+
+            const leaderDisplay = activity.leaderLabel || activity.leader?.name;
+            const leaderFamilyId = activity.leaderFamilyId;
+
             return (
               <div key={activity.id} className="rounded-lg border bg-card p-3">
-                <div className="flex items-start gap-2">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="text-sm font-medium">{activity.name}</span>
-                      <Badge className={groupColors[activity.targetGroup] || groupColors.all} variant="secondary">
-                        {TARGET_GROUP_LABELS[activity.targetGroup as keyof typeof TARGET_GROUP_LABELS] || activity.targetGroup}
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 min-w-0 flex items-center gap-1.5 flex-wrap">
+                    <span className="text-sm font-medium">{activity.name}</span>
+                    <Badge className={groupColors[activity.targetGroup] || groupColors.all} variant="secondary">
+                      {TARGET_GROUP_LABELS[activity.targetGroup as keyof typeof TARGET_GROUP_LABELS] || activity.targetGroup}
+                    </Badge>
+                    {leaderDisplay && (
+                      <Badge variant="secondary" className="text-[10px] gap-1 bg-emerald-900/40 text-emerald-300 border-emerald-800/50">
+                        {leaderFamilyId && <span>{familyEmoji(leaderFamilyId)}</span>}
+                        Led by {leaderDisplay}
                       </Badge>
-                    </div>
-                    {activity.description && <p className="text-xs text-muted-foreground mt-0.5">{activity.description}</p>}
-                    <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                      {activity.leader && (
-                        <Badge variant="secondary" className="text-[10px] gap-1 bg-emerald-900/40 text-emerald-300 border-emerald-800/50">
-                          <span>{familyEmoji(activity.leader.id)}</span>
-                          Led by {activity.leader.name}
-                        </Badge>
-                      )}
-                      {isVolunteered ? (
-                        <Button variant="outline" size="sm" className="h-5 text-[10px] px-1.5" onClick={() => handleUnvolunteer(activity.id)}>Leave</Button>
-                      ) : (
-                        <Button variant="outline" size="sm" className="h-5 text-[10px] px-1.5" onClick={() => handleVolunteer(activity.id)}>
+                    )}
+                    {activity.volunteers.map((v) => (
+                      <Badge key={v.id} variant="outline" className="text-[10px] gap-0.5">
+                        {familyEmoji(v.familyId)} {v.role || v.family.name}
+                        {(v.familyId === familyId || isOrganizer) && (
+                          <button
+                            onClick={() => handleUnvolunteer(activity.id, v.familyId)}
+                            className="ml-0.5 hover:text-destructive"
+                          >
+                            <X className="h-2.5 w-2.5" />
+                          </button>
+                        )}
+                      </Badge>
+                    ))}
+                  </div>
+
+                  {/* Right: Join picker + ⋮ menu */}
+                  <div className="flex items-center gap-0.5 shrink-0 relative">
+                    {!isVolunteered && (
+                      <>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 text-xs px-2"
+                          onClick={() => setVolPickerActivityId((id) => id === activity.id ? null : activity.id)}
+                        >
                           <HandHelping className="mr-0.5 h-3 w-3" />Join
                         </Button>
-                      )}
-                      {activity.volunteers.map((v) => (<Badge key={v.id} variant="outline" className="text-[10px]">{familyEmoji(v.familyId)} {v.family.name}</Badge>))}
-                    </div>
-                  </div>
-                  <div className="flex gap-0.5 shrink-0">
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => startEdit(activity)}><Pencil className="h-3.5 w-3.5" /></Button>
-                    {isOrganizer && (<Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDelete(activity.id)}><Trash2 className="h-3.5 w-3.5" /></Button>)}
+                        {volPickerActivityId === activity.id && (
+                          <FamilyPickerPanel
+                            families={families}
+                            onPick={(fId, lbl) => {
+                              handleVolunteer(activity.id, fId, lbl);
+                              setVolPickerActivityId(null);
+                            }}
+                            onClose={() => setVolPickerActivityId(null)}
+                          />
+                        )}
+                      </>
+                    )}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground">
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-40">
+                        <DropdownMenuItem onClick={() => startEdit(activity)}>
+                          <Pencil className="h-4 w-4" />
+                          Edit
+                        </DropdownMenuItem>
+                        {isOrganizer && (
+                          <>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => handleDelete(activity.id)} variant="destructive">
+                              <Trash2 className="h-4 w-4" />
+                              Delete
+                            </DropdownMenuItem>
+                          </>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                 </div>
               </div>
@@ -296,33 +368,41 @@ export default function ActivitiesPage() {
           <p className="text-xs font-medium text-muted-foreground">Add new activities</p>
           {newRows.map((row) => (
             <div key={row.id} className="rounded-lg border bg-emerald-950/20 border-emerald-800/30 p-2.5 space-y-2">
-              <Input value={row.name} onChange={(e) => updateNewRow(row.id, "name", e.target.value)} className="h-8 text-sm" placeholder="Activity name" />
+              <Input
+                value={row.name}
+                onChange={(e) => updateNewRow(row.id, "name", e.target.value)}
+                className="h-8 text-sm"
+                placeholder="Activity name"
+              />
               <div className="flex gap-2 items-center flex-wrap">
                 <Select value={row.targetGroup} onValueChange={(val) => updateNewRow(row.id, "targetGroup", val)}>
                   <SelectTrigger className="h-8 text-sm w-auto min-w-[100px]"><SelectValue /></SelectTrigger>
-                  <SelectContent>{Object.entries(TARGET_GROUP_LABELS).map(([val, label]) => (<SelectItem key={val} value={val}>{label}</SelectItem>))}</SelectContent>
+                  <SelectContent>
+                    {Object.entries(TARGET_GROUP_LABELS).map(([val, label]) => (
+                      <SelectItem key={val} value={val}>{label}</SelectItem>
+                    ))}
+                  </SelectContent>
                 </Select>
-                <div className="flex items-center gap-1.5 flex-wrap flex-1">
-                  <span className="text-xs text-muted-foreground shrink-0">Leader:</span>
-                  {row.leaderLabel ? (
-                    <Badge variant="secondary" className="text-xs gap-1 bg-emerald-900/40 text-emerald-300 border-emerald-800/50">
-                      {row.leaderLabel}
-                      <button onClick={() => { updateNewRow(row.id, "leaderFamilyId", ""); updateNewRow(row.id, "leaderLabel", ""); }} className="ml-0.5 hover:text-red-500">
-                        <X className="h-2.5 w-2.5" />
-                      </button>
-                    </Badge>
-                  ) : null}
-                  <LeaderAssignPanel
-                    families={families}
-                    onAssign={(fId, label) => {
-                      updateNewRow(row.id, "leaderFamilyId", fId);
-                      updateNewRow(row.id, "leaderLabel", label);
-                    }}
-                    buttonLabel={row.leaderLabel ? "Change" : "Assign"}
-                  />
-                </div>
+                <LeaderPickerButton
+                  families={families}
+                  familyId={row.leaderFamilyId}
+                  label={row.leaderLabel}
+                  onPick={(fId, lbl) => {
+                    updateNewRow(row.id, "leaderFamilyId", String(fId));
+                    updateNewRow(row.id, "leaderLabel", lbl || "");
+                  }}
+                  onClear={() => {
+                    updateNewRow(row.id, "leaderFamilyId", "");
+                    updateNewRow(row.id, "leaderLabel", "");
+                  }}
+                />
                 {newRows.length > 1 && (
-                  <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground shrink-0" onClick={() => removeNewRow(row.id)}>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 text-muted-foreground shrink-0"
+                    onClick={() => removeNewRow(row.id)}
+                  >
                     <X className="h-3.5 w-3.5" />
                   </Button>
                 )}
@@ -345,113 +425,159 @@ export default function ActivitiesPage() {
           </Button>
         )}
       </div>
+
+      <ConfirmDeleteDialog
+        open={pendingDeleteId !== null}
+        title="Delete activity?"
+        description="This will permanently remove the activity and all volunteer sign-ups for it."
+        onConfirm={confirmDelete}
+        onCancel={() => setPendingDeleteId(null)}
+      />
     </div>
   );
 }
 
 /* ════════════════════════════════════════════════════════
-   Leader Assign Panel — pick a family from a popup grid
+   Leader Picker Button
+   Shows current selection as a badge; opens FamilyPickerPanel on click.
    ════════════════════════════════════════════════════════ */
 
-function LeaderAssignPanel({
+function LeaderPickerButton({
   families,
-  onAssign,
-  buttonLabel,
+  familyId,
+  label,
+  onPick,
+  onClear,
 }: {
   families: Family[];
-  onAssign: (familyId: string, label: string) => void;
-  buttonLabel: string;
+  familyId: string;
+  label: string;
+  onPick: (familyId: number, label?: string) => void;
+  onClear: () => void;
 }) {
   const [open, setOpen] = useState(false);
+  const family = families.find((f) => String(f.id) === familyId);
+  const displayName = label || family?.name;
+
+  return (
+    <div className="flex items-center gap-1.5 flex-wrap">
+      <span className="text-xs text-muted-foreground shrink-0">Leader:</span>
+      {displayName ? (
+        <Badge variant="secondary" className="text-xs gap-1 bg-emerald-900/40 text-emerald-300 border-emerald-800/50">
+          {family && familyEmoji(family.id)} {displayName}
+          <button onClick={onClear} className="ml-0.5 hover:text-red-400">
+            <X className="h-2.5 w-2.5" />
+          </button>
+        </Badge>
+      ) : null}
+      <div className="relative">
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="h-6 text-xs gap-0.5 text-muted-foreground hover:text-blue-400"
+          onClick={() => setOpen((v) => !v)}
+        >
+          <UserPlus className="h-3 w-3" /> {displayName ? "Change" : "Assign"}
+        </Button>
+        {open && (
+          <FamilyPickerPanel
+            families={families}
+            onPick={(fId, lbl) => {
+              onPick(fId, lbl);
+              setOpen(false);
+            }}
+            onClose={() => setOpen(false)}
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ════════════════════════════════════════════════════════
+   Family Picker Panel
+   Grid of family buttons; each can expand to show individual contacts.
+   onPick(familyId, label?) — label is set when an individual is selected.
+   ════════════════════════════════════════════════════════ */
+
+function FamilyPickerPanel({
+  families,
+  onPick,
+  onClose,
+}: {
+  families: Family[];
+  onPick: (familyId: number, label?: string) => void;
+  onClose: () => void;
+}) {
   const [expandedFamilyId, setExpandedFamilyId] = useState<number | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!open) return;
     function handleClickOutside(e: MouseEvent) {
       if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
-        setOpen(false);
+        onClose();
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [open]);
+  }, [onClose]);
 
   return (
-    <div className="relative">
-      <Button
-        type="button"
-        variant="ghost"
-        size="sm"
-        className="h-6 text-xs gap-0.5 text-muted-foreground hover:text-blue-400"
-        onClick={() => setOpen((v) => !v)}
-      >
-        <UserPlus className="h-3 w-3" /> {buttonLabel}
-      </Button>
-      {open && (
-        <div
-          ref={panelRef}
-          className="absolute z-20 top-full left-0 mt-1 bg-popover border rounded-lg shadow-lg p-2 min-w-[260px] space-y-1"
-        >
-          <div className="grid grid-cols-2 gap-1">
-            {families.map((f) => (
-              <div key={f.id}>
-                <div className="flex items-center">
-                  <button
-                    onClick={() => {
-                      onAssign(f.id.toString(), f.name);
-                      setOpen(false);
-                    }}
-                    className="flex-1 text-left text-xs px-2.5 py-2 rounded bg-muted hover:bg-muted/80 truncate"
-                    title={`Assign to ${f.name}`}
-                  >
-                    {familyEmoji(f.id)} {f.name}
-                  </button>
-                  {(f.contactName || f.contactName2) && (
-                    <button
-                      onClick={() => setExpandedFamilyId((prev) => prev === f.id ? null : f.id)}
-                      className="px-1 py-1.5 text-muted-foreground hover:text-foreground"
-                      title="Show individual contacts"
-                    >
-                      {expandedFamilyId === f.id ? (
-                        <ChevronDown className="h-3 w-3" />
-                      ) : (
-                        <ChevronRight className="h-3 w-3" />
-                      )}
-                    </button>
+    <div
+      ref={panelRef}
+      className="absolute z-20 top-full left-0 mt-1 bg-popover border rounded-lg shadow-lg p-2 min-w-[260px] space-y-1"
+    >
+      <div className="grid grid-cols-2 gap-1">
+        {families.map((f) => (
+          <div key={f.id}>
+            <div className="flex items-center">
+              <button
+                onClick={() => onPick(f.id)}
+                className="flex-1 text-left text-xs px-2.5 py-2 rounded bg-muted hover:bg-muted/80 truncate"
+                title={`Pick ${f.name} family`}
+              >
+                {familyEmoji(f.id)} {f.name}
+              </button>
+              {(f.contactName || f.contactName2) && (
+                <button
+                  onClick={() =>
+                    setExpandedFamilyId((prev) => (prev === f.id ? null : f.id))
+                  }
+                  className="px-1 py-1.5 text-muted-foreground hover:text-foreground"
+                  title="Show individuals"
+                >
+                  {expandedFamilyId === f.id ? (
+                    <ChevronDown className="h-3 w-3" />
+                  ) : (
+                    <ChevronRight className="h-3 w-3" />
                   )}
-                </div>
-                {expandedFamilyId === f.id && (
-                  <div className="ml-3 mt-0.5 space-y-0.5">
-                    {f.contactName && (
-                      <button
-                        onClick={() => {
-                          onAssign(f.id.toString(), `${f.contactName} (${f.name})`);
-                          setOpen(false);
-                        }}
-                        className="block w-full text-left text-[10px] px-2 py-1 rounded hover:bg-blue-900/30 text-blue-400"
-                      >
-                        → {f.contactName}
-                      </button>
-                    )}
-                    {f.contactName2 && (
-                      <button
-                        onClick={() => {
-                          onAssign(f.id.toString(), `${f.contactName2} (${f.name})`);
-                          setOpen(false);
-                        }}
-                        className="block w-full text-left text-[10px] px-2 py-1 rounded hover:bg-blue-900/30 text-blue-400"
-                      >
-                        → {f.contactName2}
-                      </button>
-                    )}
-                  </div>
+                </button>
+              )}
+            </div>
+            {expandedFamilyId === f.id && (
+              <div className="ml-3 mt-0.5 space-y-0.5">
+                {f.contactName && (
+                  <button
+                    onClick={() => onPick(f.id, f.contactName!)}
+                    className="block w-full text-left text-[10px] px-2 py-1 rounded hover:bg-blue-900/30 text-blue-400"
+                  >
+                    → {f.contactName}
+                  </button>
+                )}
+                {f.contactName2 && (
+                  <button
+                    onClick={() => onPick(f.id, f.contactName2!)}
+                    className="block w-full text-left text-[10px] px-2 py-1 rounded hover:bg-blue-900/30 text-blue-400"
+                  >
+                    → {f.contactName2}
+                  </button>
                 )}
               </div>
-            ))}
+            )}
           </div>
-        </div>
-      )}
+        ))}
+      </div>
     </div>
   );
 }

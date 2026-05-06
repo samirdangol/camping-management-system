@@ -111,34 +111,32 @@ export default function EventsPage() {
               <h2 className="text-base font-semibold">Upcoming Trips</h2>
               <div className="grid gap-2">
                 {upcoming.map((event) => (
-                  <Link key={event.id} href={`/events/${event.id}`}>
-                    <Card className="hover:border-primary/40 transition-colors cursor-pointer">
-                      <CardHeader className="pb-1.5 px-3 pt-3">
-                        <div className="flex items-start justify-between">
-                          <CardTitle className="text-base">{event.title}</CardTitle>
-                          <Badge className={statusColors[event.status]} variant="secondary">
-                            {event.status}
-                          </Badge>
-                        </div>
-                      </CardHeader>
-                      <CardContent className="space-y-1 text-sm text-muted-foreground px-3 pb-3">
-                        <a href={locationLink(event.location, event.locationUrl)} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 hover:underline hover:text-foreground" onClick={(e) => e.stopPropagation()}>
-                          <MapPin className="h-3.5 w-3.5 shrink-0" />
-                          {event.location} <ExternalLink className="h-3 w-3" />
-                        </a>
-                        <div className="flex items-center gap-2">
-                          <Calendar className="h-3.5 w-3.5 shrink-0" />
-                          {formatDateRange(new Date(event.startDate), new Date(event.endDate))}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Users className="h-3.5 w-3.5 shrink-0" />
-                          {event._count.signups} {event._count.signups === 1 ? "family" : "families"}
-                        </div>
-                        {event.description && <p className="text-xs">{event.description}</p>}
-                        <div className="text-xs">Organized by {familyEmoji(event.organizer.id)} {event.organizer.name}</div>
-                      </CardContent>
-                    </Card>
-                  </Link>
+                  <Card key={event.id} className="hover:border-primary/40 transition-colors cursor-pointer" onClick={() => router.push(`/events/${event.id}`)}>
+                    <CardHeader className="pb-1.5 px-3 pt-3">
+                      <div className="flex items-start justify-between">
+                        <CardTitle className="text-base">{event.title}</CardTitle>
+                        <Badge className={statusColors[event.status]} variant="secondary">
+                          {event.status}
+                        </Badge>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-1 text-sm text-muted-foreground px-3 pb-3">
+                      <a href={locationLink(event.location, event.locationUrl)} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 hover:underline hover:text-foreground" onClick={(e) => e.stopPropagation()}>
+                        <MapPin className="h-3.5 w-3.5 shrink-0" />
+                        {event.location} <ExternalLink className="h-3 w-3" />
+                      </a>
+                      <div className="flex items-center gap-2">
+                        <Calendar className="h-3.5 w-3.5 shrink-0" />
+                        {formatDateRange(new Date(event.startDate), new Date(event.endDate))}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Users className="h-3.5 w-3.5 shrink-0" />
+                        {event._count.signups} {event._count.signups === 1 ? "family" : "families"}
+                      </div>
+                      {event.description && <p className="text-xs">{event.description}</p>}
+                      <div className="text-xs">Organized by {familyEmoji(event.organizer.id)} {event.organizer.name}</div>
+                    </CardContent>
+                  </Card>
                 ))}
               </div>
             </section>

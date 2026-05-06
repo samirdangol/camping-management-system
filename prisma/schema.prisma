@@ -158,6 +158,7 @@ model Activity {
   targetGroup    String    @default("all")
   date           DateTime?
   leaderFamilyId Int?
+  leaderLabel    String?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 

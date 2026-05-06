@@ -261,6 +261,18 @@ export async function addFoodItem(
   revalidatePath(`/events/${eventId}`);
 }
 
+export async function updateFoodItem(
+  foodItemId: number,
+  eventId: number,
+  data: { name: string; isVegetarian?: boolean }
+) {
+  await prisma.foodItem.update({
+    where: { id: foodItemId },
+    data: { name: data.name, isVegetarian: data.isVegetarian ?? false },
+  });
+  revalidatePath(`/events/${eventId}`);
+}
+
 export async function removeFoodItem(foodItemId: number, eventId: number) {
   await prisma.foodItem.delete({ where: { id: foodItemId } });
   revalidatePath(`/events/${eventId}`);
@@ -282,7 +294,7 @@ export async function removeFoodItemVolunteer(volunteerId: number, eventId: numb
 
 export async function createActivity(
   eventId: number,
-  data: { name: string; description?: string; targetGroup?: string; date?: string; leaderFamilyId?: number }
+  data: { name: string; description?: string; targetGroup?: string; date?: string; leaderFamilyId?: number; leaderLabel?: string }
 ) {
   await prisma.activity.create({
     data: {
@@ -292,6 +304,7 @@ export async function createActivity(
       targetGroup: data.targetGroup || "all",
       date: data.date ? new Date(data.date) : null,
       leaderFamilyId: data.leaderFamilyId || null,
+      leaderLabel: data.leaderLabel || null,
     },
   });
   revalidatePath(`/events/${eventId}`);
@@ -300,7 +313,7 @@ export async function createActivity(
 export async function updateActivity(
   activityId: number,
   eventId: number,
-  data: { name: string; description?: string; targetGroup?: string; date?: string; leaderFamilyId?: number | null }
+  data: { name: string; description?: string; targetGroup?: string; date?: string; leaderFamilyId?: number | null; leaderLabel?: string | null }
 ) {
   await prisma.activity.update({
     where: { id: activityId },
@@ -310,6 +323,7 @@ export async function updateActivity(
       targetGroup: data.targetGroup || "all",
       date: data.date ? new Date(data.date) : null,
       leaderFamilyId: data.leaderFamilyId ?? null,
+      leaderLabel: data.leaderLabel ?? null,
     },
   });
   revalidatePath(`/events/${eventId}`);
@@ -322,7 +336,7 @@ export async function deleteActivity(activityId: number, eventId: number) {
 
 export async function bulkCreateActivities(
   eventId: number,
-  items: Array<{ name: string; targetGroup?: string; leaderFamilyId?: number }>
+  items: Array<{ name: string; targetGroup?: string; leaderFamilyId?: number; leaderLabel?: string }>
 ) {
   await prisma.activity.createMany({
     data: items.map((item) => ({
@@ -330,6 +344,7 @@ export async function bulkCreateActivities(
       name: item.name,
       targetGroup: item.targetGroup || "all",
       leaderFamilyId: item.leaderFamilyId || null,
+      leaderLabel: item.leaderLabel || null,
     })),
   });
   revalidatePath(`/events/${eventId}`);
