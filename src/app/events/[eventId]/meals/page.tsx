@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams } from "next/navigation";
 import { format, addDays } from "date-fns";
 import { createMeal, updateMeal, deleteMeal, addFoodItem, updateFoodItem, removeFoodItem, addFoodItemVolunteer, removeFoodItemVolunteer } from "@/app/actions";
@@ -27,6 +27,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useIsOrganizer } from "@/hooks/use-is-organizer";
 import { familyEmoji } from "@/lib/utils";
 import { ConfirmDeleteDialog } from "@/components/shared/confirm-delete-dialog";
@@ -72,7 +78,7 @@ export default function MealsPage() {
   const [newMealName, setNewMealName] = useState("");
   const [newMealChef, setNewMealChef] = useState("");
   const [showAddMeal, setShowAddMeal] = useState(false);
-  const [showNewMealChefPanel, setShowNewMealChefPanel] = useState(false);
+  const [showNewMealChefDialog, setShowNewMealChefDialog] = useState(false);
 
   const fetchData = useCallback(async () => {
     const [signups, mealsRes, eventRes] = await Promise.all([
@@ -239,27 +245,29 @@ export default function MealsPage() {
                     </button>
                   </Badge>
                 ) : null}
-                <div className="relative">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="h-7 text-xs gap-1"
-                    onClick={() => setShowNewMealChefPanel((v) => !v)}
-                  >
-                    <UserPlus className="h-3 w-3" /> {newMealChef ? "Change" : "Pick chef"}
-                  </Button>
-                  {showNewMealChefPanel && (
-                    <AssignPanel
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs gap-1"
+                  onClick={() => setShowNewMealChefDialog(true)}
+                >
+                  <UserPlus className="h-3 w-3" /> {newMealChef ? "Change" : "Pick chef"}
+                </Button>
+                <Dialog open={showNewMealChefDialog} onOpenChange={setShowNewMealChefDialog}>
+                  <DialogContent className="max-w-sm">
+                    <DialogHeader>
+                      <DialogTitle>Pick Head Chef</DialogTitle>
+                    </DialogHeader>
+                    <AssignPanelContent
                       families={families}
                       onAssign={(name) => {
                         setNewMealChef(name);
-                        setShowNewMealChefPanel(false);
+                        setShowNewMealChefDialog(false);
                       }}
-                      onClose={() => setShowNewMealChefPanel(false)}
                     />
-                  )}
-                </div>
+                  </DialogContent>
+                </Dialog>
               </div>
             </div>
             <div className="flex gap-2">
@@ -366,8 +374,8 @@ function MealCard({
   const [editingFoodId, setEditingFoodId] = useState<number | null>(null);
   const [editFoodName, setEditFoodName] = useState("");
   const [editFoodIsVeg, setEditFoodIsVeg] = useState(false);
-  const [showAssignPanelFor, setShowAssignPanelFor] = useState<number | null>(null);
-  const [showChefPanel, setShowChefPanel] = useState(false);
+  const [assignDialogFor, setAssignDialogFor] = useState<number | null>(null);
+  const [chefDialogOpen, setChefDialogOpen] = useState(false);
   const foodInputRef = useCallback((node: HTMLInputElement | null) => {
     if (node) node.focus();
   }, []);
@@ -440,26 +448,30 @@ function MealCard({
             !isOrganizer && <span className="text-sm text-muted-foreground">Not assigned</span>
           )}
           {isOrganizer && (
-            <div className="relative">
+            <>
               <Button
                 variant="ghost"
                 size="sm"
                 className="h-6 text-xs gap-0.5 text-muted-foreground hover:text-blue-400"
-                onClick={() => setShowChefPanel((v) => !v)}
+                onClick={() => setChefDialogOpen(true)}
               >
                 <UserPlus className="h-3 w-3" /> {meal.headChefName ? "Reassign" : "Assign"}
               </Button>
-              {showChefPanel && (
-                <AssignPanel
-                  families={families}
-                  onAssign={(name) => {
-                    onUpdateChef(meal.id, name);
-                    setShowChefPanel(false);
-                  }}
-                  onClose={() => setShowChefPanel(false)}
-                />
-              )}
-            </div>
+              <Dialog open={chefDialogOpen} onOpenChange={setChefDialogOpen}>
+                <DialogContent className="max-w-sm">
+                  <DialogHeader>
+                    <DialogTitle>Assign Head Chef</DialogTitle>
+                  </DialogHeader>
+                  <AssignPanelContent
+                    families={families}
+                    onAssign={(name) => {
+                      onUpdateChef(meal.id, name);
+                      setChefDialogOpen(false);
+                    }}
+                  />
+                </DialogContent>
+              </Dialog>
+            </>
           )}
         </div>
 
@@ -531,7 +543,7 @@ function MealCard({
                         </span>
                       </div>
                       {/* Right: family chips OR Volunteer button (same slot) + ⋮ for organizer */}
-                      <div className="flex items-center gap-1 shrink-0 relative">
+                      <div className="flex items-center gap-1 shrink-0">
                         {hasVolunteers ? (
                           item.volunteers.map((v) => (
                             <Badge
@@ -553,7 +565,7 @@ function MealCard({
                             variant="outline"
                             size="sm"
                             className="h-6 text-[10px] gap-0.5 border-emerald-700/50 text-emerald-400 hover:text-emerald-300 hover:bg-emerald-900/30"
-                            onClick={() => setShowAssignPanelFor((prev) => prev === item.id ? null : item.id)}
+                            onClick={() => setAssignDialogFor(item.id)}
                           >
                             <Hand className="h-3 w-3" />
                             Volunteer
@@ -571,7 +583,7 @@ function MealCard({
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="w-40">
-                              <DropdownMenuItem onClick={() => setShowAssignPanelFor((prev) => prev === item.id ? null : item.id)}>
+                              <DropdownMenuItem onClick={() => setAssignDialogFor(item.id)}>
                                 <UserPlus className="h-4 w-4" />
                                 Assign
                               </DropdownMenuItem>
@@ -588,16 +600,6 @@ function MealCard({
                             </DropdownMenuContent>
                           </DropdownMenu>
                         )}
-                        {showAssignPanelFor === item.id && (
-                          <AssignPanel
-                            families={families}
-                            onAssign={(name) => {
-                              onAddVolunteer(item.id, name);
-                              setShowAssignPanelFor(null);
-                            }}
-                            onClose={() => setShowAssignPanelFor(null)}
-                          />
-                        )}
                       </div>
                     </div>
                     )}
@@ -606,6 +608,21 @@ function MealCard({
               })}
             </div>
           )}
+          {/* Volunteer assign dialog — single instance covers all food items */}
+          <Dialog open={assignDialogFor !== null} onOpenChange={(open) => { if (!open) setAssignDialogFor(null); }}>
+            <DialogContent className="max-w-sm">
+              <DialogHeader>
+                <DialogTitle>Assign Volunteer</DialogTitle>
+              </DialogHeader>
+              <AssignPanelContent
+                families={families}
+                onAssign={(name) => {
+                  if (assignDialogFor !== null) onAddVolunteer(assignDialogFor, name);
+                  setAssignDialogFor(null);
+                }}
+              />
+            </DialogContent>
+          </Dialog>
           {/* Add food item input */}
           <div className="flex gap-2 items-center mt-1">
             <Input
@@ -656,37 +673,21 @@ function MealCard({
 }
 
 /* ════════════════════════════════════════════════════════
-   Assign Panel (organizer picks a family, contact, or types free text)
+   Assign Panel Content — rendered inside a Dialog
    ════════════════════════════════════════════════════════ */
 
-function AssignPanel({
+function AssignPanelContent({
   families,
   onAssign,
-  onClose,
 }: {
   families: Family[];
   onAssign: (name: string) => void;
-  onClose: () => void;
 }) {
   const [expandedFamilyId, setExpandedFamilyId] = useState<number | null>(null);
   const [customText, setCustomText] = useState("");
-  const panelRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
-      if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
-        onClose();
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [onClose]);
 
   return (
-    <div
-      ref={panelRef}
-      className="absolute z-20 top-full right-0 mt-1 bg-popover border rounded-lg shadow-lg p-2 min-w-[280px] space-y-2"
-    >
+    <div className="space-y-2">
       {/* Family grid */}
       <div className="grid grid-cols-2 gap-1">
         {families.map((f) => (
@@ -701,11 +702,7 @@ function AssignPanel({
               </button>
               {(f.contactName || f.contactName2) && (
                 <button
-                  onClick={() =>
-                    setExpandedFamilyId((prev) =>
-                      prev === f.id ? null : f.id
-                    )
-                  }
+                  onClick={() => setExpandedFamilyId((prev) => prev === f.id ? null : f.id)}
                   className="px-1 py-1.5 text-muted-foreground hover:text-foreground"
                   title="Show individual contacts"
                 >
@@ -717,7 +714,6 @@ function AssignPanel({
                 </button>
               )}
             </div>
-            {/* Expanded contacts */}
             {expandedFamilyId === f.id && (
               <div className="ml-3 mt-0.5 space-y-0.5">
                 {f.contactName && (
@@ -746,9 +742,7 @@ function AssignPanel({
       <form
         onSubmit={(e) => {
           e.preventDefault();
-          if (customText.trim()) {
-            onAssign(customText.trim());
-          }
+          if (customText.trim()) onAssign(customText.trim());
         }}
         className="flex items-center gap-1 border-t pt-2"
       >

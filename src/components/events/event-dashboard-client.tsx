@@ -19,7 +19,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Users, UtensilsCrossed, DollarSign, UserCheck, Pencil, Trash2, ExternalLink, Upload, X, Clock, ClipboardList } from "lucide-react";
+import { Users, UtensilsCrossed, DollarSign, Pencil, Trash2, ExternalLink, Upload, X, Clock, ClipboardList, ChevronRight } from "lucide-react";
 import { formatCurrency, blobUrl } from "@/lib/utils";
 import { EVENT_STATUSES } from "@/lib/constants";
 import type { Family } from "@/types";
@@ -189,138 +189,158 @@ export function EventDashboardClient({ event }: { event: EventDashboardData }) {
 
       {/* Reservation & Campsite Info */}
       {(event.reservationNo || event.checkIn || event.checkOut || event.campsiteUrl || event.imageUrl) && (
-        <Card className="border-l-4 border-l-teal-600">
+        <Card className="bg-teal-950/30 border-teal-800/50">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold text-teal-400 flex items-center gap-2">
-              <span className="bg-teal-900/40 text-teal-400 p-1.5 rounded-full inline-flex">
-                <ClipboardList className="h-4 w-4" />
-              </span>
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <ClipboardList className="h-4 w-4" />
               Reservation Details
             </CardTitle>
           </CardHeader>
-          <CardContent className="text-sm space-y-2.5">
+          <CardContent className="space-y-3">
+            {/* Reservation number — badge style, not big number */}
             {event.reservationNo && (
               <div className="flex items-center gap-2">
-                <span className="text-muted-foreground text-xs">Reservation</span>
-                <span className="font-mono text-xs font-medium bg-teal-900/40 text-teal-300 px-2 py-0.5 rounded">{event.reservationNo}</span>
+                <span className="text-xs text-muted-foreground">Reservation #</span>
+                <span className="font-mono text-sm font-semibold bg-teal-900/40 text-teal-300 px-2 py-0.5 rounded">{event.reservationNo}</span>
               </div>
             )}
+            {/* Check-in / Check-out — big numbers */}
             {(event.checkIn || event.checkOut) && (
-              <div className="flex items-center gap-4">
+              <div className={`grid text-center gap-4 ${event.checkIn && event.checkOut ? "grid-cols-2" : "grid-cols-1"}`}>
                 {event.checkIn && (
-                  <div className="flex items-center gap-1.5">
-                    <Clock className="h-3.5 w-3.5 text-teal-400 shrink-0" />
-                    <span className="text-muted-foreground text-xs">Check-in:</span>
-                    <span className="font-medium text-xs">{fmtTime(event.checkIn)}</span>
+                  <div>
+                    <div className="text-2xl font-bold">{fmtTime(event.checkIn)}</div>
+                    <div className="text-xs text-muted-foreground">Check-in</div>
                   </div>
                 )}
                 {event.checkOut && (
-                  <div className="flex items-center gap-1.5">
-                    <Clock className="h-3.5 w-3.5 text-teal-400 shrink-0" />
-                    <span className="text-muted-foreground text-xs">Check-out:</span>
-                    <span className="font-medium text-xs">{fmtTime(event.checkOut)}</span>
+                  <div>
+                    <div className="text-2xl font-bold">{fmtTime(event.checkOut)}</div>
+                    <div className="text-xs text-muted-foreground">Check-out</div>
                   </div>
                 )}
               </div>
             )}
-            {event.campsiteUrl && (
-              <div>
-                <a href={event.campsiteUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline inline-flex items-center gap-1 text-xs">
-                  Campsite Official Page <ExternalLink className="h-3 w-3" />
-                </a>
-              </div>
-            )}
-            {event.imageUrl && (
-              <div className="pt-3">
-                <button type="button" onClick={() => setImagePreview(true)} className="block cursor-zoom-in">
-                  <img src={blobUrl(event.imageUrl)} alt="Campsite info" className="rounded-lg border h-28 w-auto object-cover shadow-sm" />
-                  <span className="text-xs text-muted-foreground mt-0.5 block">Click to enlarge</span>
-                </button>
+            {(event.campsiteUrl || event.imageUrl) && (
+              <div className="flex items-center gap-4 pt-1 border-t border-teal-800/30">
+                {event.campsiteUrl && (
+                  <a href={event.campsiteUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline inline-flex items-center gap-1 text-xs">
+                    Campsite Official Page <ExternalLink className="h-3 w-3" />
+                  </a>
+                )}
+                {event.imageUrl && (
+                  <button type="button" onClick={() => setImagePreview(true)} className="block cursor-zoom-in ml-auto">
+                    <img src={blobUrl(event.imageUrl)} alt="Campsite info" className="rounded-lg border h-16 w-auto object-cover shadow-sm" />
+                  </button>
+                )}
               </div>
             )}
           </CardContent>
         </Card>
       )}
 
-      <InviteLinkCard inviteCode={event.inviteCode} />
-
       <div className="grid grid-cols-2 gap-3">
-        {/* Families Card — blue theme */}
-        <Card className="border-l-4 border-l-blue-500">
+        {/* Families + Headcount Card — links to signup page */}
+        <Card
+          className="col-span-2 bg-emerald-950/30 border-emerald-800/50 cursor-pointer hover:border-emerald-600/60 transition-colors"
+          onClick={() => router.push(`/events/${event.id}/signup`)}
+        >
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold text-blue-300 flex items-center gap-2">
-              <span className="bg-blue-900/40 text-blue-400 p-1.5 rounded-full inline-flex">
+            <CardTitle className="text-sm font-medium flex items-center justify-between">
+              <span className="flex items-center gap-2">
                 <Users className="h-4 w-4" />
+                Headcount Summary
               </span>
-              Families
+              <ChevronRight className="h-4 w-4 text-muted-foreground" />
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{event.signups.length}</div>
-            <p className="text-xs text-muted-foreground">{grandTotal} people total</p>
-          </CardContent>
-        </Card>
-
-        {/* Headcount Card — purple theme */}
-        <Card className="border-l-4 border-l-purple-500">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold text-purple-300 flex items-center gap-2">
-              <span className="bg-purple-900/40 text-purple-400 p-1.5 rounded-full inline-flex">
-                <UserCheck className="h-4 w-4" />
-              </span>
-              Headcount
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-sm space-y-0.5">
-              <div>{totalAdults} adults</div>
-              <div>{totalKids} kids</div>
-              {totalElderly > 0 && <div>{totalElderly} elderly</div>}
-              {totalVegetarians > 0 && <div>{totalVegetarians} vegetarian</div>}
+            <div className="grid grid-cols-3 gap-4 text-center">
+              <div>
+                <div className="text-2xl font-bold">{event.signups.length}</div>
+                <div className="text-xs text-muted-foreground">Families</div>
+              </div>
+              <div>
+                <div className="text-2xl font-bold">{grandTotal}</div>
+                <div className="text-xs text-muted-foreground">People</div>
+              </div>
+              <div>
+                <div className="text-2xl font-bold">{totalVegetarians}</div>
+                <div className="text-xs text-muted-foreground">Vegetarian</div>
+              </div>
+            </div>
+            <div className="flex justify-center gap-6 mt-3 text-sm text-muted-foreground">
+              <span>{totalAdults} adults</span>
+              <span>{totalKids} kids</span>
+              <span>{totalElderly} elderly</span>
             </div>
           </CardContent>
         </Card>
 
-        {/* Planning Card — amber theme */}
-        <Card className="border-l-4 border-l-amber-500">
+        {/* Planning Card — amber theme, big numbers grid */}
+        <Card className="col-span-2 bg-amber-950/30 border-amber-800/50">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold text-amber-300 flex items-center gap-2">
-              <span className="bg-amber-900/40 text-amber-400 p-1.5 rounded-full inline-flex">
-                <UtensilsCrossed className="h-4 w-4" />
-              </span>
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <UtensilsCrossed className="h-4 w-4" />
               Planning
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-sm space-y-0.5">
-              <div>{event._count.meals} meals</div>
-              <div>{event._count.activities} activities</div>
-              <div>{event._count.groceryItems} grocery items</div>
-              <div>{event._count.equipment} equipment</div>
+            <div className="grid grid-cols-4 gap-2 text-center">
+              {[
+                { label: "Meals", count: event._count.meals, href: `/events/${event.id}/meals` },
+                { label: "Activities", count: event._count.activities, href: `/events/${event.id}/activities` },
+                { label: "Grocery", count: event._count.groceryItems, href: `/events/${event.id}/groceries` },
+                { label: "Equipment", count: event._count.equipment, href: `/events/${event.id}/equipment` },
+              ].map(({ label, count, href }) => (
+                <button
+                  key={label}
+                  onClick={() => router.push(href)}
+                  className="rounded-lg py-2 hover:bg-amber-900/30 transition-colors group"
+                >
+                  <div className="text-2xl font-bold">{count}</div>
+                  <div className="text-xs text-muted-foreground flex items-center justify-center gap-0.5">
+                    {label}
+                    <ChevronRight className="h-3 w-3 opacity-50 group-hover:opacity-100 transition-opacity" />
+                  </div>
+                </button>
+              ))}
             </div>
           </CardContent>
         </Card>
 
-        {/* Expenses Card — emerald theme */}
-        <Card className="border-l-4 border-l-emerald-500">
+        {/* Expenses Card — navigates to expenses */}
+        <Card
+          className="col-span-2 bg-emerald-950/30 border-emerald-800/50 cursor-pointer hover:border-emerald-600/60 transition-colors"
+          onClick={() => router.push(`/events/${event.id}/expenses`)}
+        >
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold text-emerald-300 flex items-center gap-2">
-              <span className="bg-emerald-900/40 text-emerald-400 p-1.5 rounded-full inline-flex">
+            <CardTitle className="text-sm font-medium flex items-center justify-between">
+              <span className="flex items-center gap-2">
                 <DollarSign className="h-4 w-4" />
+                Expenses
               </span>
-              Expenses
+              <ChevronRight className="h-4 w-4 text-muted-foreground" />
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(event.totalExpenses)}</div>
-            {event.signups.length > 0 && (
-              <p className="text-xs text-muted-foreground">
-                {formatCurrency(event.totalExpenses / event.signups.length)} per family
-              </p>
-            )}
+            <div className="flex justify-around text-center">
+              <div>
+                <div className="text-2xl font-bold">{formatCurrency(event.totalExpenses)}</div>
+                <div className="text-xs text-muted-foreground">Total</div>
+              </div>
+              {event.signups.length > 0 && (
+                <div>
+                  <div className="text-2xl font-bold">{formatCurrency(event.totalExpenses / event.signups.length)}</div>
+                  <div className="text-xs text-muted-foreground">Per family</div>
+                </div>
+              )}
+            </div>
           </CardContent>
         </Card>
       </div>
+
+      <InviteLinkCard inviteCode={event.inviteCode} />
 
 
       {/* Edit Dialog */}

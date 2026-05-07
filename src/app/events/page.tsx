@@ -3,14 +3,14 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { formatDateRange, locationLink, familyEmoji } from "@/lib/utils";
+import { formatDateRange, familyEmoji } from "@/lib/utils";
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useCurrentFamily } from "@/hooks/use-current-family";
-import { Plus, Tent, MapPin, Calendar, Users, ExternalLink } from "lucide-react";
+import { Plus, Tent, MapPin, Calendar, Users } from "lucide-react";
 import type { Family } from "@/types";
 
 type EventWithOrganizer = {
@@ -121,10 +121,10 @@ export default function EventsPage() {
                       </div>
                     </CardHeader>
                     <CardContent className="space-y-1 text-sm text-muted-foreground px-3 pb-3">
-                      <a href={locationLink(event.location, event.locationUrl)} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 hover:underline hover:text-foreground" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex items-center gap-2">
                         <MapPin className="h-3.5 w-3.5 shrink-0" />
-                        {event.location} <ExternalLink className="h-3 w-3" />
-                      </a>
+                        {event.location}
+                      </div>
                       <div className="flex items-center gap-2">
                         <Calendar className="h-3.5 w-3.5 shrink-0" />
                         {formatDateRange(new Date(event.startDate), new Date(event.endDate))}
