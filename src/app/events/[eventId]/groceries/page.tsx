@@ -827,11 +827,9 @@ function GroceryItemCard({
   const isMyItem = iAmOwner || iAmVolunteer;
   const needsVolunteer = !hasOwner && !hasVolunteers;
 
-  const bg = item.isPurchased
-    ? "opacity-50 bg-muted/20 border-muted"
-    : needsVolunteer
-      ? "bg-card border-border"
-      : "bg-emerald-950/30 border-l-4 border-l-emerald-600 border-emerald-900/40";
+  const bg = needsVolunteer
+    ? "bg-card border-border"
+    : "bg-emerald-950/30 border-l-4 border-l-emerald-600 border-emerald-900/40";
 
   function startEdit() {
     setEditName(item.name);
@@ -940,7 +938,7 @@ function GroceryItemCard({
               aria-label="Needs an owner"
             />
           )}
-          <span className={`text-sm font-medium ${item.isPurchased ? "line-through text-muted-foreground" : ""}`}>
+          <span className="text-sm font-medium">
             {item.name}
           </span>
           {item.quantity && (
