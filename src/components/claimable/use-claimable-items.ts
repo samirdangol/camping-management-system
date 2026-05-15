@@ -38,6 +38,7 @@ export interface ClaimableActions<
 export interface ClaimableOwnership<T> {
   getOwnerFamilyId: (item: T) => number | null;
   getOwnerLabel: (item: T) => string | null;
+  getOwner: (item: T) => Family | null;
 }
 
 export type ClaimableFilter = "all" | "needs-help" | "mine";

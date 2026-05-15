@@ -25,39 +25,25 @@ import { GROCERY_CATEGORY_SUGGESTIONS } from "@/lib/constants";
 import {
   ShoppingCart,
   Plus,
-  Trash2,
   Pencil,
   Check,
   X,
-  Hand,
-  UserPlus,
   ChevronDown,
   ChevronRight,
   FolderPlus,
   ClipboardPaste,
-  MoreVertical,
-  ArrowUp,
-  ArrowDown,
 } from "lucide-react";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { PasteImportDialog } from "@/components/bulk-import/paste-import-dialog";
 import { CategoryBulkAdd } from "@/components/bulk-import/category-bulk-add";
 import { useIsOrganizer } from "@/hooks/use-is-organizer";
-import { FamilyAvatar } from "@/components/shared/family-avatar";
 import { ConfirmDeleteDialog } from "@/components/shared/confirm-delete-dialog";
-import { AssignPanel } from "@/components/claimable/assign-panel";
-import { MoveCategorySubmenu } from "@/components/claimable/move-category-submenu";
 import {
   useClaimableItems,
   type ClaimableActions,
   type ClaimableOwnership,
 } from "@/components/claimable/use-claimable-items";
+import { ItemCardShell } from "@/components/claimable/item-card-shell";
+import { ItemEditCard } from "@/components/claimable/item-edit-card";
 import type { Family, GroceryWithFamily } from "@/types";
 
 /* ─── helpers ─── */
@@ -110,7 +96,102 @@ const groceryActions: ClaimableActions<
 const groceryOwnership: ClaimableOwnership<GroceryWithFamily> = {
   getOwnerFamilyId: (i) => i.assignedFamilyId,
   getOwnerLabel: (i) => i.assignedLabel,
+  getOwner: (i) => i.assignedTo,
 };
+
+/* ─── per-domain render slots ─── */
+
+function GroceryItemBody({ item }: { item: GroceryWithFamily }) {
+  return (
+    <>
+      <span className="text-sm font-medium">{item.name}</span>
+      {item.quantity && (
+        <span className="text-xs text-muted-foreground">×{item.quantity}</span>
+      )}
+      {item.mealTag && (
+        <Badge className="text-[10px] px-1.5 py-0 bg-purple-900/40 text-purple-300 hover:bg-purple-900/50">
+          {item.mealTag}
+        </Badge>
+      )}
+    </>
+  );
+}
+
+function GroceryItemEditor({
+  item,
+  onSave,
+  onCancel,
+}: {
+  item: GroceryWithFamily;
+  onSave: (vals: GroceryEditVals) => Promise<void>;
+  onCancel: () => void;
+}) {
+  const [name, setName] = useState(item.name);
+  const [category, setCategory] = useState(item.category || "");
+  const [qty, setQty] = useState(item.quantity || "");
+  const [cost, setCost] = useState(
+    item.estimatedCost ? String(item.estimatedCost) : ""
+  );
+  const [mealTag, setMealTag] = useState(item.mealTag || "");
+  const [busy, setBusy] = useState(false);
+
+  async function handleSave() {
+    if (!name.trim()) return;
+    setBusy(true);
+    await onSave({
+      name: name.trim(),
+      category: category.trim() || undefined,
+      quantity: qty.trim() || undefined,
+      estimatedCost: cost ? parseFloat(cost) : null,
+      mealTag: mealTag.trim() || null,
+    });
+    setBusy(false);
+  }
+
+  return (
+    <ItemEditCard
+      onSave={handleSave}
+      onCancel={onCancel}
+      canSave={!!name.trim()}
+      busy={busy}
+    >
+      <Input
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        placeholder="Name"
+        className="h-8 text-sm col-span-2"
+        autoFocus
+      />
+      <Input
+        list={DATALIST_ID}
+        value={category}
+        onChange={(e) => setCategory(e.target.value)}
+        placeholder="Category"
+        className="h-8 text-sm"
+      />
+      <Input
+        value={mealTag}
+        onChange={(e) => setMealTag(e.target.value)}
+        placeholder="Meal tag"
+        className="h-8 text-sm"
+      />
+      <Input
+        value={qty}
+        onChange={(e) => setQty(e.target.value)}
+        placeholder="Qty"
+        className="h-8 text-sm"
+      />
+      <Input
+        type="number"
+        step="0.01"
+        value={cost}
+        onChange={(e) => setCost(e.target.value)}
+        placeholder="Est. cost"
+        className="h-8 text-sm"
+      />
+    </ItemEditCard>
+  );
+}
 
 /* ─── Main Page ─── */
 
@@ -149,7 +230,6 @@ export default function GroceriesPage() {
     handleClaim,
     handleUnclaim,
     handleOrganizerAssign,
-    handleVolunteer,
     handleUnvolunteer,
     confirmUnvolunteer,
     handleSaveEdit,
@@ -269,7 +349,6 @@ export default function GroceriesPage() {
           onUnclaim={handleUnclaim}
           onOrganizerAssign={handleOrganizerAssign}
           onTogglePurchased={handleTogglePurchased}
-          onVolunteer={handleVolunteer}
           onUnvolunteer={handleUnvolunteer}
           onSaveEdit={handleSaveEdit}
           onBulkAdd={handleBulkAdd}
@@ -298,8 +377,7 @@ export default function GroceriesPage() {
             onUnclaim={handleUnclaim}
             onOrganizerAssign={handleOrganizerAssign}
             onTogglePurchased={handleTogglePurchased}
-            onVolunteer={handleVolunteer}
-            onUnvolunteer={handleUnvolunteer}
+              onUnvolunteer={handleUnvolunteer}
             onSaveEdit={handleSaveEdit}
             onBulkAdd={handleBulkAdd}
             onReorder={handleReorder}
@@ -326,7 +404,6 @@ export default function GroceriesPage() {
           onUnclaim={handleUnclaim}
           onOrganizerAssign={handleOrganizerAssign}
           onTogglePurchased={handleTogglePurchased}
-          onVolunteer={handleVolunteer}
           onUnvolunteer={handleUnvolunteer}
           onSaveEdit={handleSaveEdit}
           onBulkAdd={handleBulkAdd}
@@ -417,7 +494,6 @@ function CategorySection({
   onUnclaim,
   onOrganizerAssign,
   onTogglePurchased,
-  onVolunteer,
   onUnvolunteer,
   onSaveEdit,
   onBulkAdd,
@@ -438,18 +514,8 @@ function CategorySection({
   onUnclaim: (id: number) => Promise<void>;
   onOrganizerAssign: (id: number, familyId: number | null, label?: string) => Promise<void>;
   onTogglePurchased: (id: number, current: boolean) => Promise<void>;
-  onVolunteer: (id: number) => Promise<void>;
   onUnvolunteer: (id: number) => void;
-  onSaveEdit: (
-    id: number,
-    vals: {
-      name: string;
-      category?: string;
-      quantity?: string;
-      estimatedCost?: number | null;
-      mealTag?: string | null;
-    }
-  ) => Promise<void>;
+  onSaveEdit: (id: number, vals: GroceryEditVals) => Promise<void>;
   onReorder: (id: number, direction: "up" | "down", category?: string) => Promise<void>;
   onMoveCategory: (id: number, newCategory: string) => Promise<void>;
   onBulkAdd: (
@@ -587,26 +653,35 @@ function CategorySection({
       {!collapsed && (
         <div className="space-y-1.5 pl-6">
           {items.map((item, idx) => (
-            <GroceryItemCard
+            <ItemCardShell<GroceryWithFamily, GroceryEditVals>
               key={item.id}
               item={item}
               families={families}
               familyId={familyId}
               isOrganizer={isOrganizer}
-              allSuggestions={allSuggestions}
-              categoryOptions={categoryOptions}
               isFirst={idx === 0}
               isLast={idx === items.length - 1}
+              categoryOptions={categoryOptions}
+              ownership={groceryOwnership}
               onDelete={onDelete}
               onClaim={onClaim}
               onUnclaim={onUnclaim}
               onOrganizerAssign={onOrganizerAssign}
-              onTogglePurchased={onTogglePurchased}
-              onVolunteer={onVolunteer}
               onUnvolunteer={onUnvolunteer}
               onSaveEdit={onSaveEdit}
               onReorder={(dir) => onReorder(item.id, dir, category || undefined)}
               onMoveCategory={onMoveCategory}
+              renderLeading={(it) => (
+                <Checkbox
+                  checked={it.isPurchased}
+                  onCheckedChange={() => onTogglePurchased(it.id, it.isPurchased)}
+                  className="shrink-0"
+                />
+              )}
+              renderBody={(it) => <GroceryItemBody item={it} />}
+              renderEditor={(it, onSave, onCancel) => (
+                <GroceryItemEditor item={it} onSave={onSave} onCancel={onCancel} />
+              )}
             />
           ))}
 
@@ -642,293 +717,6 @@ function CategorySection({
           </form>
         </div>
       )}
-    </div>
-  );
-}
-
-/* ════════════════════════════════════════════════════════
-   Grocery Item Card
-   ════════════════════════════════════════════════════════ */
-
-function GroceryItemCard({
-  item,
-  families,
-  familyId,
-  isOrganizer,
-  allSuggestions,
-  categoryOptions,
-  isFirst,
-  isLast,
-  onDelete,
-  onClaim,
-  onUnclaim,
-  onOrganizerAssign,
-  onTogglePurchased,
-  onVolunteer,
-  onUnvolunteer,
-  onSaveEdit,
-  onReorder,
-  onMoveCategory,
-}: {
-  item: GroceryWithFamily;
-  families: Family[];
-  familyId: number | null;
-  isOrganizer: boolean;
-  allSuggestions: string[];
-  categoryOptions: string[];
-  isFirst: boolean;
-  isLast: boolean;
-  onDelete: (id: number) => void | Promise<void>;
-  onClaim: (id: number) => Promise<void>;
-  onUnclaim: (id: number) => Promise<void>;
-  onOrganizerAssign: (id: number, familyId: number | null, label?: string) => Promise<void>;
-  onTogglePurchased: (id: number, current: boolean) => Promise<void>;
-  onVolunteer: (id: number) => Promise<void>;
-  onUnvolunteer: (id: number) => void;
-  onSaveEdit: (
-    id: number,
-    vals: {
-      name: string;
-      category?: string;
-      quantity?: string;
-      estimatedCost?: number | null;
-      mealTag?: string | null;
-    }
-  ) => Promise<void>;
-  onReorder: (direction: "up" | "down") => Promise<void>;
-  onMoveCategory: (id: number, newCategory: string) => Promise<void>;
-}) {
-  const [editing, setEditing] = useState(false);
-  const [editName, setEditName] = useState(item.name);
-  const [editCategory, setEditCategory] = useState(item.category || "");
-  const [editQty, setEditQty] = useState(item.quantity || "");
-  const [editCost, setEditCost] = useState(
-    item.estimatedCost ? String(item.estimatedCost) : ""
-  );
-  const [editMealTag, setEditMealTag] = useState(item.mealTag || "");
-  const [busy, setBusy] = useState(false);
-  const [showAssignPanel, setShowAssignPanel] = useState(false);
-
-  const hasOwner = !!item.assignedTo || !!item.assignedLabel;
-  const hasVolunteers = item.volunteers.length > 0;
-  const iAmOwner = item.assignedFamilyId === familyId;
-  const iAmVolunteer = item.volunteers.some((v) => v.familyId === familyId);
-  const isMyItem = iAmOwner || iAmVolunteer;
-  const needsVolunteer = !hasOwner && !hasVolunteers;
-
-  const bg = needsVolunteer
-    ? "bg-card border-border"
-    : "bg-emerald-950/30 border-l-4 border-l-emerald-600 border-emerald-900/40";
-
-  function startEdit() {
-    setEditName(item.name);
-    setEditCategory(item.category || "");
-    setEditQty(item.quantity || "");
-    setEditCost(item.estimatedCost ? String(item.estimatedCost) : "");
-    setEditMealTag(item.mealTag || "");
-    setEditing(true);
-  }
-
-  async function saveEdit() {
-    if (!editName.trim()) return;
-    setBusy(true);
-    await onSaveEdit(item.id, {
-      name: editName.trim(),
-      category: editCategory.trim() || undefined,
-      quantity: editQty.trim() || undefined,
-      estimatedCost: editCost ? parseFloat(editCost) : null,
-      mealTag: editMealTag.trim() || null,
-    });
-    setEditing(false);
-    setBusy(false);
-  }
-
-  /* ── Edit mode ── */
-  if (editing) {
-    return (
-      <div className="rounded-lg border p-2.5 space-y-2 bg-blue-950/30 border-blue-800/50">
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          <Input
-            value={editName}
-            onChange={(e) => setEditName(e.target.value)}
-            placeholder="Name"
-            className="h-8 text-sm col-span-2"
-            autoFocus
-          />
-          <Input
-            list={DATALIST_ID}
-            value={editCategory}
-            onChange={(e) => setEditCategory(e.target.value)}
-            placeholder="Category"
-            className="h-8 text-sm"
-          />
-          <Input
-            value={editMealTag}
-            onChange={(e) => setEditMealTag(e.target.value)}
-            placeholder="Meal tag"
-            className="h-8 text-sm"
-          />
-          <Input
-            value={editQty}
-            onChange={(e) => setEditQty(e.target.value)}
-            placeholder="Qty"
-            className="h-8 text-sm"
-          />
-          <Input
-            type="number"
-            step="0.01"
-            value={editCost}
-            onChange={(e) => setEditCost(e.target.value)}
-            placeholder="Est. cost"
-            className="h-8 text-sm"
-          />
-        </div>
-        <div className="flex gap-1.5 justify-end">
-          <Button
-            size="sm"
-            variant="ghost"
-            className="h-7 text-xs"
-            onClick={() => setEditing(false)}
-          >
-            Cancel
-          </Button>
-          <Button
-            size="sm"
-            className="h-7 text-xs"
-            onClick={saveEdit}
-            disabled={!editName.trim() || busy}
-          >
-            <Check className="h-3 w-3 mr-1" />
-            Save
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
-  /* ── Display mode ── */
-  const showSelfVolunteer = !hasOwner && !isMyItem;
-  const showAssign = isOrganizer;
-
-  return (
-    <div className={`rounded-lg border p-2.5 ${bg}`}>
-      <div className="flex items-center gap-2">
-        <Checkbox
-          checked={item.isPurchased}
-          onCheckedChange={() => onTogglePurchased(item.id, item.isPurchased)}
-          className="shrink-0"
-        />
-        {/* Left: name + qty + tags + volunteer badges — owner badge moves to right column */}
-        <div className="flex-1 min-w-0 flex items-center gap-1.5 flex-wrap">
-          {needsVolunteer && (
-            <span
-              className="h-2 w-2 rounded-full bg-red-500 shrink-0"
-              title="No owner yet — needs help"
-              aria-label="Needs an owner"
-            />
-          )}
-          <span className="text-sm font-medium">
-            {item.name}
-          </span>
-          {item.quantity && (
-            <span className="text-xs text-muted-foreground">×{item.quantity}</span>
-          )}
-          {item.mealTag && (
-            <Badge className="text-[10px] px-1.5 py-0 bg-purple-900/40 text-purple-300 hover:bg-purple-900/50">
-              {item.mealTag}
-            </Badge>
-          )}
-          {item.volunteers.map((v) => (
-            <Badge key={v.id} variant="secondary" className="text-[10px] px-1.5 py-0 bg-emerald-900/40 text-emerald-300">
-              <FamilyAvatar familyId={v.family.id} className="w-4 h-4 text-[10px] mr-0.5" />{v.family.name}
-              {v.familyId === familyId && (
-                <button onClick={() => onUnvolunteer(item.id)} className="ml-0.5 hover:text-destructive">
-                  <X className="h-2.5 w-2.5" />
-                </button>
-              )}
-            </Badge>
-          ))}
-        </div>
-        {/* Right: owner badge OR volunteer button — same position, then overflow menu */}
-        <div className="flex items-center gap-0.5 shrink-0 relative">
-          {hasOwner ? (
-            <Badge variant="secondary" className="text-[10px] px-1.5 py-0 bg-emerald-900/40 text-emerald-300">
-              {item.assignedTo
-                ? <><FamilyAvatar familyId={item.assignedTo.id} className="w-4 h-4 text-[10px] mr-0.5" />{item.assignedTo.name}</>
-                : item.assignedLabel}
-              {(iAmOwner || isOrganizer) && (
-                <button onClick={() => onUnclaim(item.id)} className="ml-0.5 hover:text-destructive">
-                  <X className="h-2.5 w-2.5" />
-                </button>
-              )}
-            </Badge>
-          ) : showSelfVolunteer ? (
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-8 text-xs gap-1 border-emerald-700/50 text-emerald-400 hover:text-emerald-300 hover:bg-emerald-900/30"
-              onClick={() => onClaim(item.id)}
-            >
-              <Hand className="h-3.5 w-3.5" />
-              I&apos;ll bring this!
-            </Button>
-          ) : null}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-muted-foreground" aria-label="Item actions">
-                <MoreVertical className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-44">
-              {showAssign && (
-                <>
-                  <DropdownMenuItem onClick={() => setShowAssignPanel((v) => !v)}>
-                    <UserPlus className="h-4 w-4" />
-                    {hasOwner ? "Reassign" : "Assign"}
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                </>
-              )}
-              <DropdownMenuItem onClick={startEdit}>
-                <Pencil className="h-4 w-4" />
-                Edit
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onReorder("up")} disabled={isFirst}>
-                <ArrowUp className="h-4 w-4" />
-                Move up
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onReorder("down")} disabled={isLast}>
-                <ArrowDown className="h-4 w-4" />
-                Move down
-              </DropdownMenuItem>
-              <MoveCategorySubmenu
-                currentCategory={item.category || ""}
-                categoryOptions={categoryOptions}
-                onMove={(target) => onMoveCategory(item.id, target)}
-              />
-              {isOrganizer && (
-                <>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => onDelete(item.id)} variant="destructive">
-                    <Trash2 className="h-4 w-4" />
-                    Delete
-                  </DropdownMenuItem>
-                </>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
-          {showAssignPanel && (
-            <AssignPanel
-              families={families}
-              onAssign={(fId, label) => {
-                onOrganizerAssign(item.id, fId, label);
-                setShowAssignPanel(false);
-              }}
-              onClose={() => setShowAssignPanel(false)}
-            />
-          )}
-        </div>
-      </div>
     </div>
   );
 }
