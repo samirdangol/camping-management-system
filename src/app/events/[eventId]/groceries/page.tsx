@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { useParams } from "next/navigation";
 import {
   bulkCreateGroceryItems,
@@ -53,9 +53,12 @@ import { FamilyAvatar } from "@/components/shared/family-avatar";
 import { ConfirmDeleteDialog } from "@/components/shared/confirm-delete-dialog";
 import { AssignPanel } from "@/components/claimable/assign-panel";
 import { MoveCategorySubmenu } from "@/components/claimable/move-category-submenu";
+import {
+  useClaimableItems,
+  type ClaimableActions,
+  type ClaimableOwnership,
+} from "@/components/claimable/use-claimable-items";
 import type { Family, GroceryWithFamily } from "@/types";
-
-type Filter = "all" | "unassigned" | "mine";
 
 /* ─── helpers ─── */
 
@@ -67,6 +70,48 @@ function cap(s: string) {
 /** Unique datalist id for category inputs */
 const DATALIST_ID = "grocery-cat-suggestions";
 
+type GroceryBulkRow = {
+  name: string;
+  category?: string;
+  quantity?: string;
+  estimatedCost?: number;
+  mealTag?: string;
+};
+
+type GroceryEditVals = {
+  name?: string;
+  category?: string;
+  quantity?: string;
+  estimatedCost?: number | null;
+  mealTag?: string | null;
+};
+
+// Stable action/ownership bundles — declared at module scope so the hook's
+// internal refs don't churn between renders.
+const groceryActions: ClaimableActions<
+  GroceryWithFamily,
+  GroceryBulkRow,
+  GroceryEditVals
+> = {
+  fetchItems: (eventId) =>
+    fetch(`/api/events/${eventId}/groceries`).then((r) => r.json()),
+  claim: claimGroceryItem,
+  unclaim: unclaimGroceryItem,
+  delete: deleteGroceryItem,
+  addVolunteer: addGroceryVolunteer,
+  removeVolunteer: removeGroceryVolunteer,
+  update: updateGroceryItem,
+  bulkCreate: bulkCreateGroceryItems,
+  reorder: reorderGroceryItem,
+  renameCategory: renameGroceryCategory,
+  clearCategory: clearGroceryCategory,
+};
+
+const groceryOwnership: ClaimableOwnership<GroceryWithFamily> = {
+  getOwnerFamilyId: (i) => i.assignedFamilyId,
+  getOwnerLabel: (i) => i.assignedLabel,
+};
+
 /* ─── Main Page ─── */
 
 export default function GroceriesPage() {
@@ -74,86 +119,60 @@ export default function GroceriesPage() {
   const eid = parseInt(eventId, 10);
   const { familyId } = useCurrentFamily();
   const isOrganizer = useIsOrganizer(eventId);
-  const [families, setFamilies] = useState<Family[]>([]);
-  const [items, setItems] = useState<GroceryWithFamily[]>([]);
-  const [filter, setFilter] = useState<Filter>("all");
-  const [loading, setLoading] = useState(true);
-  const [newCategories, setNewCategories] = useState<string[]>([]);
   const [newCatInput, setNewCatInput] = useState("");
   const [importOpen, setImportOpen] = useState(false);
-  const [pendingDeleteId, setPendingDeleteId] = useState<number | null>(null);
-  const [pendingUnvolunteerItemId, setPendingUnvolunteerItemId] = useState<number | null>(null);
 
-  const fetchData = useCallback(async () => {
-    const [signups, groceries] = await Promise.all([
-      fetch(`/api/events/${eventId}/signups`).then((r) => r.json()),
-      fetch(`/api/events/${eventId}/groceries`).then((r) => r.json()),
-    ]);
-    setFamilies(signups.map((s: { family: Family }) => s.family));
-    setItems(groceries);
-    setLoading(false);
-  }, [eventId]);
+  const {
+    items,
+    families,
+    loading,
+    filtered,
+    grouped,
+    categoryOrder,
+    uncategorized,
+    existingCategories,
+    categoryOptions,
+    needsHelpCount,
+    myCount,
+    filter,
+    setFilter,
+    newCategories,
+    addNewCategory,
+    removeNewCategory,
+    renameNewCategory,
+    pendingDeleteId,
+    pendingUnvolunteerItemId,
+    cancelDelete,
+    cancelUnvolunteer,
+    handleDelete,
+    confirmDelete,
+    handleClaim,
+    handleUnclaim,
+    handleOrganizerAssign,
+    handleVolunteer,
+    handleUnvolunteer,
+    confirmUnvolunteer,
+    handleSaveEdit,
+    handleMoveCategory,
+    handleBulkAdd,
+    handleReorder,
+    handleRenameCategory,
+    handleClearCategory,
+    refetch,
+  } = useClaimableItems<GroceryWithFamily, GroceryBulkRow, GroceryEditVals>({
+    eventId: eid,
+    familyId,
+    actions: groceryActions,
+    ownership: groceryOwnership,
+  });
 
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+  // Grocery-only: toggle the "purchased" checkbox.
+  async function handleTogglePurchased(itemId: number, current: boolean) {
+    await toggleGroceryPurchased(itemId, eid, !current);
+    await refetch();
+  }
 
-  /* filtered items */
-  const filtered = useMemo(
-    () =>
-      items.filter((item) => {
-        if (filter === "unassigned")
-          return !item.assignedFamilyId && !item.assignedLabel && item.volunteers.length === 0;
-        if (filter === "mine")
-          return (
-            item.assignedFamilyId === familyId ||
-            item.volunteers.some((v) => v.familyId === familyId)
-          );
-        return true;
-      }),
-    [items, filter, familyId]
-  );
-
-  /* group by category */
-  const { grouped, categoryOrder, uncategorized } = useMemo(() => {
-    const map: Record<string, GroceryWithFamily[]> = {};
-    const uncat: GroceryWithFamily[] = [];
-    for (const item of filtered) {
-      const cat = item.category?.trim();
-      if (cat) {
-        if (!map[cat]) map[cat] = [];
-        map[cat].push(item);
-      } else {
-        uncat.push(item);
-      }
-    }
-    const order = Object.keys(map).sort((a, b) =>
-      a.toLowerCase().localeCompare(b.toLowerCase())
-    );
-    return { grouped: map, categoryOrder: order, uncategorized: uncat };
-  }, [filtered]);
-
-  /* all existing category names for suggestions */
-  const existingCategories = useMemo(() => {
-    const cats = new Set<string>();
-    for (const item of items) {
-      if (item.category?.trim()) cats.add(item.category.trim());
-    }
-    return Array.from(cats).sort((a, b) =>
-      a.toLowerCase().localeCompare(b.toLowerCase())
-    );
-  }, [items]);
-
-  /* move-to-category targets: real categories + user-added empty ones */
-  const categoryOptions = useMemo(() => {
-    const set = new Set<string>(existingCategories);
-    newCategories.forEach((c) => set.add(c));
-    return Array.from(set).sort((a, b) =>
-      a.toLowerCase().localeCompare(b.toLowerCase())
-    );
-  }, [existingCategories, newCategories]);
-
-  /* combined suggestion list: existing + defaults */
+  // Suggestion list (existing categories + defaults) is grocery-specific.
   const allSuggestions = useMemo(() => {
     const set = new Set(existingCategories.map((c) => c.toLowerCase()));
     const extra = GROCERY_CATEGORY_SUGGESTIONS.filter(
@@ -162,149 +181,9 @@ export default function GroceriesPage() {
     return [...existingCategories, ...extra];
   }, [existingCategories]);
 
-  /* totals for filter badges */
-  const unassignedCount = items.filter(
-    (i) => !i.assignedFamilyId && !i.assignedLabel && i.volunteers.length === 0
-  ).length;
-  const myCount = items.filter(
-    (i) =>
-      i.assignedFamilyId === familyId ||
-      i.volunteers.some((v) => v.familyId === familyId)
-  ).length;
-
-  /* ─── item actions ─── */
-
-  function handleDelete(itemId: number) {
-    setPendingDeleteId(itemId);
-  }
-
-  async function confirmDelete() {
-    if (pendingDeleteId === null) return;
-    const id = pendingDeleteId;
-    setPendingDeleteId(null);
-    await deleteGroceryItem(id, eid);
-    await fetchData();
-  }
-
-  async function handleClaim(itemId: number) {
-    if (!familyId) return;
-    await claimGroceryItem(itemId, eid, familyId);
-    await fetchData();
-  }
-
-  async function handleUnclaim(itemId: number) {
-    await unclaimGroceryItem(itemId, eid);
-    await fetchData();
-  }
-
-  async function handleOrganizerAssign(
-    itemId: number,
-    assignFamilyId: number | null,
-    label?: string
-  ) {
-    await claimGroceryItem(itemId, eid, assignFamilyId, label);
-    await fetchData();
-  }
-
-  async function handleTogglePurchased(itemId: number, current: boolean) {
-    await toggleGroceryPurchased(itemId, eid, !current);
-    await fetchData();
-  }
-
-  async function handleVolunteer(itemId: number) {
-    if (!familyId) return;
-    await addGroceryVolunteer(itemId, eid, familyId);
-    await fetchData();
-  }
-
-  function handleUnvolunteer(itemId: number) {
-    if (!familyId) return;
-    setPendingUnvolunteerItemId(itemId);
-  }
-
-  async function confirmUnvolunteer() {
-    if (pendingUnvolunteerItemId === null || !familyId) return;
-    await removeGroceryVolunteer(pendingUnvolunteerItemId, eid, familyId);
-    setPendingUnvolunteerItemId(null);
-    await fetchData();
-  }
-
-  async function handleSaveEdit(
-    itemId: number,
-    vals: {
-      name: string;
-      category?: string;
-      quantity?: string;
-      estimatedCost?: number | null;
-      mealTag?: string | null;
-    }
-  ) {
-    await updateGroceryItem(itemId, eid, vals);
-    await fetchData();
-  }
-
-  async function handleMoveCategory(itemId: number, newCategory: string) {
-    await updateGroceryItem(itemId, eid, { category: newCategory });
-    await fetchData();
-  }
-
-  async function handleBulkAdd(
-    rows: {
-      name: string;
-      category?: string;
-      quantity?: string;
-      estimatedCost?: number;
-      mealTag?: string;
-    }[]
-  ) {
-    await bulkCreateGroceryItems(eid, rows);
-    // Remove from newCategories if items now exist in that category
-    const addedCats = rows.map((r) => r.category?.trim()).filter(Boolean) as string[];
-    if (addedCats.length > 0) {
-      setNewCategories((prev) => prev.filter((c) => !addedCats.includes(c)));
-    }
-    await fetchData();
-  }
-
-  async function handleReorder(itemId: number, direction: "up" | "down", category?: string) {
-    await reorderGroceryItem(itemId, eid, direction, category);
-    await fetchData();
-  }
-
-  async function handleRenameCategory(oldName: string, newName: string) {
-    if (!newName.trim() || newName.trim() === oldName) return;
-    await renameGroceryCategory(eid, oldName, newName.trim());
-    // Also rename in local newCategories if applicable
-    setNewCategories((prev) =>
-      prev.map((c) => (c === oldName ? newName.trim() : c))
-    );
-    await fetchData();
-  }
-
-  async function handleClearCategory(categoryName: string) {
-    await clearGroceryCategory(eid, categoryName);
-    setNewCategories((prev) => prev.filter((c) => c !== categoryName));
-    await fetchData();
-  }
-
-  function handleAddNewCategory() {
-    const name = newCatInput.trim();
-    if (!name) return;
-    // Don't add if it already exists as a real or new category
-    const allExisting = [
-      ...existingCategories.map((c) => c.toLowerCase()),
-      ...newCategories.map((c) => c.toLowerCase()),
-    ];
-    if (allExisting.includes(name.toLowerCase())) {
-      setNewCatInput("");
-      return;
-    }
-    setNewCategories((prev) => [...prev, name]);
+  function submitAddNewCategory() {
+    addNewCategory(newCatInput);
     setNewCatInput("");
-  }
-
-  function handleRemoveNewCategory(name: string) {
-    setNewCategories((prev) => prev.filter((c) => c !== name));
   }
 
   if (loading)
@@ -345,7 +224,7 @@ export default function GroceriesPage() {
 
       {/* Filter tabs */}
       <div className="flex gap-1">
-        {(["all", "unassigned", "mine"] as Filter[]).map((f) => (
+        {(["all", "needs-help", "mine"] as const).map((f) => (
           <Button
             key={f}
             variant={filter === f ? "default" : "outline"}
@@ -354,8 +233,8 @@ export default function GroceriesPage() {
           >
             {f === "all"
               ? `All (${items.length})`
-              : f === "unassigned"
-                ? `Needs Help (${unassignedCount})`
+              : f === "needs-help"
+                ? `Needs Help (${needsHelpCount})`
                 : `My Items (${myCount})`}
           </Button>
         ))}
@@ -425,12 +304,8 @@ export default function GroceriesPage() {
             onBulkAdd={handleBulkAdd}
             onReorder={handleReorder}
             onMoveCategory={handleMoveCategory}
-            onRename={(newName) => {
-              setNewCategories((prev) =>
-                prev.map((c) => (c === cat ? newName : c))
-              );
-            }}
-            onClear={() => handleRemoveNewCategory(cat)}
+            onRename={(newName) => renameNewCategory(cat, newName)}
+            onClear={() => removeNewCategory(cat)}
           />
         ) : null
       )}
@@ -464,7 +339,7 @@ export default function GroceriesPage() {
       <form
         onSubmit={(e) => {
           e.preventDefault();
-          handleAddNewCategory();
+          submitAddNewCategory();
         }}
         className="flex items-center gap-2"
       >
@@ -510,7 +385,7 @@ export default function GroceriesPage() {
         title="Delete grocery item?"
         description="This will permanently remove the item and any volunteer assignments."
         onConfirm={confirmDelete}
-        onCancel={() => setPendingDeleteId(null)}
+        onCancel={cancelDelete}
       />
 
       <ConfirmDeleteDialog
@@ -519,7 +394,7 @@ export default function GroceriesPage() {
         description="This will remove you as a volunteer for this grocery item."
         confirmLabel="Remove"
         onConfirm={confirmUnvolunteer}
-        onCancel={() => setPendingUnvolunteerItemId(null)}
+        onCancel={cancelUnvolunteer}
       />
     </div>
   );

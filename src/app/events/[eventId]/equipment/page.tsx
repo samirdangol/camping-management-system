@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { useParams } from "next/navigation";
 import {
   bulkCreateEquipment,
@@ -51,9 +51,12 @@ import { FamilyAvatar } from "@/components/shared/family-avatar";
 import { ConfirmDeleteDialog } from "@/components/shared/confirm-delete-dialog";
 import { AssignPanel } from "@/components/claimable/assign-panel";
 import { MoveCategorySubmenu } from "@/components/claimable/move-category-submenu";
+import {
+  useClaimableItems,
+  type ClaimableActions,
+  type ClaimableOwnership,
+} from "@/components/claimable/use-claimable-items";
 import type { Family, EquipmentWithOwner } from "@/types";
-
-type Filter = "all" | "unclaimed" | "mine";
 
 /* ─── helpers ─── */
 
@@ -63,6 +66,44 @@ function cap(s: string) {
 
 const DATALIST_ID = "equip-cat-suggestions";
 
+type EquipmentBulkRow = {
+  name: string;
+  category?: string;
+  quantity?: number;
+  notes?: string;
+};
+
+type EquipmentEditVals = {
+  name?: string;
+  category?: string;
+  quantity?: number;
+  notes?: string;
+};
+
+const equipmentActions: ClaimableActions<
+  EquipmentWithOwner,
+  EquipmentBulkRow,
+  EquipmentEditVals
+> = {
+  fetchItems: (eventId) =>
+    fetch(`/api/events/${eventId}/equipment`).then((r) => r.json()),
+  claim: claimEquipment,
+  unclaim: unclaimEquipment,
+  delete: deleteEquipment,
+  addVolunteer: addEquipmentVolunteer,
+  removeVolunteer: removeEquipmentVolunteer,
+  update: updateEquipment,
+  bulkCreate: bulkCreateEquipment,
+  reorder: reorderEquipment,
+  renameCategory: renameEquipmentCategory,
+  clearCategory: clearEquipmentCategory,
+};
+
+const equipmentOwnership: ClaimableOwnership<EquipmentWithOwner> = {
+  getOwnerFamilyId: (i) => i.ownerFamilyId,
+  getOwnerLabel: (i) => i.ownerLabel,
+};
+
 /* ─── Main Page ─── */
 
 export default function EquipmentPage() {
@@ -70,86 +111,56 @@ export default function EquipmentPage() {
   const eid = parseInt(eventId, 10);
   const { familyId } = useCurrentFamily();
   const isOrganizer = useIsOrganizer(eventId);
-  const [families, setFamilies] = useState<Family[]>([]);
-  const [items, setItems] = useState<EquipmentWithOwner[]>([]);
-  const [filter, setFilter] = useState<Filter>("all");
-  const [loading, setLoading] = useState(true);
-  const [newCategories, setNewCategories] = useState<string[]>([]);
   const [newCatInput, setNewCatInput] = useState("");
   const [importOpen, setImportOpen] = useState(false);
-  const [pendingDeleteId, setPendingDeleteId] = useState<number | null>(null);
-  const [pendingUnvolunteerItemId, setPendingUnvolunteerItemId] = useState<number | null>(null);
 
-  const fetchData = useCallback(async () => {
-    const [signups, equip] = await Promise.all([
-      fetch(`/api/events/${eventId}/signups`).then((r) => r.json()),
-      fetch(`/api/events/${eventId}/equipment`).then((r) => r.json()),
-    ]);
-    setFamilies(signups.map((s: { family: Family }) => s.family));
-    setItems(equip);
-    setLoading(false);
-  }, [eventId]);
+  const {
+    items,
+    families,
+    loading,
+    filtered,
+    grouped,
+    categoryOrder,
+    uncategorized,
+    existingCategories,
+    categoryOptions,
+    needsHelpCount,
+    myCount,
+    filter,
+    setFilter,
+    newCategories,
+    addNewCategory,
+    removeNewCategory,
+    renameNewCategory,
+    pendingDeleteId,
+    pendingUnvolunteerItemId,
+    cancelDelete,
+    cancelUnvolunteer,
+    handleDelete,
+    confirmDelete,
+    handleClaim,
+    handleUnclaim,
+    handleOrganizerAssign,
+    handleVolunteer,
+    handleUnvolunteer,
+    confirmUnvolunteer,
+    handleSaveEdit,
+    handleMoveCategory,
+    handleBulkAdd,
+    handleReorder,
+    handleRenameCategory,
+    handleClearCategory,
+  } = useClaimableItems<
+    EquipmentWithOwner,
+    EquipmentBulkRow,
+    EquipmentEditVals
+  >({
+    eventId: eid,
+    familyId,
+    actions: equipmentActions,
+    ownership: equipmentOwnership,
+  });
 
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
-  /* filtered items */
-  const filtered = useMemo(
-    () =>
-      items.filter((item) => {
-        if (filter === "unclaimed")
-          return !item.ownerFamilyId && !item.ownerLabel && item.volunteers.length === 0;
-        if (filter === "mine")
-          return (
-            item.ownerFamilyId === familyId ||
-            item.volunteers.some((v) => v.familyId === familyId)
-          );
-        return true;
-      }),
-    [items, filter, familyId]
-  );
-
-  /* group by category */
-  const { grouped, categoryOrder, uncategorized } = useMemo(() => {
-    const map: Record<string, EquipmentWithOwner[]> = {};
-    const uncat: EquipmentWithOwner[] = [];
-    for (const item of filtered) {
-      const cat = item.category?.trim();
-      if (cat) {
-        if (!map[cat]) map[cat] = [];
-        map[cat].push(item);
-      } else {
-        uncat.push(item);
-      }
-    }
-    const order = Object.keys(map).sort((a, b) =>
-      a.toLowerCase().localeCompare(b.toLowerCase())
-    );
-    return { grouped: map, categoryOrder: order, uncategorized: uncat };
-  }, [filtered]);
-
-  /* existing category names for suggestions */
-  const existingCategories = useMemo(() => {
-    const cats = new Set<string>();
-    for (const item of items) {
-      if (item.category?.trim()) cats.add(item.category.trim());
-    }
-    return Array.from(cats).sort((a, b) =>
-      a.toLowerCase().localeCompare(b.toLowerCase())
-    );
-  }, [items]);
-
-  /* move-to-category targets: real categories + user-added empty ones */
-  const categoryOptions = useMemo(() => {
-    const set = new Set<string>(existingCategories);
-    newCategories.forEach((c) => set.add(c));
-    return Array.from(set).sort((a, b) =>
-      a.toLowerCase().localeCompare(b.toLowerCase())
-    );
-  }, [existingCategories, newCategories]);
-
-  /* combined suggestions: existing + defaults */
   const allSuggestions = useMemo(() => {
     const set = new Set(existingCategories.map((c) => c.toLowerCase()));
     const extra = EQUIPMENT_CATEGORY_SUGGESTIONS.filter(
@@ -158,139 +169,9 @@ export default function EquipmentPage() {
     return [...existingCategories, ...extra];
   }, [existingCategories]);
 
-  /* totals */
-  const unclaimedCount = items.filter(
-    (i) => !i.ownerFamilyId && !i.ownerLabel && i.volunteers.length === 0
-  ).length;
-  const myCount = items.filter(
-    (i) =>
-      i.ownerFamilyId === familyId ||
-      i.volunteers.some((v) => v.familyId === familyId)
-  ).length;
-
-  /* ─── actions ─── */
-
-  function handleDelete(itemId: number) {
-    setPendingDeleteId(itemId);
-  }
-
-  async function confirmDelete() {
-    if (pendingDeleteId === null) return;
-    const id = pendingDeleteId;
-    setPendingDeleteId(null);
-    await deleteEquipment(id, eid);
-    await fetchData();
-  }
-
-  async function handleClaim(itemId: number) {
-    if (!familyId) return;
-    await claimEquipment(itemId, eid, familyId);
-    await fetchData();
-  }
-
-  async function handleUnclaim(itemId: number) {
-    await unclaimEquipment(itemId, eid);
-    await fetchData();
-  }
-
-  async function handleOrganizerAssign(
-    itemId: number,
-    assignFamilyId: number | null,
-    label?: string
-  ) {
-    await claimEquipment(itemId, eid, assignFamilyId, label);
-    await fetchData();
-  }
-
-  async function handleVolunteer(itemId: number) {
-    if (!familyId) return;
-    await addEquipmentVolunteer(itemId, eid, familyId);
-    await fetchData();
-  }
-
-  function handleUnvolunteer(itemId: number) {
-    if (!familyId) return;
-    setPendingUnvolunteerItemId(itemId);
-  }
-
-  async function confirmUnvolunteer() {
-    if (pendingUnvolunteerItemId === null || !familyId) return;
-    await removeEquipmentVolunteer(pendingUnvolunteerItemId, eid, familyId);
-    setPendingUnvolunteerItemId(null);
-    await fetchData();
-  }
-
-  async function handleSaveEdit(
-    itemId: number,
-    vals: {
-      name: string;
-      category?: string;
-      quantity?: number;
-      notes?: string;
-    }
-  ) {
-    await updateEquipment(itemId, eid, vals);
-    await fetchData();
-  }
-
-  async function handleMoveCategory(itemId: number, newCategory: string) {
-    await updateEquipment(itemId, eid, { category: newCategory });
-    await fetchData();
-  }
-
-  async function handleBulkAdd(
-    rows: {
-      name: string;
-      category?: string;
-      quantity?: number;
-      notes?: string;
-    }[]
-  ) {
-    await bulkCreateEquipment(eid, rows);
-    const addedCats = rows.map((r) => r.category?.trim()).filter(Boolean) as string[];
-    if (addedCats.length > 0) {
-      setNewCategories((prev) => prev.filter((c) => !addedCats.includes(c)));
-    }
-    await fetchData();
-  }
-
-  async function handleReorder(itemId: number, direction: "up" | "down", category?: string) {
-    await reorderEquipment(itemId, eid, direction, category);
-    await fetchData();
-  }
-
-  async function handleRenameCategory(oldName: string, newName: string) {
-    if (!newName.trim() || newName.trim() === oldName) return;
-    await renameEquipmentCategory(eid, oldName, newName.trim());
-    setNewCategories((prev) =>
-      prev.map((c) => (c === oldName ? newName.trim() : c))
-    );
-    await fetchData();
-  }
-
-  async function handleClearCategory(categoryName: string) {
-    await clearEquipmentCategory(eid, categoryName);
-    setNewCategories((prev) => prev.filter((c) => c !== categoryName));
-    await fetchData();
-  }
-
-  function handleAddNewCategory() {
-    const name = newCatInput.trim();
-    if (!name) return;
-    const allExisting = [
-      ...existingCategories.map((c) => c.toLowerCase()),
-      ...newCategories.map((c) => c.toLowerCase()),
-    ];
-    if (allExisting.includes(name.toLowerCase())) {
-      setNewCatInput("");
-      return;
-    }
-    setNewCategories((prev) => [...prev, name]);
+  function submitAddNewCategory() {
+    addNewCategory(newCatInput);
     setNewCatInput("");
-  }
-
-  function handleRemoveNewCategory(name: string) {
-    setNewCategories((prev) => prev.filter((c) => c !== name));
   }
 
   if (loading)
@@ -330,7 +211,7 @@ export default function EquipmentPage() {
 
       {/* Filter tabs */}
       <div className="flex gap-1">
-        {(["all", "unclaimed", "mine"] as Filter[]).map((f) => (
+        {(["all", "needs-help", "mine"] as const).map((f) => (
           <Button
             key={f}
             variant={filter === f ? "default" : "outline"}
@@ -339,8 +220,8 @@ export default function EquipmentPage() {
           >
             {f === "all"
               ? `All (${items.length})`
-              : f === "unclaimed"
-                ? `Needs Owner (${unclaimedCount})`
+              : f === "needs-help"
+                ? `Needs Owner (${needsHelpCount})`
                 : `My Items (${myCount})`}
           </Button>
         ))}
@@ -407,12 +288,8 @@ export default function EquipmentPage() {
             onBulkAdd={handleBulkAdd}
             onReorder={handleReorder}
             onMoveCategory={handleMoveCategory}
-            onRename={(newName) => {
-              setNewCategories((prev) =>
-                prev.map((c) => (c === cat ? newName : c))
-              );
-            }}
-            onClear={() => handleRemoveNewCategory(cat)}
+            onRename={(newName) => renameNewCategory(cat, newName)}
+            onClear={() => removeNewCategory(cat)}
           />
         ) : null
       )}
@@ -445,7 +322,7 @@ export default function EquipmentPage() {
       <form
         onSubmit={(e) => {
           e.preventDefault();
-          handleAddNewCategory();
+          submitAddNewCategory();
         }}
         className="flex items-center gap-2"
       >
@@ -491,7 +368,7 @@ export default function EquipmentPage() {
         title="Delete equipment item?"
         description="This will permanently remove the item and any volunteer assignments."
         onConfirm={confirmDelete}
-        onCancel={() => setPendingDeleteId(null)}
+        onCancel={cancelDelete}
       />
 
       <ConfirmDeleteDialog
@@ -500,7 +377,7 @@ export default function EquipmentPage() {
         description="This will remove you as a volunteer for this equipment item."
         confirmLabel="Remove"
         onConfirm={confirmUnvolunteer}
-        onCancel={() => setPendingUnvolunteerItemId(null)}
+        onCancel={cancelUnvolunteer}
       />
     </div>
   );
