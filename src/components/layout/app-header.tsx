@@ -5,7 +5,7 @@ import { MountainSnow, LogOut, ArrowLeftRight, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useCurrentFamily } from "@/hooks/use-current-family";
 import { useCurrentGroup } from "@/hooks/use-current-group";
-import { familyEmoji } from "@/lib/utils";
+import { FamilyAvatar } from "@/components/shared/family-avatar";
 import Link from "next/link";
 
 export function AppHeader() {
@@ -47,7 +47,7 @@ export function AppHeader() {
           )}
           {isLoaded && familyName && (
             <div className="flex items-center gap-1 text-sm">
-              <span className="text-base">{familyId ? familyEmoji(familyId) : ""}</span>
+              {familyId && <FamilyAvatar familyId={familyId} className="w-6 h-6 mr-0" />}
               <span className="font-medium max-w-[120px] truncate text-xs">
                 {familyName}
               </span>

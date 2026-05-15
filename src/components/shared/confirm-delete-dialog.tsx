@@ -14,6 +14,7 @@ interface ConfirmDeleteDialogProps {
   open: boolean;
   title?: string;
   description?: string;
+  confirmLabel?: string;
   onConfirm: () => void;
   onCancel: () => void;
 }
@@ -22,6 +23,7 @@ export function ConfirmDeleteDialog({
   open,
   title = "Delete item?",
   description = "This action cannot be undone.",
+  confirmLabel = "Delete",
   onConfirm,
   onCancel,
 }: ConfirmDeleteDialogProps) {
@@ -37,7 +39,7 @@ export function ConfirmDeleteDialog({
             Cancel
           </Button>
           <Button variant="destructive" onClick={onConfirm}>
-            Delete
+            {confirmLabel}
           </Button>
         </DialogFooter>
       </DialogContent>

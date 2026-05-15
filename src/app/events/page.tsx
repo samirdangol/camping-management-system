@@ -3,7 +3,8 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { formatDateRange, familyEmoji } from "@/lib/utils";
+import { formatDateRange } from "@/lib/utils";
+import { FamilyAvatar } from "@/components/shared/family-avatar";
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Button } from "@/components/ui/button";
@@ -134,7 +135,7 @@ export default function EventsPage() {
                         {event._count.signups} {event._count.signups === 1 ? "family" : "families"}
                       </div>
                       {event.description && <p className="text-xs">{event.description}</p>}
-                      <div className="text-xs">Organized by {familyEmoji(event.organizer.id)} {event.organizer.name}</div>
+                      <div className="text-xs inline-flex items-center">Organized by <FamilyAvatar familyId={event.organizer.id} className="w-4 h-4 text-[10px] ml-1 mr-0.5" />{event.organizer.name}</div>
                     </CardContent>
                   </Card>
                 ))}
@@ -169,7 +170,7 @@ export default function EventsPage() {
                             <Calendar className="h-3.5 w-3.5 shrink-0" />
                             {formatDateRange(new Date(event.startDate), new Date(event.endDate))}
                           </div>
-                          <div className="text-xs">Organized by {familyEmoji(event.organizer.id)} {event.organizer.name}</div>
+                          <div className="text-xs inline-flex items-center">Organized by <FamilyAvatar familyId={event.organizer.id} className="w-4 h-4 text-[10px] ml-1 mr-0.5" />{event.organizer.name}</div>
                         </CardContent>
                       </Card>
                     </Link>

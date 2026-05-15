@@ -31,6 +31,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { EmptyState } from "@/components/shared/empty-state";
 import { useCurrentFamily } from "@/hooks/use-current-family";
 import { EXPENSE_CATEGORIES } from "@/lib/constants";
@@ -42,16 +48,18 @@ import {
   Check,
   X,
   Save,
-  ArrowRight,
+  ArrowDown,
   CheckCircle2,
   Clock,
   Ban,
+  MoreVertical,
+  Smartphone,
 } from "lucide-react";
+import { toast } from "sonner";
 import { useIsOrganizer } from "@/hooks/use-is-organizer";
-import { familyEmoji } from "@/lib/utils";
+import { FamilyAvatar } from "@/components/shared/family-avatar";
 import { ConfirmDeleteDialog } from "@/components/shared/confirm-delete-dialog";
 import type { Family, ExpenseWithFamily, ExpenseSummary } from "@/types";
-import { format } from "date-fns";
 
 type SignupInfo = {
   familyId: number;
@@ -118,6 +126,11 @@ export default function ExpensesPage() {
   const [paypalEditFamily, setPaypalEditFamily] = useState<Family | null>(null);
   const [paypalInput, setPaypalInput] = useState("");
   const [savingPaypal, setSavingPaypal] = useState(false);
+
+  // Zelle (phone) inline-edit state (settlement tab)
+  const [zelleEditFamily, setZelleEditFamily] = useState<Family | null>(null);
+  const [zelleInput, setZelleInput] = useState("");
+  const [savingZelle, setSavingZelle] = useState(false);
 
   // New rows for bulk add
   const defaultFamilyId = familyId ? familyId.toString() : "";
@@ -253,6 +266,46 @@ export default function ExpensesPage() {
     }
   }
 
+  function openZelleEdit(family: Family) {
+    setZelleEditFamily(family);
+    setZelleInput(family.phone || "");
+  }
+
+  async function handleSaveZelle() {
+    if (!zelleEditFamily) return;
+    const trimmed = zelleInput.trim();
+    if (!trimmed) return;
+    setSavingZelle(true);
+    try {
+      await fetch("/api/families", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: zelleEditFamily.id,
+          name: zelleEditFamily.name,
+          contactName: zelleEditFamily.contactName,
+          contactName2: zelleEditFamily.contactName2,
+          phone: trimmed,
+          email: zelleEditFamily.email,
+          paypalMe: zelleEditFamily.paypalMe,
+        }),
+      });
+      setZelleEditFamily(null);
+      await fetchData();
+    } finally {
+      setSavingZelle(false);
+    }
+  }
+
+  async function copyZelle(phone: string) {
+    try {
+      await navigator.clipboard.writeText(phone);
+      toast.success(`Zelle phone copied: ${phone}`);
+    } catch {
+      toast.error("Could not copy to clipboard");
+    }
+  }
+
   // --- New row actions ---
 
   function updateNewRow(id: string, field: keyof NewRow, value: string) {
@@ -370,7 +423,7 @@ export default function ExpensesPage() {
                     ) : (
                       <Clock className="h-2.5 w-2.5" />
                     )}
-                    {familyEmoji(fs.family.id)} {fs.family.name}
+                    <FamilyAvatar familyId={fs.family.id} />{fs.family.name}
                   </Badge>
                 ))}
               </div>
@@ -432,22 +485,37 @@ export default function ExpensesPage() {
                   );
                 }
                 return (
-                  <div key={exp.id} className="rounded-lg border bg-card p-3 flex items-center gap-2">
+                  <div key={exp.id} className="rounded-lg border bg-card p-3 flex items-center gap-3">
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="text-sm font-medium">{exp.description}</span>
-                        <span className="text-sm font-bold">{formatCurrency(Number(exp.amount))}</span>
-                      </div>
-                      <div className="flex items-center gap-2 mt-0.5 text-xs text-muted-foreground">
-                        <span>{familyEmoji(exp.paidByFamilyId)} {exp.paidBy.name}</span>
-                        {exp.category && <Badge variant="outline" className="text-[10px]">{exp.category}</Badge>}
-                        <span>{format(new Date(exp.date), "MMM d")}</span>
+                      <div className="text-sm font-medium truncate">{exp.description}</div>
+                      <div className="flex items-center gap-2 mt-0.5 text-xs text-muted-foreground min-w-0">
+                        <span className="shrink-0 inline-flex items-center"><FamilyAvatar familyId={exp.paidByFamilyId} className="w-5 h-5 mr-1" />{exp.paidBy.name}</span>
+                        {exp.category && <Badge variant="outline" className="text-[10px] shrink-0">{exp.category}</Badge>}
                       </div>
                     </div>
-                    <div className="flex gap-0.5 shrink-0">
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => startEdit(exp)}><Pencil className="h-3.5 w-3.5" /></Button>
-                      {isOrganizer && (<Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDelete(exp.id)}><Trash2 className="h-3.5 w-3.5" /></Button>)}
-                    </div>
+                    <div className="text-sm font-bold tabular-nums text-right shrink-0 w-20">{formatCurrency(Number(exp.amount))}</div>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0">
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => startEdit(exp)}>
+                          <Pencil className="h-3.5 w-3.5 mr-2" />
+                          Edit
+                        </DropdownMenuItem>
+                        {isOrganizer && (
+                          <DropdownMenuItem
+                            onClick={() => handleDelete(exp.id)}
+                            className="text-destructive focus:text-destructive"
+                          >
+                            <Trash2 className="h-3.5 w-3.5 mr-2" />
+                            Delete
+                          </DropdownMenuItem>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                 );
               })}
@@ -540,10 +608,10 @@ export default function ExpensesPage() {
                     {summary.balances.map((b) => (
                       <div
                         key={b.family.id}
-                        className="flex items-center justify-between text-sm border-b pb-2 last:border-0 last:pb-0"
+                        className="flex items-center gap-3 text-sm border-b pb-2 last:border-0 last:pb-0"
                       >
-                        <span className="font-medium">{familyEmoji(b.family.id)} {b.family.name}</span>
-                        <div className="text-right">
+                        <span className="font-medium truncate flex-1 min-w-0 inline-flex items-center"><FamilyAvatar familyId={b.family.id} />{b.family.name}</span>
+                        <div className="text-right tabular-nums shrink-0">
                           <div className="text-xs text-muted-foreground">
                             Paid: {formatCurrency(b.totalPaid)}
                           </div>
@@ -569,7 +637,7 @@ export default function ExpensesPage() {
               {summary.settlementMode === "centralized" && summary.collector && (
                 <div className="rounded-lg border border-blue-800/40 bg-blue-950/20 p-3 text-sm text-blue-300">
                   <div className="font-medium mb-0.5">
-                    Centralized settlement: {familyEmoji(summary.collector.id)} {summary.collector.name} collects and redistributes
+                    Centralized settlement: <FamilyAvatar familyId={summary.collector.id} className="w-5 h-5 mr-1" />{summary.collector.name} collects and redistributes
                   </div>
                   <p className="text-xs text-blue-400/80">
                     With {summary.balances.filter((b) => Math.abs(b.balance) > 0.01).length} families involved, everyone pays one person instead of tracking many bilateral payments.
@@ -605,19 +673,20 @@ export default function ExpensesPage() {
                               : "bg-card border-border"
                           }`}
                         >
-                          <div className="grid grid-cols-[1fr_auto_1fr_auto] items-center gap-x-2 text-sm">
-                            <span className="text-red-400 font-medium text-right truncate">
-                              {familyEmoji(s.from.id)} {s.from.name}
-                            </span>
-                            <ArrowRight className="h-4 w-4 text-muted-foreground" />
-                            <span className="text-emerald-400 font-medium truncate">
-                              {familyEmoji(s.to.id)} {s.to.name}
-                            </span>
-                            <span className="font-bold text-right">
-                              {formatCurrency(s.amount)}
-                            </span>
+                          <div className="text-red-400 font-medium text-sm text-center inline-flex items-center justify-center w-full">
+                            <FamilyAvatar familyId={s.from.id} />{s.from.name}
                           </div>
-                          <div className="flex items-center justify-end mt-1.5 gap-2">
+                          <div className="flex justify-center my-1">
+                            <ArrowDown className="h-5 w-5 text-muted-foreground" aria-label="pays" />
+                          </div>
+                          <div className="text-emerald-400 font-medium text-sm text-center inline-flex items-center justify-center w-full">
+                            <FamilyAvatar familyId={s.to.id} />{s.to.name}
+                          </div>
+                          <div className="text-center text-xl font-bold tabular-nums mt-2">
+                            {formatCurrency(s.amount)}
+                          </div>
+                          <div className="flex items-center justify-center mt-2 pt-2 border-t border-border/40 gap-2">
+                            <div className="flex items-center flex-wrap justify-center gap-2">
                             {isSettled ? (
                               <>
                                 <Badge variant="secondary" className="text-[10px] bg-emerald-900/40 text-emerald-300 border-emerald-800/50 gap-1">
@@ -640,32 +709,53 @@ export default function ExpensesPage() {
                                 {(() => {
                                   const toFamily = families.find((f) => f.id === s.to.id);
                                   if (!toFamily) return null;
-                                  if (toFamily.paypalMe) {
-                                    return (
-                                      <a
-                                        href={`https://paypal.me/${toFamily.paypalMe}/${s.amount.toFixed(2)}`}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="inline-flex items-center gap-1 h-6 px-2 rounded-md text-[10px] font-medium bg-blue-600 text-white hover:bg-blue-500 transition-colors"
-                                      >
-                                        <DollarSign className="h-2.5 w-2.5" />
-                                        Pay with PayPal
-                                      </a>
-                                    );
-                                  }
-                                  const canEditPaypal = familyId === s.to.id || isOrganizer;
-                                  if (!canEditPaypal) return null;
+                                  const canEdit = familyId === s.to.id || isOrganizer;
                                   const isSelf = familyId === s.to.id;
                                   return (
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      className="h-6 text-[10px] gap-1 text-blue-400 hover:text-blue-300"
-                                      onClick={() => openPaypalEdit(toFamily)}
-                                    >
-                                      <DollarSign className="h-2.5 w-2.5" />
-                                      {isSelf ? "Set up your PayPal" : "Add PayPal"}
-                                    </Button>
+                                    <>
+                                      {toFamily.paypalMe ? (
+                                        <a
+                                          href={`https://paypal.me/${toFamily.paypalMe}/${s.amount.toFixed(2)}`}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="inline-flex items-center gap-1 h-6 px-2 rounded-md text-[10px] font-medium bg-blue-600 text-white hover:bg-blue-500 transition-colors"
+                                        >
+                                          <DollarSign className="h-2.5 w-2.5" />
+                                          PayPal
+                                        </a>
+                                      ) : canEdit ? (
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          className="h-6 text-[10px] gap-1 text-blue-400 hover:text-blue-300"
+                                          onClick={() => openPaypalEdit(toFamily)}
+                                        >
+                                          <DollarSign className="h-2.5 w-2.5" />
+                                          {isSelf ? "Set up your PayPal" : "Add PayPal"}
+                                        </Button>
+                                      ) : null}
+                                      {toFamily.phone ? (
+                                        <button
+                                          type="button"
+                                          onClick={() => copyZelle(toFamily.phone!)}
+                                          title={`Copy Zelle phone: ${toFamily.phone}`}
+                                          className="inline-flex items-center gap-1 h-6 px-2 rounded-md text-[10px] font-medium bg-purple-600 text-white hover:bg-purple-500 transition-colors"
+                                        >
+                                          <Smartphone className="h-2.5 w-2.5" />
+                                          Zelle
+                                        </button>
+                                      ) : canEdit ? (
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          className="h-6 text-[10px] gap-1 text-purple-400 hover:text-purple-300"
+                                          onClick={() => openZelleEdit(toFamily)}
+                                        >
+                                          <Smartphone className="h-2.5 w-2.5" />
+                                          {isSelf ? "Set up your Zelle" : "Add Zelle"}
+                                        </Button>
+                                      ) : null}
+                                    </>
                                   );
                                 })()}
                                 <Button
@@ -684,6 +774,7 @@ export default function ExpensesPage() {
                                 Pending
                               </Badge>
                             )}
+                            </div>
                           </div>
                         </div>
                       );
@@ -743,6 +834,43 @@ export default function ExpensesPage() {
             </Button>
             <Button onClick={handleSavePaypal} disabled={savingPaypal || !paypalInput.trim()}>
               {savingPaypal ? "Saving..." : "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={zelleEditFamily !== null} onOpenChange={(open) => !open && setZelleEditFamily(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {zelleEditFamily && familyId === zelleEditFamily.id
+                ? "Set up your Zelle"
+                : `Add Zelle for ${zelleEditFamily?.name ?? ""}`}
+            </DialogTitle>
+            <DialogDescription>
+              Enter the phone number registered with Zelle. Other families can tap to copy it when settling up.
+            </DialogDescription>
+          </DialogHeader>
+          <Input
+            type="tel"
+            inputMode="tel"
+            value={zelleInput}
+            onChange={(e) => setZelleInput(e.target.value)}
+            placeholder="e.g. 555-123-4567"
+            autoFocus
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && zelleInput.trim() && !savingZelle) {
+                e.preventDefault();
+                handleSaveZelle();
+              }
+            }}
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setZelleEditFamily(null)} disabled={savingZelle}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveZelle} disabled={savingZelle || !zelleInput.trim()}>
+              {savingZelle ? "Saving..." : "Save"}
             </Button>
           </DialogFooter>
         </DialogContent>

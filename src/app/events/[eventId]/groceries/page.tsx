@@ -53,7 +53,7 @@ import {
 import { PasteImportDialog } from "@/components/bulk-import/paste-import-dialog";
 import { CategoryBulkAdd } from "@/components/bulk-import/category-bulk-add";
 import { useIsOrganizer } from "@/hooks/use-is-organizer";
-import { familyEmoji } from "@/lib/utils";
+import { FamilyAvatar } from "@/components/shared/family-avatar";
 import { ConfirmDeleteDialog } from "@/components/shared/confirm-delete-dialog";
 import type { Family, GroceryWithFamily } from "@/types";
 
@@ -84,6 +84,7 @@ export default function GroceriesPage() {
   const [newCatInput, setNewCatInput] = useState("");
   const [importOpen, setImportOpen] = useState(false);
   const [pendingDeleteId, setPendingDeleteId] = useState<number | null>(null);
+  const [pendingUnvolunteerItemId, setPendingUnvolunteerItemId] = useState<number | null>(null);
 
   const fetchData = useCallback(async () => {
     const [signups, groceries] = await Promise.all([
@@ -218,9 +219,15 @@ export default function GroceriesPage() {
     await fetchData();
   }
 
-  async function handleUnvolunteer(itemId: number) {
+  function handleUnvolunteer(itemId: number) {
     if (!familyId) return;
-    await removeGroceryVolunteer(itemId, eid, familyId);
+    setPendingUnvolunteerItemId(itemId);
+  }
+
+  async function confirmUnvolunteer() {
+    if (pendingUnvolunteerItemId === null || !familyId) return;
+    await removeGroceryVolunteer(pendingUnvolunteerItemId, eid, familyId);
+    setPendingUnvolunteerItemId(null);
     await fetchData();
   }
 
@@ -507,6 +514,15 @@ export default function GroceriesPage() {
         onConfirm={confirmDelete}
         onCancel={() => setPendingDeleteId(null)}
       />
+
+      <ConfirmDeleteDialog
+        open={pendingUnvolunteerItemId !== null}
+        title="Remove yourself?"
+        description="This will remove you as a volunteer for this grocery item."
+        confirmLabel="Remove"
+        onConfirm={confirmUnvolunteer}
+        onCancel={() => setPendingUnvolunteerItemId(null)}
+      />
     </div>
   );
 }
@@ -550,7 +566,7 @@ function CategorySection({
   onOrganizerAssign: (id: number, familyId: number | null, label?: string) => Promise<void>;
   onTogglePurchased: (id: number, current: boolean) => Promise<void>;
   onVolunteer: (id: number) => Promise<void>;
-  onUnvolunteer: (id: number) => Promise<void>;
+  onUnvolunteer: (id: number) => void;
   onSaveEdit: (
     id: number,
     vals: {
@@ -795,7 +811,7 @@ function GroceryItemCard({
   onOrganizerAssign: (id: number, familyId: number | null, label?: string) => Promise<void>;
   onTogglePurchased: (id: number, current: boolean) => Promise<void>;
   onVolunteer: (id: number) => Promise<void>;
-  onUnvolunteer: (id: number) => Promise<void>;
+  onUnvolunteer: (id: number) => void;
   onSaveEdit: (
     id: number,
     vals: {
@@ -951,7 +967,7 @@ function GroceryItemCard({
           )}
           {item.volunteers.map((v) => (
             <Badge key={v.id} variant="secondary" className="text-[10px] px-1.5 py-0 bg-emerald-900/40 text-emerald-300">
-              {familyEmoji(v.family.id)} {v.family.name}
+              <FamilyAvatar familyId={v.family.id} className="w-4 h-4 text-[10px] mr-0.5" />{v.family.name}
               {v.familyId === familyId && (
                 <button onClick={() => onUnvolunteer(item.id)} className="ml-0.5 hover:text-destructive">
                   <X className="h-2.5 w-2.5" />
@@ -965,7 +981,7 @@ function GroceryItemCard({
           {hasOwner ? (
             <Badge variant="secondary" className="text-[10px] px-1.5 py-0 bg-emerald-900/40 text-emerald-300">
               {item.assignedTo
-                ? <>{familyEmoji(item.assignedTo.id)} {item.assignedTo.name}</>
+                ? <><FamilyAvatar familyId={item.assignedTo.id} className="w-4 h-4 text-[10px] mr-0.5" />{item.assignedTo.name}</>
                 : item.assignedLabel}
               {(iAmOwner || isOrganizer) && (
                 <button onClick={() => onUnclaim(item.id)} className="ml-0.5 hover:text-destructive">
@@ -1086,7 +1102,7 @@ function AssignPanel({
                 className="flex-1 text-left text-xs px-2.5 py-2 rounded bg-muted hover:bg-muted/80 truncate"
                 title={`Assign to ${f.name} family`}
               >
-                {familyEmoji(f.id)} {f.name}
+                <span className="inline-flex items-center"><FamilyAvatar familyId={f.id} className="w-5 h-5 mr-1" />{f.name}</span>
               </button>
               {(f.contactName || f.contactName2) && (
                 <button

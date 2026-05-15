@@ -10,7 +10,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Users, Trash2, Pencil } from "lucide-react";
 import { useIsOrganizer } from "@/hooks/use-is-organizer";
-import { familyEmoji, emojiMembers } from "@/lib/utils";
+import { emojiMembers } from "@/lib/utils";
+import { FamilyAvatar } from "@/components/shared/family-avatar";
 import { ConfirmDeleteDialog } from "@/components/shared/confirm-delete-dialog";
 import type { Family, SignupWithFamily, HeadcountSummary } from "@/types";
 
@@ -207,7 +208,7 @@ export default function SignupPage() {
               <div key={s.id} className="rounded-lg border bg-card p-3 flex items-center gap-3">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5">
-                    <span className="font-medium text-sm">{familyEmoji(s.family.id)} {s.family.name}</span>
+                    <span className="font-medium text-sm inline-flex items-center"><FamilyAvatar familyId={s.family.id} />{s.family.name}</span>
                     {s.vegetarians > 0 && <span className="text-xs text-emerald-400">🌿{s.vegetarians}</span>}
                   </div>
                   <div className="text-xs text-muted-foreground mt-0.5">
@@ -259,7 +260,7 @@ export default function SignupPage() {
                       className="w-full text-left px-3 py-2 hover:bg-accent text-sm"
                       onClick={() => selectSuggestion(f)}
                     >
-                      <div className="font-medium">{familyEmoji(f.id)} {f.name}</div>
+                      <div className="font-medium inline-flex items-center"><FamilyAvatar familyId={f.id} />{f.name}</div>
                       <div className="text-xs text-muted-foreground">{f.contactName}{f.contactName2 ? ` & ${f.contactName2}` : ""}</div>
                     </button>
                   ))}

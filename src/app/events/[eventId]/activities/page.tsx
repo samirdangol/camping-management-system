@@ -44,7 +44,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useIsOrganizer } from "@/hooks/use-is-organizer";
-import { familyEmoji } from "@/lib/utils";
+import { FamilyAvatar } from "@/components/shared/family-avatar";
 import { ConfirmDeleteDialog } from "@/components/shared/confirm-delete-dialog";
 import type { Family, ActivityWithDetails } from "@/types";
 
@@ -98,13 +98,10 @@ export default function ActivitiesPage() {
   });
 
   const [pendingDeleteId, setPendingDeleteId] = useState<number | null>(null);
+  const [pendingUnvolunteer, setPendingUnvolunteer] = useState<{ activityId: number; familyId: number } | null>(null);
   const [volPickerActivityId, setVolPickerActivityId] = useState<number | null>(null);
 
-  const [newRows, setNewRows] = useState<NewRow[]>([
-    createEmptyRow(),
-    createEmptyRow(),
-    createEmptyRow(),
-  ]);
+  const [newRows, setNewRows] = useState<NewRow[]>([createEmptyRow()]);
 
   const fetchData = useCallback(async () => {
     const [signups, acts] = await Promise.all([
@@ -176,6 +173,12 @@ export default function ActivitiesPage() {
     await fetchData();
   }
 
+  async function confirmUnvolunteer() {
+    if (!pendingUnvolunteer) return;
+    await handleUnvolunteer(pendingUnvolunteer.activityId, pendingUnvolunteer.familyId);
+    setPendingUnvolunteer(null);
+  }
+
   function updateNewRow(id: string, field: keyof NewRow, value: string) {
     setNewRows((rows) =>
       rows.map((r) => (r.id === id ? { ...r, [field]: value } : r))
@@ -205,7 +208,7 @@ export default function ActivitiesPage() {
       }))
     );
     const defaultLeader = familyId ? String(familyId) : "";
-    setNewRows([createEmptyRow(defaultLeader), createEmptyRow(defaultLeader), createEmptyRow(defaultLeader)]);
+    setNewRows([createEmptyRow(defaultLeader)]);
     await fetchData();
     setSaving(false);
   }
@@ -289,16 +292,16 @@ export default function ActivitiesPage() {
                     </Badge>
                     {leaderDisplay && (
                       <Badge variant="secondary" className="text-[10px] gap-1 bg-emerald-900/40 text-emerald-300 border-emerald-800/50">
-                        {leaderFamilyId && <span>{familyEmoji(leaderFamilyId)}</span>}
+                        {leaderFamilyId && <FamilyAvatar familyId={leaderFamilyId} className="w-4 h-4 text-[10px] mr-0.5" />}
                         Led by {leaderDisplay}
                       </Badge>
                     )}
                     {activity.volunteers.map((v) => (
                       <Badge key={v.id} variant="outline" className="text-[10px] gap-0.5">
-                        {familyEmoji(v.familyId)} {v.role || v.family.name}
+                        <FamilyAvatar familyId={v.familyId} className="w-4 h-4 text-[10px] mr-0.5" />{v.role || v.family.name}
                         {(v.familyId === familyId || isOrganizer) && (
                           <button
-                            onClick={() => handleUnvolunteer(activity.id, v.familyId)}
+                            onClick={() => setPendingUnvolunteer({ activityId: activity.id, familyId: v.familyId })}
                             className="ml-0.5 hover:text-destructive"
                           >
                             <X className="h-2.5 w-2.5" />
@@ -433,6 +436,15 @@ export default function ActivitiesPage() {
         onConfirm={confirmDelete}
         onCancel={() => setPendingDeleteId(null)}
       />
+
+      <ConfirmDeleteDialog
+        open={pendingUnvolunteer !== null}
+        title="Remove family?"
+        description="This will remove their sign-up from this activity."
+        confirmLabel="Remove"
+        onConfirm={confirmUnvolunteer}
+        onCancel={() => setPendingUnvolunteer(null)}
+      />
     </div>
   );
 }
@@ -464,7 +476,7 @@ function LeaderPickerButton({
       <span className="text-xs text-muted-foreground shrink-0">Leader:</span>
       {displayName ? (
         <Badge variant="secondary" className="text-xs gap-1 bg-emerald-900/40 text-emerald-300 border-emerald-800/50">
-          {family && familyEmoji(family.id)} {displayName}
+          {family && <FamilyAvatar familyId={family.id} className="w-4 h-4 text-[10px] mr-0.5" />}{displayName}
           <button onClick={onClear} className="ml-0.5 hover:text-red-400">
             <X className="h-2.5 w-2.5" />
           </button>
@@ -537,7 +549,7 @@ function FamilyPickerPanel({
                 className="flex-1 text-left text-xs px-2.5 py-2 rounded bg-muted hover:bg-muted/80 truncate"
                 title={`Pick ${f.name} family`}
               >
-                {familyEmoji(f.id)} {f.name}
+                <span className="inline-flex items-center"><FamilyAvatar familyId={f.id} className="w-5 h-5 mr-1" />{f.name}</span>
               </button>
               {(f.contactName || f.contactName2) && (
                 <button

@@ -22,7 +22,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { MountainSnow, Plus, Users, Check, Lock, Pencil, LogOut } from "lucide-react";
-import { familyEmoji } from "@/lib/utils";
+import { FamilyAvatar } from "@/components/shared/family-avatar";
 import type { FamilyPublic } from "@/types";
 
 function SelectFamilyContent() {
@@ -335,9 +335,7 @@ function SelectFamilyContent() {
                         onClick={() => handleSelect(family)}
                         className="flex-1 flex items-center gap-3 rounded-lg border p-3 text-left transition-colors hover:bg-accent hover:border-primary/40 focus:outline-none focus:ring-2 focus:ring-ring"
                       >
-                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/20 text-lg">
-                          {familyEmoji(family.id)}
-                        </div>
+                        <FamilyAvatar familyId={family.id} className="w-9 h-9 text-lg mr-0 bg-primary/20" />
                         <div className="min-w-0 flex-1">
                           <p className="font-medium text-sm truncate">
                             {family.name}

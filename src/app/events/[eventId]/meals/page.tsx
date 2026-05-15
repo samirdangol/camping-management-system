@@ -34,7 +34,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useIsOrganizer } from "@/hooks/use-is-organizer";
-import { familyEmoji } from "@/lib/utils";
+import { FamilyAvatar } from "@/components/shared/family-avatar";
 import { ConfirmDeleteDialog } from "@/components/shared/confirm-delete-dialog";
 import type { Family, MealWithDetails } from "@/types";
 
@@ -71,6 +71,7 @@ export default function MealsPage() {
   const [loading, setLoading] = useState(true);
 
   const [pendingDelete, setPendingDelete] = useState<{ type: "meal" | "food"; id: number } | null>(null);
+  const [pendingUnvolunteerId, setPendingUnvolunteerId] = useState<number | null>(null);
 
   // Add meal form
   const [newMealDay, setNewMealDay] = useState("");
@@ -145,8 +146,14 @@ export default function MealsPage() {
     await fetchData();
   }
 
-  async function handleRemoveVolunteer(volunteerId: number) {
-    await removeFoodItemVolunteer(volunteerId, parseInt(eventId, 10));
+  function handleRemoveVolunteer(volunteerId: number) {
+    setPendingUnvolunteerId(volunteerId);
+  }
+
+  async function confirmUnvolunteer() {
+    if (pendingUnvolunteerId === null) return;
+    await removeFoodItemVolunteer(pendingUnvolunteerId, parseInt(eventId, 10));
+    setPendingUnvolunteerId(null);
     await fetchData();
   }
 
@@ -328,16 +335,25 @@ export default function MealsPage() {
         onConfirm={confirmDelete}
         onCancel={() => setPendingDelete(null)}
       />
+
+      <ConfirmDeleteDialog
+        open={pendingUnvolunteerId !== null}
+        title="Remove volunteer?"
+        description="This will remove this person as a volunteer for the food item."
+        confirmLabel="Remove"
+        onConfirm={confirmUnvolunteer}
+        onCancel={() => setPendingUnvolunteerId(null)}
+      />
     </div>
   );
 }
 
-/** Get emoji for a volunteer name by matching against families */
-function volunteerEmoji(name: string, families: Family[]): string {
+/** Avatar for a volunteer name by matching against families */
+function VolunteerAvatar({ name, families }: { name: string; families: Family[] }) {
   const match = families.find(
     (f) => f.name === name || name.includes(`(${f.name})`)
   );
-  return match ? familyEmoji(match.id) : "👤";
+  return <FamilyAvatar familyId={match?.id ?? null} className="w-4 h-4 text-[10px] mr-0.5" />;
 }
 
 function MealCard({
@@ -436,7 +452,7 @@ function MealCard({
           <Label className="text-sm shrink-0">Head Chef:</Label>
           {meal.headChefName ? (
             <Badge variant="secondary" className="text-xs gap-1 bg-emerald-900/40 text-emerald-300 border-emerald-800/50">
-              <span>{volunteerEmoji(meal.headChefName, families)}</span>
+              <VolunteerAvatar name={meal.headChefName} families={families} />
               {meal.headChefName}
               {isOrganizer && (
                 <button onClick={() => onUpdateChef(meal.id, "")} className="ml-0.5 hover:text-red-500">
@@ -551,7 +567,7 @@ function MealCard({
                               variant="secondary"
                               className="text-xs gap-1 bg-emerald-900/40 text-emerald-300 border-emerald-800/50 hover:bg-emerald-900/50"
                             >
-                              <span>{volunteerEmoji(v.name, families)}</span>
+                              <VolunteerAvatar name={v.name} families={families} />
                               {v.name}
                               {(isOrganizer || v.name === currentFamily?.name) && (
                                 <button onClick={() => onRemoveVolunteer(v.id)} className="ml-0.5 hover:text-red-500">
@@ -698,7 +714,7 @@ function AssignPanelContent({
                 className="flex-1 text-left text-xs px-2.5 py-2 rounded bg-muted hover:bg-muted/80 truncate"
                 title={`Assign to ${f.name} family`}
               >
-                {familyEmoji(f.id)} {f.name}
+                <span className="inline-flex items-center"><FamilyAvatar familyId={f.id} className="w-5 h-5 mr-1" />{f.name}</span>
               </button>
               {(f.contactName || f.contactName2) && (
                 <button
