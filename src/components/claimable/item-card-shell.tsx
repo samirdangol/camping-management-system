@@ -65,6 +65,11 @@ export interface ItemCardShellProps<T extends ClaimableItem, EditVals> {
     onSave: (vals: EditVals) => Promise<void>,
     onCancel: () => void
   ) => ReactNode;
+
+  /** Show the "Move up / Move down" menu items. Default true. The unified
+   *  bring-list hides these because cross-kind reordering has no clean
+   *  semantics. */
+  showReorder?: boolean;
 }
 
 /**
@@ -92,6 +97,7 @@ export function ItemCardShell<T extends ClaimableItem, EditVals>({
   renderLeading,
   renderBody,
   renderEditor,
+  showReorder = true,
 }: ItemCardShellProps<T, EditVals>) {
   const [editing, setEditing] = useState(false);
   const [showAssignPanel, setShowAssignPanel] = useState(false);
@@ -221,20 +227,24 @@ export function ItemCardShell<T extends ClaimableItem, EditVals>({
                 <Pencil className="h-4 w-4" />
                 Edit
               </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => onReorder("up")}
-                disabled={isFirst}
-              >
-                <ArrowUp className="h-4 w-4" />
-                Move up
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => onReorder("down")}
-                disabled={isLast}
-              >
-                <ArrowDown className="h-4 w-4" />
-                Move down
-              </DropdownMenuItem>
+              {showReorder && (
+                <>
+                  <DropdownMenuItem
+                    onClick={() => onReorder("up")}
+                    disabled={isFirst}
+                  >
+                    <ArrowUp className="h-4 w-4" />
+                    Move up
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => onReorder("down")}
+                    disabled={isLast}
+                  >
+                    <ArrowDown className="h-4 w-4" />
+                    Move down
+                  </DropdownMenuItem>
+                </>
+              )}
               <MoveCategorySubmenu
                 currentCategory={item.category || ""}
                 categoryOptions={categoryOptions}
