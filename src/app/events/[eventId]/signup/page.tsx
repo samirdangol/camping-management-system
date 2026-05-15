@@ -323,21 +323,21 @@ export default function SignupPage() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Adults</Label>
-                <Input type="number" min={0} value={adults} onChange={(e) => setAdults(parseInt(e.target.value) || 0)} />
+                <Input type="number" inputMode="numeric" min={0} value={adults} onFocus={(e) => e.target.select()} onChange={(e) => setAdults(parseInt(e.target.value) || 0)} />
               </div>
               <div className="space-y-2">
                 <Label>Kids</Label>
-                <Input type="number" min={0} value={kids} onChange={(e) => setKids(parseInt(e.target.value) || 0)} />
+                <Input type="number" inputMode="numeric" min={0} value={kids} onFocus={(e) => e.target.select()} onChange={(e) => setKids(parseInt(e.target.value) || 0)} />
               </div>
               <div className="space-y-2">
                 <Label>Elderly</Label>
-                <Input type="number" min={0} value={elderly} onChange={(e) => setElderly(parseInt(e.target.value) || 0)} />
+                <Input type="number" inputMode="numeric" min={0} value={elderly} onFocus={(e) => e.target.select()} onChange={(e) => setElderly(parseInt(e.target.value) || 0)} />
               </div>
             </div>
 
             <div className="space-y-2">
               <Label>Vegetarians</Label>
-              <Input type="number" min={0} value={vegetarians} onChange={(e) => setVegetarians(parseInt(e.target.value) || 0)} />
+              <Input type="number" inputMode="numeric" min={0} value={vegetarians} onFocus={(e) => e.target.select()} onChange={(e) => setVegetarians(parseInt(e.target.value) || 0)} />
               <p className="text-xs text-muted-foreground">
                 If any of the above members are vegetarian, enter the count here. This does not add to the headcount.
               </p>
