@@ -16,18 +16,12 @@ import {
 } from "@/app/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/shared/empty-state";
 import { useCurrentFamily } from "@/hooks/use-current-family";
 import { EQUIPMENT_CATEGORY_SUGGESTIONS } from "@/lib/constants";
 import {
   Backpack,
   Plus,
-  Pencil,
-  Check,
-  X,
-  ChevronDown,
-  ChevronRight,
   FolderPlus,
   ClipboardPaste,
 } from "lucide-react";
@@ -40,9 +34,9 @@ import {
   type ClaimableActions,
   type ClaimableOwnership,
 } from "@/components/claimable/use-claimable-items";
-import { ItemCardShell } from "@/components/claimable/item-card-shell";
+import { ClaimableCategorySection } from "@/components/claimable/category-section";
 import { ItemEditCard } from "@/components/claimable/item-edit-card";
-import type { Family, EquipmentWithOwner } from "@/types";
+import type { EquipmentWithOwner } from "@/types";
 
 /* ─── helpers ─── */
 
@@ -175,6 +169,71 @@ function EquipmentItemEditor({
   );
 }
 
+function EquipmentQuickAddRow({
+  category,
+  displayName,
+  onAdd,
+}: {
+  category: string;
+  displayName: string;
+  onAdd: (row: EquipmentBulkRow) => Promise<void>;
+}) {
+  const [name, setName] = useState("");
+  const [qty, setQty] = useState("1");
+  const [notes, setNotes] = useState("");
+  const [adding, setAdding] = useState(false);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!name.trim()) return;
+    setAdding(true);
+    await onAdd({
+      name: name.trim(),
+      category: category || undefined,
+      quantity: parseInt(qty) || 1,
+      notes: notes.trim() || undefined,
+    });
+    setName("");
+    setQty("1");
+    setNotes("");
+    setAdding(false);
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="flex items-center gap-2 pt-1">
+      <Input
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        placeholder={`Add item to ${displayName}...`}
+        className="h-8 text-sm flex-1"
+      />
+      <Input
+        type="number"
+        min={1}
+        value={qty}
+        onChange={(e) => setQty(e.target.value)}
+        placeholder="Qty"
+        className="h-8 text-sm w-16"
+      />
+      <Input
+        value={notes}
+        onChange={(e) => setNotes(e.target.value)}
+        placeholder="Notes"
+        className="h-8 text-sm w-28"
+      />
+      <Button
+        type="submit"
+        size="sm"
+        variant="outline"
+        className="h-8"
+        disabled={!name.trim() || adding}
+      >
+        <Plus className="h-3.5 w-3.5" />
+      </Button>
+    </form>
+  );
+}
+
 /* ─── Main Page ─── */
 
 export default function EquipmentPage() {
@@ -244,6 +303,46 @@ export default function EquipmentPage() {
     setNewCatInput("");
   }
 
+  const sectionShared = {
+    families,
+    familyId,
+    isOrganizer,
+    categoryOptions,
+    ownership: equipmentOwnership,
+    onDelete: handleDelete,
+    onClaim: handleClaim,
+    onUnclaim: handleUnclaim,
+    onOrganizerAssign: handleOrganizerAssign,
+    onUnvolunteer: handleUnvolunteer,
+    onSaveEdit: handleSaveEdit,
+    onBulkAdd: handleBulkAdd,
+    onReorder: handleReorder,
+    onMoveCategory: handleMoveCategory,
+    renderBody: (it: EquipmentWithOwner) => <EquipmentItemBody item={it} />,
+    renderEditor: (
+      it: EquipmentWithOwner,
+      onSave: (vals: EquipmentEditVals) => Promise<void>,
+      onCancel: () => void
+    ) => (
+      <EquipmentItemEditor item={it} onSave={onSave} onCancel={onCancel} />
+    ),
+    renderQuickAdd: ({
+      category,
+      displayName,
+      onAdd,
+    }: {
+      category: string;
+      displayName: string;
+      onAdd: (row: EquipmentBulkRow) => Promise<void>;
+    }) => (
+      <EquipmentQuickAddRow
+        category={category}
+        displayName={displayName}
+        onAdd={onAdd}
+      />
+    ),
+  };
+
   if (loading)
     return (
       <div className="text-center py-8 text-muted-foreground">Loading...</div>
@@ -312,24 +411,11 @@ export default function EquipmentPage() {
 
       {/* Category sections */}
       {categoryOrder.map((cat) => (
-        <EquipmentCategorySection
+        <ClaimableCategorySection<EquipmentWithOwner, EquipmentBulkRow, EquipmentEditVals>
           key={cat}
           category={cat}
           items={grouped[cat]}
-          families={families}
-          familyId={familyId}
-          isOrganizer={isOrganizer}
-          allSuggestions={allSuggestions}
-          categoryOptions={categoryOptions}
-          onDelete={handleDelete}
-          onClaim={handleClaim}
-          onUnclaim={handleUnclaim}
-          onOrganizerAssign={handleOrganizerAssign}
-          onUnvolunteer={handleUnvolunteer}
-          onSaveEdit={handleSaveEdit}
-          onBulkAdd={handleBulkAdd}
-          onReorder={handleReorder}
-          onMoveCategory={handleMoveCategory}
+          {...sectionShared}
           onRename={(newName) => handleRenameCategory(cat, newName)}
           onClear={() => handleClearCategory(cat)}
         />
@@ -338,24 +424,11 @@ export default function EquipmentPage() {
       {/* New (empty) categories */}
       {newCategories.map((cat) =>
         !categoryOrder.includes(cat) ? (
-          <EquipmentCategorySection
+          <ClaimableCategorySection<EquipmentWithOwner, EquipmentBulkRow, EquipmentEditVals>
             key={`new-${cat}`}
             category={cat}
             items={[]}
-            families={families}
-            familyId={familyId}
-            isOrganizer={isOrganizer}
-            allSuggestions={allSuggestions}
-            categoryOptions={categoryOptions}
-            onDelete={handleDelete}
-            onClaim={handleClaim}
-            onUnclaim={handleUnclaim}
-            onOrganizerAssign={handleOrganizerAssign}
-              onUnvolunteer={handleUnvolunteer}
-            onSaveEdit={handleSaveEdit}
-            onBulkAdd={handleBulkAdd}
-            onReorder={handleReorder}
-            onMoveCategory={handleMoveCategory}
+            {...sectionShared}
             onRename={(newName) => renameNewCategory(cat, newName)}
             onClear={() => removeNewCategory(cat)}
           />
@@ -364,24 +437,11 @@ export default function EquipmentPage() {
 
       {/* Uncategorized */}
       {uncategorized.length > 0 && (
-        <EquipmentCategorySection
+        <ClaimableCategorySection<EquipmentWithOwner, EquipmentBulkRow, EquipmentEditVals>
           key="__uncategorized__"
           category=""
           items={uncategorized}
-          families={families}
-          familyId={familyId}
-          isOrganizer={isOrganizer}
-          allSuggestions={allSuggestions}
-          categoryOptions={categoryOptions}
-          onDelete={handleDelete}
-          onClaim={handleClaim}
-          onUnclaim={handleUnclaim}
-          onOrganizerAssign={handleOrganizerAssign}
-          onUnvolunteer={handleUnvolunteer}
-          onSaveEdit={handleSaveEdit}
-          onBulkAdd={handleBulkAdd}
-          onReorder={handleReorder}
-          onMoveCategory={handleMoveCategory}
+          {...sectionShared}
         />
       )}
 
@@ -450,244 +510,3 @@ export default function EquipmentPage() {
   );
 }
 
-/* ════════════════════════════════════════════════════════
-   Category Section
-   ════════════════════════════════════════════════════════ */
-
-function EquipmentCategorySection({
-  category,
-  items,
-  families,
-  familyId,
-  isOrganizer,
-  allSuggestions,
-  categoryOptions,
-  onDelete,
-  onClaim,
-  onUnclaim,
-  onOrganizerAssign,
-  onUnvolunteer,
-  onSaveEdit,
-  onBulkAdd,
-  onReorder,
-  onMoveCategory,
-  onRename,
-  onClear,
-}: {
-  category: string;
-  items: EquipmentWithOwner[];
-  families: Family[];
-  familyId: number | null;
-  isOrganizer: boolean;
-  allSuggestions: string[];
-  categoryOptions: string[];
-  onDelete: (id: number) => void | Promise<void>;
-  onClaim: (id: number) => Promise<void>;
-  onUnclaim: (id: number) => Promise<void>;
-  onOrganizerAssign: (id: number, familyId: number | null, label?: string) => Promise<void>;
-  onUnvolunteer: (id: number) => void;
-  onSaveEdit: (id: number, vals: EquipmentEditVals) => Promise<void>;
-  onReorder: (id: number, direction: "up" | "down", category?: string) => Promise<void>;
-  onMoveCategory: (id: number, newCategory: string) => Promise<void>;
-  onBulkAdd: (
-    rows: { name: string; category?: string; quantity?: number; notes?: string }[]
-  ) => Promise<void>;
-  onRename?: (newName: string) => void;
-  onClear?: () => void;
-}) {
-  const [collapsed, setCollapsed] = useState(false);
-  const [addName, setAddName] = useState("");
-  const [addQty, setAddQty] = useState("1");
-  const [addNotes, setAddNotes] = useState("");
-  const [adding, setAdding] = useState(false);
-  const [renaming, setRenaming] = useState(false);
-  const [renameValue, setRenameValue] = useState(category);
-
-  const claimed = items.filter((i) => i.ownerFamilyId || i.ownerLabel || i.volunteers.length > 0).length;
-  const displayName = category || "Uncategorized";
-  const isUncategorized = !category;
-
-  async function handleQuickAdd() {
-    if (!addName.trim()) return;
-    setAdding(true);
-    await onBulkAdd([
-      {
-        name: addName.trim(),
-        category: category || undefined,
-        quantity: parseInt(addQty) || 1,
-        notes: addNotes.trim() || undefined,
-      },
-    ]);
-    setAddName("");
-    setAddQty("1");
-    setAddNotes("");
-    setAdding(false);
-  }
-
-  function startRename() {
-    setRenameValue(category);
-    setRenaming(true);
-  }
-
-  function submitRename() {
-    if (renameValue.trim() && renameValue.trim() !== category) {
-      onRename?.(renameValue.trim());
-    }
-    setRenaming(false);
-  }
-
-  return (
-    <div className="space-y-2">
-      {/* Section header */}
-      <div className="flex items-center gap-2 w-full group">
-        <button
-          onClick={() => setCollapsed((c) => !c)}
-          className="flex items-center gap-2 text-left"
-        >
-          {collapsed ? (
-            <ChevronRight className="h-4 w-4 text-muted-foreground" />
-          ) : (
-            <ChevronDown className="h-4 w-4 text-muted-foreground" />
-          )}
-          {renaming ? null : (
-            <span className="font-semibold text-sm">{displayName}</span>
-          )}
-        </button>
-        {renaming ? (
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              submitRename();
-            }}
-            className="flex items-center gap-1"
-          >
-            <Input
-              value={renameValue}
-              onChange={(e) => setRenameValue(e.target.value)}
-              className="h-7 text-sm w-36"
-              autoFocus
-            />
-            <Button
-              type="submit"
-              size="icon"
-              variant="ghost"
-              className="h-6 w-6 text-emerald-600"
-            >
-              <Check className="h-3.5 w-3.5" />
-            </Button>
-            <Button
-              type="button"
-              size="icon"
-              variant="ghost"
-              className="h-6 w-6"
-              onClick={() => setRenaming(false)}
-            >
-              <X className="h-3.5 w-3.5" />
-            </Button>
-          </form>
-        ) : (
-          <>
-            <Badge variant="secondary" className="text-xs">
-              {claimed}/{items.length} claimed
-            </Badge>
-            {!isUncategorized && onRename && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
-                onClick={startRename}
-                title="Rename category"
-              >
-                <Pencil className="h-3 w-3" />
-              </Button>
-            )}
-            {!isUncategorized && onClear && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-red-500 hover:text-destructive"
-                onClick={onClear}
-                title="Remove category (items move to Uncategorized)"
-              >
-                <X className="h-3 w-3" />
-              </Button>
-            )}
-          </>
-        )}
-      </div>
-
-      {!collapsed && (
-        <div className="space-y-1.5 pl-6">
-          {items.map((item, idx) => (
-            <ItemCardShell<EquipmentWithOwner, EquipmentEditVals>
-              key={item.id}
-              item={item}
-              families={families}
-              familyId={familyId}
-              isOrganizer={isOrganizer}
-              isFirst={idx === 0}
-              isLast={idx === items.length - 1}
-              categoryOptions={categoryOptions}
-              ownership={equipmentOwnership}
-              onDelete={onDelete}
-              onClaim={onClaim}
-              onUnclaim={onUnclaim}
-              onOrganizerAssign={onOrganizerAssign}
-              onUnvolunteer={onUnvolunteer}
-              onSaveEdit={onSaveEdit}
-              onReorder={(dir) => onReorder(item.id, dir, category || undefined)}
-              onMoveCategory={onMoveCategory}
-              renderBody={(it) => <EquipmentItemBody item={it} />}
-              renderEditor={(it, onSave, onCancel) => (
-                <EquipmentItemEditor
-                  item={it}
-                  onSave={onSave}
-                  onCancel={onCancel}
-                />
-              )}
-            />
-          ))}
-
-          {/* Inline quick-add */}
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              handleQuickAdd();
-            }}
-            className="flex items-center gap-2 pt-1"
-          >
-            <Input
-              value={addName}
-              onChange={(e) => setAddName(e.target.value)}
-              placeholder={`Add item to ${displayName}...`}
-              className="h-8 text-sm flex-1"
-            />
-            <Input
-              type="number"
-              min={1}
-              value={addQty}
-              onChange={(e) => setAddQty(e.target.value)}
-              placeholder="Qty"
-              className="h-8 text-sm w-16"
-            />
-            <Input
-              value={addNotes}
-              onChange={(e) => setAddNotes(e.target.value)}
-              placeholder="Notes"
-              className="h-8 text-sm w-28"
-            />
-            <Button
-              type="submit"
-              size="sm"
-              variant="outline"
-              className="h-8"
-              disabled={!addName.trim() || adding}
-            >
-              <Plus className="h-3.5 w-3.5" />
-            </Button>
-          </form>
-        </div>
-      )}
-    </div>
-  );
-}

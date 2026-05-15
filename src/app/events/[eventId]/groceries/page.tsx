@@ -25,11 +25,6 @@ import { GROCERY_CATEGORY_SUGGESTIONS } from "@/lib/constants";
 import {
   ShoppingCart,
   Plus,
-  Pencil,
-  Check,
-  X,
-  ChevronDown,
-  ChevronRight,
   FolderPlus,
   ClipboardPaste,
 } from "lucide-react";
@@ -42,9 +37,9 @@ import {
   type ClaimableActions,
   type ClaimableOwnership,
 } from "@/components/claimable/use-claimable-items";
-import { ItemCardShell } from "@/components/claimable/item-card-shell";
+import { ClaimableCategorySection } from "@/components/claimable/category-section";
 import { ItemEditCard } from "@/components/claimable/item-edit-card";
-import type { Family, GroceryWithFamily } from "@/types";
+import type { GroceryWithFamily } from "@/types";
 
 /* ─── helpers ─── */
 
@@ -193,6 +188,60 @@ function GroceryItemEditor({
   );
 }
 
+function GroceryQuickAddRow({
+  category,
+  displayName,
+  onAdd,
+}: {
+  category: string;
+  displayName: string;
+  onAdd: (row: GroceryBulkRow) => Promise<void>;
+}) {
+  const [name, setName] = useState("");
+  const [qty, setQty] = useState("");
+  const [adding, setAdding] = useState(false);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!name.trim()) return;
+    setAdding(true);
+    await onAdd({
+      name: name.trim(),
+      category: category || undefined,
+      quantity: qty || undefined,
+    });
+    setName("");
+    setQty("");
+    setAdding(false);
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="flex items-center gap-2 pt-1">
+      <Input
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        placeholder={`Add item to ${displayName}...`}
+        className="h-8 text-sm flex-1"
+      />
+      <Input
+        value={qty}
+        onChange={(e) => setQty(e.target.value)}
+        placeholder="Qty"
+        className="h-8 text-sm w-16"
+      />
+      <Button
+        type="submit"
+        size="sm"
+        variant="outline"
+        className="h-8"
+        disabled={!name.trim() || adding}
+      >
+        <Plus className="h-3.5 w-3.5" />
+      </Button>
+    </form>
+  );
+}
+
 /* ─── Main Page ─── */
 
 export default function GroceriesPage() {
@@ -266,6 +315,53 @@ export default function GroceriesPage() {
     setNewCatInput("");
   }
 
+  // Common props passed to every <ClaimableCategorySection>. Recomputed each
+  // render — fine, since the inner render-prop closures are cheap.
+  const sectionShared = {
+    families,
+    familyId,
+    isOrganizer,
+    categoryOptions,
+    ownership: groceryOwnership,
+    onDelete: handleDelete,
+    onClaim: handleClaim,
+    onUnclaim: handleUnclaim,
+    onOrganizerAssign: handleOrganizerAssign,
+    onUnvolunteer: handleUnvolunteer,
+    onSaveEdit: handleSaveEdit,
+    onBulkAdd: handleBulkAdd,
+    onReorder: handleReorder,
+    onMoveCategory: handleMoveCategory,
+    renderLeading: (it: GroceryWithFamily) => (
+      <Checkbox
+        checked={it.isPurchased}
+        onCheckedChange={() => handleTogglePurchased(it.id, it.isPurchased)}
+        className="shrink-0"
+      />
+    ),
+    renderBody: (it: GroceryWithFamily) => <GroceryItemBody item={it} />,
+    renderEditor: (
+      it: GroceryWithFamily,
+      onSave: (vals: GroceryEditVals) => Promise<void>,
+      onCancel: () => void
+    ) => <GroceryItemEditor item={it} onSave={onSave} onCancel={onCancel} />,
+    renderQuickAdd: ({
+      category,
+      displayName,
+      onAdd,
+    }: {
+      category: string;
+      displayName: string;
+      onAdd: (row: GroceryBulkRow) => Promise<void>;
+    }) => (
+      <GroceryQuickAddRow
+        category={category}
+        displayName={displayName}
+        onAdd={onAdd}
+      />
+    ),
+  };
+
   if (loading)
     return (
       <div className="text-center py-8 text-muted-foreground">Loading...</div>
@@ -335,25 +431,11 @@ export default function GroceriesPage() {
 
       {/* Category sections */}
       {categoryOrder.map((cat) => (
-        <CategorySection
+        <ClaimableCategorySection<GroceryWithFamily, GroceryBulkRow, GroceryEditVals>
           key={cat}
           category={cat}
           items={grouped[cat]}
-          families={families}
-          familyId={familyId}
-          isOrganizer={isOrganizer}
-          allSuggestions={allSuggestions}
-          categoryOptions={categoryOptions}
-          onDelete={handleDelete}
-          onClaim={handleClaim}
-          onUnclaim={handleUnclaim}
-          onOrganizerAssign={handleOrganizerAssign}
-          onTogglePurchased={handleTogglePurchased}
-          onUnvolunteer={handleUnvolunteer}
-          onSaveEdit={handleSaveEdit}
-          onBulkAdd={handleBulkAdd}
-          onReorder={handleReorder}
-          onMoveCategory={handleMoveCategory}
+          {...sectionShared}
           onRename={(newName) => handleRenameCategory(cat, newName)}
           onClear={() => handleClearCategory(cat)}
         />
@@ -361,27 +443,12 @@ export default function GroceriesPage() {
 
       {/* New (empty) categories */}
       {newCategories.map((cat) =>
-        // Only show if not already in the real category list
         !categoryOrder.includes(cat) ? (
-          <CategorySection
+          <ClaimableCategorySection<GroceryWithFamily, GroceryBulkRow, GroceryEditVals>
             key={`new-${cat}`}
             category={cat}
             items={[]}
-            families={families}
-            familyId={familyId}
-            isOrganizer={isOrganizer}
-            allSuggestions={allSuggestions}
-            categoryOptions={categoryOptions}
-            onDelete={handleDelete}
-            onClaim={handleClaim}
-            onUnclaim={handleUnclaim}
-            onOrganizerAssign={handleOrganizerAssign}
-            onTogglePurchased={handleTogglePurchased}
-              onUnvolunteer={handleUnvolunteer}
-            onSaveEdit={handleSaveEdit}
-            onBulkAdd={handleBulkAdd}
-            onReorder={handleReorder}
-            onMoveCategory={handleMoveCategory}
+            {...sectionShared}
             onRename={(newName) => renameNewCategory(cat, newName)}
             onClear={() => removeNewCategory(cat)}
           />
@@ -390,25 +457,11 @@ export default function GroceriesPage() {
 
       {/* Uncategorized */}
       {uncategorized.length > 0 && (
-        <CategorySection
+        <ClaimableCategorySection<GroceryWithFamily, GroceryBulkRow, GroceryEditVals>
           key="__uncategorized__"
           category=""
           items={uncategorized}
-          families={families}
-          familyId={familyId}
-          isOrganizer={isOrganizer}
-          allSuggestions={allSuggestions}
-          categoryOptions={categoryOptions}
-          onDelete={handleDelete}
-          onClaim={handleClaim}
-          onUnclaim={handleUnclaim}
-          onOrganizerAssign={handleOrganizerAssign}
-          onTogglePurchased={handleTogglePurchased}
-          onUnvolunteer={handleUnvolunteer}
-          onSaveEdit={handleSaveEdit}
-          onBulkAdd={handleBulkAdd}
-          onReorder={handleReorder}
-          onMoveCategory={handleMoveCategory}
+          {...sectionShared}
         />
       )}
 
@@ -477,246 +530,3 @@ export default function GroceriesPage() {
   );
 }
 
-/* ════════════════════════════════════════════════════════
-   Category Section
-   ════════════════════════════════════════════════════════ */
-
-function CategorySection({
-  category,
-  items,
-  families,
-  familyId,
-  isOrganizer,
-  allSuggestions,
-  categoryOptions,
-  onDelete,
-  onClaim,
-  onUnclaim,
-  onOrganizerAssign,
-  onTogglePurchased,
-  onUnvolunteer,
-  onSaveEdit,
-  onBulkAdd,
-  onReorder,
-  onMoveCategory,
-  onRename,
-  onClear,
-}: {
-  category: string;
-  items: GroceryWithFamily[];
-  families: Family[];
-  familyId: number | null;
-  isOrganizer: boolean;
-  allSuggestions: string[];
-  categoryOptions: string[];
-  onDelete: (id: number) => void | Promise<void>;
-  onClaim: (id: number) => Promise<void>;
-  onUnclaim: (id: number) => Promise<void>;
-  onOrganizerAssign: (id: number, familyId: number | null, label?: string) => Promise<void>;
-  onTogglePurchased: (id: number, current: boolean) => Promise<void>;
-  onUnvolunteer: (id: number) => void;
-  onSaveEdit: (id: number, vals: GroceryEditVals) => Promise<void>;
-  onReorder: (id: number, direction: "up" | "down", category?: string) => Promise<void>;
-  onMoveCategory: (id: number, newCategory: string) => Promise<void>;
-  onBulkAdd: (
-    rows: {
-      name: string;
-      category?: string;
-      quantity?: string;
-      estimatedCost?: number;
-      mealTag?: string;
-    }[]
-  ) => Promise<void>;
-  onRename?: (newName: string) => void;
-  onClear?: () => void;
-}) {
-  const [collapsed, setCollapsed] = useState(false);
-  const [addName, setAddName] = useState("");
-  const [addQty, setAddQty] = useState("");
-  const [adding, setAdding] = useState(false);
-  const [renaming, setRenaming] = useState(false);
-  const [renameValue, setRenameValue] = useState(category);
-
-  const claimed = items.filter(
-    (i) => i.assignedFamilyId || i.assignedLabel || i.volunteers.length > 0
-  ).length;
-  const displayName = category || "Uncategorized";
-  const isUncategorized = !category;
-
-  async function handleQuickAdd() {
-    if (!addName.trim()) return;
-    setAdding(true);
-    await onBulkAdd([
-      {
-        name: addName.trim(),
-        category: category || undefined,
-        quantity: addQty || undefined,
-      },
-    ]);
-    setAddName("");
-    setAddQty("");
-    setAdding(false);
-  }
-
-  function startRename() {
-    setRenameValue(category);
-    setRenaming(true);
-  }
-
-  function submitRename() {
-    if (renameValue.trim() && renameValue.trim() !== category) {
-      onRename?.(renameValue.trim());
-    }
-    setRenaming(false);
-  }
-
-  return (
-    <div className="space-y-2">
-      {/* Section header */}
-      <div className="flex items-center gap-2 w-full group">
-        <button
-          onClick={() => setCollapsed((c) => !c)}
-          className="flex items-center gap-2 text-left"
-        >
-          {collapsed ? (
-            <ChevronRight className="h-4 w-4 text-muted-foreground" />
-          ) : (
-            <ChevronDown className="h-4 w-4 text-muted-foreground" />
-          )}
-          {renaming ? null : (
-            <span className="font-semibold text-sm">{displayName}</span>
-          )}
-        </button>
-        {renaming ? (
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              submitRename();
-            }}
-            className="flex items-center gap-1"
-          >
-            <Input
-              value={renameValue}
-              onChange={(e) => setRenameValue(e.target.value)}
-              className="h-7 text-sm w-36"
-              autoFocus
-            />
-            <Button
-              type="submit"
-              size="icon"
-              variant="ghost"
-              className="h-6 w-6 text-emerald-600"
-            >
-              <Check className="h-3.5 w-3.5" />
-            </Button>
-            <Button
-              type="button"
-              size="icon"
-              variant="ghost"
-              className="h-6 w-6"
-              onClick={() => setRenaming(false)}
-            >
-              <X className="h-3.5 w-3.5" />
-            </Button>
-          </form>
-        ) : (
-          <>
-            <Badge variant="secondary" className="text-xs">
-              {claimed}/{items.length} claimed
-            </Badge>
-            {!isUncategorized && onRename && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
-                onClick={startRename}
-                title="Rename category"
-              >
-                <Pencil className="h-3 w-3" />
-              </Button>
-            )}
-            {!isUncategorized && onClear && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-red-500 hover:text-destructive"
-                onClick={onClear}
-                title="Remove category (items move to Uncategorized)"
-              >
-                <X className="h-3 w-3" />
-              </Button>
-            )}
-          </>
-        )}
-      </div>
-
-      {!collapsed && (
-        <div className="space-y-1.5 pl-6">
-          {items.map((item, idx) => (
-            <ItemCardShell<GroceryWithFamily, GroceryEditVals>
-              key={item.id}
-              item={item}
-              families={families}
-              familyId={familyId}
-              isOrganizer={isOrganizer}
-              isFirst={idx === 0}
-              isLast={idx === items.length - 1}
-              categoryOptions={categoryOptions}
-              ownership={groceryOwnership}
-              onDelete={onDelete}
-              onClaim={onClaim}
-              onUnclaim={onUnclaim}
-              onOrganizerAssign={onOrganizerAssign}
-              onUnvolunteer={onUnvolunteer}
-              onSaveEdit={onSaveEdit}
-              onReorder={(dir) => onReorder(item.id, dir, category || undefined)}
-              onMoveCategory={onMoveCategory}
-              renderLeading={(it) => (
-                <Checkbox
-                  checked={it.isPurchased}
-                  onCheckedChange={() => onTogglePurchased(it.id, it.isPurchased)}
-                  className="shrink-0"
-                />
-              )}
-              renderBody={(it) => <GroceryItemBody item={it} />}
-              renderEditor={(it, onSave, onCancel) => (
-                <GroceryItemEditor item={it} onSave={onSave} onCancel={onCancel} />
-              )}
-            />
-          ))}
-
-          {/* Inline quick-add at bottom of category */}
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              handleQuickAdd();
-            }}
-            className="flex items-center gap-2 pt-1"
-          >
-            <Input
-              value={addName}
-              onChange={(e) => setAddName(e.target.value)}
-              placeholder={`Add item to ${displayName}...`}
-              className="h-8 text-sm flex-1"
-            />
-            <Input
-              value={addQty}
-              onChange={(e) => setAddQty(e.target.value)}
-              placeholder="Qty"
-              className="h-8 text-sm w-16"
-            />
-            <Button
-              type="submit"
-              size="sm"
-              variant="outline"
-              className="h-8"
-              disabled={!addName.trim() || adding}
-            >
-              <Plus className="h-3.5 w-3.5" />
-            </Button>
-          </form>
-        </div>
-      )}
-    </div>
-  );
-}
