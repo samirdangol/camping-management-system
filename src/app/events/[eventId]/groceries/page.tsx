@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { useParams } from "next/navigation";
 import {
   bulkCreateGroceryItems,
@@ -19,36 +19,18 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { EmptyState } from "@/components/shared/empty-state";
 import { useCurrentFamily } from "@/hooks/use-current-family";
-import { GROCERY_CATEGORY_SUGGESTIONS } from "@/lib/constants";
-import {
-  ShoppingCart,
-  Plus,
-  FolderPlus,
-  ClipboardPaste,
-} from "lucide-react";
-import { PasteImportDialog } from "@/components/bulk-import/paste-import-dialog";
-import { CategoryBulkAdd } from "@/components/bulk-import/category-bulk-add";
 import { useIsOrganizer } from "@/hooks/use-is-organizer";
-import { ConfirmDeleteDialog } from "@/components/shared/confirm-delete-dialog";
-import {
-  useClaimableItems,
-  type ClaimableActions,
-  type ClaimableOwnership,
-} from "@/components/claimable/use-claimable-items";
-import { ClaimableCategorySection } from "@/components/claimable/category-section";
+import { GROCERY_CATEGORY_SUGGESTIONS } from "@/lib/constants";
+import { ShoppingCart, Plus } from "lucide-react";
+import { ClaimablePage } from "@/components/claimable/claimable-page";
 import { ItemEditCard } from "@/components/claimable/item-edit-card";
+import type {
+  ClaimableActions,
+  ClaimableOwnership,
+} from "@/components/claimable/use-claimable-items";
 import type { GroceryWithFamily } from "@/types";
 
-/* ─── helpers ─── */
-
-/** Capitalize first letter */
-function cap(s: string) {
-  return s.charAt(0).toUpperCase() + s.slice(1);
-}
-
-/** Unique datalist id for category inputs */
 const DATALIST_ID = "grocery-cat-suggestions";
 
 type GroceryBulkRow = {
@@ -67,8 +49,6 @@ type GroceryEditVals = {
   mealTag?: string | null;
 };
 
-// Stable action/ownership bundles — declared at module scope so the hook's
-// internal refs don't churn between renders.
 const groceryActions: ClaimableActions<
   GroceryWithFamily,
   GroceryBulkRow,
@@ -249,284 +229,57 @@ export default function GroceriesPage() {
   const eid = parseInt(eventId, 10);
   const { familyId } = useCurrentFamily();
   const isOrganizer = useIsOrganizer(eventId);
-  const [newCatInput, setNewCatInput] = useState("");
-  const [importOpen, setImportOpen] = useState(false);
-
-  const {
-    items,
-    families,
-    loading,
-    filtered,
-    grouped,
-    categoryOrder,
-    uncategorized,
-    existingCategories,
-    categoryOptions,
-    needsHelpCount,
-    myCount,
-    filter,
-    setFilter,
-    newCategories,
-    addNewCategory,
-    removeNewCategory,
-    renameNewCategory,
-    pendingDeleteId,
-    pendingUnvolunteerItemId,
-    cancelDelete,
-    cancelUnvolunteer,
-    handleDelete,
-    confirmDelete,
-    handleClaim,
-    handleUnclaim,
-    handleOrganizerAssign,
-    handleUnvolunteer,
-    confirmUnvolunteer,
-    handleSaveEdit,
-    handleMoveCategory,
-    handleBulkAdd,
-    handleReorder,
-    handleRenameCategory,
-    handleClearCategory,
-    refetch,
-  } = useClaimableItems<GroceryWithFamily, GroceryBulkRow, GroceryEditVals>({
-    eventId: eid,
-    familyId,
-    actions: groceryActions,
-    ownership: groceryOwnership,
-  });
-
-  // Grocery-only: toggle the "purchased" checkbox.
-  async function handleTogglePurchased(itemId: number, current: boolean) {
-    await toggleGroceryPurchased(itemId, eid, !current);
-    await refetch();
-  }
-
-  // Suggestion list (existing categories + defaults) is grocery-specific.
-  const allSuggestions = useMemo(() => {
-    const set = new Set(existingCategories.map((c) => c.toLowerCase()));
-    const extra = GROCERY_CATEGORY_SUGGESTIONS.filter(
-      (s) => !set.has(s.toLowerCase())
-    ).map(cap);
-    return [...existingCategories, ...extra];
-  }, [existingCategories]);
-
-  function submitAddNewCategory() {
-    addNewCategory(newCatInput);
-    setNewCatInput("");
-  }
-
-  // Common props passed to every <ClaimableCategorySection>. Recomputed each
-  // render — fine, since the inner render-prop closures are cheap.
-  const sectionShared = {
-    families,
-    familyId,
-    isOrganizer,
-    categoryOptions,
-    ownership: groceryOwnership,
-    onDelete: handleDelete,
-    onClaim: handleClaim,
-    onUnclaim: handleUnclaim,
-    onOrganizerAssign: handleOrganizerAssign,
-    onUnvolunteer: handleUnvolunteer,
-    onSaveEdit: handleSaveEdit,
-    onBulkAdd: handleBulkAdd,
-    onReorder: handleReorder,
-    onMoveCategory: handleMoveCategory,
-    renderLeading: (it: GroceryWithFamily) => (
-      <Checkbox
-        checked={it.isPurchased}
-        onCheckedChange={() => handleTogglePurchased(it.id, it.isPurchased)}
-        className="shrink-0"
-      />
-    ),
-    renderBody: (it: GroceryWithFamily) => <GroceryItemBody item={it} />,
-    renderEditor: (
-      it: GroceryWithFamily,
-      onSave: (vals: GroceryEditVals) => Promise<void>,
-      onCancel: () => void
-    ) => <GroceryItemEditor item={it} onSave={onSave} onCancel={onCancel} />,
-    renderQuickAdd: ({
-      category,
-      displayName,
-      onAdd,
-    }: {
-      category: string;
-      displayName: string;
-      onAdd: (row: GroceryBulkRow) => Promise<void>;
-    }) => (
-      <GroceryQuickAddRow
-        category={category}
-        displayName={displayName}
-        onAdd={onAdd}
-      />
-    ),
-  };
-
-  if (loading)
-    return (
-      <div className="text-center py-8 text-muted-foreground">Loading...</div>
-    );
 
   return (
-    <div className="space-y-6">
-      {/* Datalist for category suggestions */}
-      <datalist id={DATALIST_ID}>
-        {allSuggestions.map((s) => (
-          <option key={s} value={s} />
-        ))}
-      </datalist>
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <h2 className="text-lg font-semibold">Groceries</h2>
-          {familyId && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-7 text-xs gap-1"
-              onClick={() => setImportOpen(true)}
-            >
-              <ClipboardPaste className="h-3.5 w-3.5" />
-              Import List
-            </Button>
-          )}
-        </div>
-        <span className="text-sm text-muted-foreground">
-          {items.length} item{items.length !== 1 && "s"}
-          {items.filter((i) => i.isPurchased).length > 0 &&
-            ` · ${items.filter((i) => i.isPurchased).length} purchased`}
-        </span>
-      </div>
-
-      {/* Filter tabs */}
-      <div className="flex gap-1">
-        {(["all", "needs-help", "mine"] as const).map((f) => (
-          <Button
-            key={f}
-            variant={filter === f ? "default" : "outline"}
-            size="sm"
-            onClick={() => setFilter(f)}
-          >
-            {f === "all"
-              ? `All (${items.length})`
-              : f === "needs-help"
-                ? `Needs Help (${needsHelpCount})`
-                : `My Items (${myCount})`}
-          </Button>
-        ))}
-      </div>
-
-      {/* No items at all */}
-      {filtered.length === 0 && (
-        <EmptyState
-          icon={ShoppingCart}
-          title="No grocery items"
-          description={
-            filter !== "all"
-              ? "No items match this filter."
-              : "Add grocery items below!"
-          }
+    <ClaimablePage<GroceryWithFamily, GroceryBulkRow, GroceryEditVals>
+      eventId={eid}
+      familyId={familyId}
+      isOrganizer={isOrganizer}
+      actions={groceryActions}
+      ownership={groceryOwnership}
+      title="Groceries"
+      datalistId={DATALIST_ID}
+      emptyIcon={ShoppingCart}
+      emptyTitle="No grocery items"
+      emptyDescription="Add grocery items below!"
+      filterLabels={{
+        all: (n) => `All (${n})`,
+        needsHelp: (n) => `Needs Help (${n})`,
+        mine: (n) => `My Items (${n})`,
+      }}
+      renderItemCountExtra={(items) => {
+        const purchased = items.filter((i) => i.isPurchased).length;
+        return purchased > 0 ? ` · ${purchased} purchased` : null;
+      }}
+      categorySuggestions={GROCERY_CATEGORY_SUGGESTIONS}
+      importTitle="Import Groceries"
+      importPlaceholder={
+        "Breakfast: Milk, Tea, Coffee, Sugar\nLunch/Dinner: Chicken, Rice, Oil\nDrinks: Beer, Wine, Water"
+      }
+      deleteDialogTitle="Delete grocery item?"
+      deleteDialogDescription="This will permanently remove the item and any volunteer assignments."
+      unvolunteerDialogDescription="This will remove you as a volunteer for this grocery item."
+      renderLeading={(item, refetch) => (
+        <Checkbox
+          checked={item.isPurchased}
+          onCheckedChange={async () => {
+            await toggleGroceryPurchased(item.id, eid, !item.isPurchased);
+            await refetch();
+          }}
+          className="shrink-0"
         />
       )}
-
-      {/* Category sections */}
-      {categoryOrder.map((cat) => (
-        <ClaimableCategorySection<GroceryWithFamily, GroceryBulkRow, GroceryEditVals>
-          key={cat}
-          category={cat}
-          items={grouped[cat]}
-          {...sectionShared}
-          onRename={(newName) => handleRenameCategory(cat, newName)}
-          onClear={() => handleClearCategory(cat)}
-        />
-      ))}
-
-      {/* New (empty) categories */}
-      {newCategories.map((cat) =>
-        !categoryOrder.includes(cat) ? (
-          <ClaimableCategorySection<GroceryWithFamily, GroceryBulkRow, GroceryEditVals>
-            key={`new-${cat}`}
-            category={cat}
-            items={[]}
-            {...sectionShared}
-            onRename={(newName) => renameNewCategory(cat, newName)}
-            onClear={() => removeNewCategory(cat)}
-          />
-        ) : null
+      renderBody={(item) => <GroceryItemBody item={item} />}
+      renderEditor={(item, onSave, onCancel) => (
+        <GroceryItemEditor item={item} onSave={onSave} onCancel={onCancel} />
       )}
-
-      {/* Uncategorized */}
-      {uncategorized.length > 0 && (
-        <ClaimableCategorySection<GroceryWithFamily, GroceryBulkRow, GroceryEditVals>
-          key="__uncategorized__"
-          category=""
-          items={uncategorized}
-          {...sectionShared}
+      renderQuickAdd={({ category, displayName, onAdd }) => (
+        <GroceryQuickAddRow
+          category={category}
+          displayName={displayName}
+          onAdd={onAdd}
         />
       )}
-
-      {/* Add Category */}
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          submitAddNewCategory();
-        }}
-        className="flex items-center gap-2"
-      >
-        <FolderPlus className="h-4 w-4 text-muted-foreground shrink-0" />
-        <Input
-          list={DATALIST_ID}
-          value={newCatInput}
-          onChange={(e) => setNewCatInput(e.target.value)}
-          placeholder="New category name..."
-          className="h-8 text-sm flex-1 max-w-xs"
-        />
-        <Button
-          type="submit"
-          size="sm"
-          variant="outline"
-          className="h-8"
-          disabled={!newCatInput.trim()}
-        >
-          <Plus className="h-3.5 w-3.5 mr-1" />
-          Add Category
-        </Button>
-      </form>
-
-      {/* Quick Add Section */}
-      <CategoryBulkAdd
-        allSuggestions={allSuggestions}
-        existingCategories={existingCategories}
-        datalistId={DATALIST_ID}
-        onBulkAdd={handleBulkAdd}
-      />
-
-      {/* Import Dialog */}
-      <PasteImportDialog
-        open={importOpen}
-        onOpenChange={setImportOpen}
-        onImport={handleBulkAdd}
-        title="Import Groceries"
-        placeholder={"Breakfast: Milk, Tea, Coffee, Sugar\nLunch/Dinner: Chicken, Rice, Oil\nDrinks: Beer, Wine, Water"}
-      />
-
-      <ConfirmDeleteDialog
-        open={pendingDeleteId !== null}
-        title="Delete grocery item?"
-        description="This will permanently remove the item and any volunteer assignments."
-        onConfirm={confirmDelete}
-        onCancel={cancelDelete}
-      />
-
-      <ConfirmDeleteDialog
-        open={pendingUnvolunteerItemId !== null}
-        title="Remove yourself?"
-        description="This will remove you as a volunteer for this grocery item."
-        confirmLabel="Remove"
-        onConfirm={confirmUnvolunteer}
-        onCancel={cancelUnvolunteer}
-      />
-    </div>
+    />
   );
 }
-
