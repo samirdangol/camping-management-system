@@ -84,6 +84,8 @@ export type ExpenseSummary = {
   perFamilyShare: number;
   balances: FamilyBalance[];
   settlements: SettlementTransaction[];
+  settlementMode: "bilateral" | "centralized";
+  collector?: Family;
 };
 
 // Headcount aggregation

@@ -23,6 +23,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { EmptyState } from "@/components/shared/empty-state";
 import { useCurrentFamily } from "@/hooks/use-current-family";
 import { EXPENSE_CATEGORIES } from "@/lib/constants";
@@ -105,6 +113,11 @@ export default function ExpensesPage() {
   });
 
   const [pendingDeleteId, setPendingDeleteId] = useState<number | null>(null);
+
+  // PayPal inline-edit state (settlement tab)
+  const [paypalEditFamily, setPaypalEditFamily] = useState<Family | null>(null);
+  const [paypalInput, setPaypalInput] = useState("");
+  const [savingPaypal, setSavingPaypal] = useState(false);
 
   // New rows for bulk add
   const defaultFamilyId = familyId ? familyId.toString() : "";
@@ -207,6 +220,37 @@ export default function ExpensesPage() {
   async function handleUnmarkSettled(fromFamilyId: number, toFamilyId: number) {
     await unmarkSettlementPaid(parseInt(eventId, 10), fromFamilyId, toFamilyId);
     await fetchData();
+  }
+
+  function openPaypalEdit(family: Family) {
+    setPaypalEditFamily(family);
+    setPaypalInput(family.paypalMe || "");
+  }
+
+  async function handleSavePaypal() {
+    if (!paypalEditFamily) return;
+    const trimmed = paypalInput.trim();
+    if (!trimmed) return;
+    setSavingPaypal(true);
+    try {
+      await fetch("/api/families", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: paypalEditFamily.id,
+          name: paypalEditFamily.name,
+          contactName: paypalEditFamily.contactName,
+          contactName2: paypalEditFamily.contactName2,
+          phone: paypalEditFamily.phone,
+          email: paypalEditFamily.email,
+          paypalMe: trimmed,
+        }),
+      });
+      setPaypalEditFamily(null);
+      await fetchData();
+    } finally {
+      setSavingPaypal(false);
+    }
   }
 
   // --- New row actions ---
@@ -521,6 +565,18 @@ export default function ExpensesPage() {
                 </CardContent>
               </Card>
 
+              {/* Centralized mode explainer */}
+              {summary.settlementMode === "centralized" && summary.collector && (
+                <div className="rounded-lg border border-blue-800/40 bg-blue-950/20 p-3 text-sm text-blue-300">
+                  <div className="font-medium mb-0.5">
+                    Centralized settlement: {familyEmoji(summary.collector.id)} {summary.collector.name} collects and redistributes
+                  </div>
+                  <p className="text-xs text-blue-400/80">
+                    With {summary.balances.filter((b) => Math.abs(b.balance) > 0.01).length} families involved, everyone pays one person instead of tracking many bilateral payments.
+                  </p>
+                </div>
+              )}
+
               {/* Settlement Plan */}
               {summary.settlements.length > 0 && (
                 <Card>
@@ -583,18 +639,34 @@ export default function ExpensesPage() {
                               <>
                                 {(() => {
                                   const toFamily = families.find((f) => f.id === s.to.id);
-                                  const paypalMe = toFamily?.paypalMe;
-                                  return paypalMe ? (
-                                    <a
-                                      href={`https://paypal.me/${paypalMe}/${s.amount.toFixed(2)}`}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="inline-flex items-center gap-1 h-6 px-2 rounded-md text-[10px] font-medium bg-blue-600 text-white hover:bg-blue-500 transition-colors"
+                                  if (!toFamily) return null;
+                                  if (toFamily.paypalMe) {
+                                    return (
+                                      <a
+                                        href={`https://paypal.me/${toFamily.paypalMe}/${s.amount.toFixed(2)}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-1 h-6 px-2 rounded-md text-[10px] font-medium bg-blue-600 text-white hover:bg-blue-500 transition-colors"
+                                      >
+                                        <DollarSign className="h-2.5 w-2.5" />
+                                        Pay with PayPal
+                                      </a>
+                                    );
+                                  }
+                                  const canEditPaypal = familyId === s.to.id || isOrganizer;
+                                  if (!canEditPaypal) return null;
+                                  const isSelf = familyId === s.to.id;
+                                  return (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-6 text-[10px] gap-1 text-blue-400 hover:text-blue-300"
+                                      onClick={() => openPaypalEdit(toFamily)}
                                     >
                                       <DollarSign className="h-2.5 w-2.5" />
-                                      Pay with PayPal
-                                    </a>
-                                  ) : null;
+                                      {isSelf ? "Set up your PayPal" : "Add PayPal"}
+                                    </Button>
+                                  );
                                 })()}
                                 <Button
                                   variant="outline"
@@ -637,6 +709,44 @@ export default function ExpensesPage() {
         onConfirm={confirmDelete}
         onCancel={() => setPendingDeleteId(null)}
       />
+
+      <Dialog open={paypalEditFamily !== null} onOpenChange={(open) => !open && setPaypalEditFamily(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {paypalEditFamily && familyId === paypalEditFamily.id
+                ? "Set up your PayPal"
+                : `Add PayPal for ${paypalEditFamily?.name ?? ""}`}
+            </DialogTitle>
+            <DialogDescription>
+              Lets families pay {paypalEditFamily && familyId === paypalEditFamily.id ? "you" : paypalEditFamily?.name} with one tap. Enter the PayPal.me username (find it at paypal.me after signing in).
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex items-center gap-1">
+            <span className="text-sm text-muted-foreground shrink-0">paypal.me/</span>
+            <Input
+              value={paypalInput}
+              onChange={(e) => setPaypalInput(e.target.value)}
+              placeholder="yourusername"
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && paypalInput.trim() && !savingPaypal) {
+                  e.preventDefault();
+                  handleSavePaypal();
+                }
+              }}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPaypalEditFamily(null)} disabled={savingPaypal}>
+              Cancel
+            </Button>
+            <Button onClick={handleSavePaypal} disabled={savingPaypal || !paypalInput.trim()}>
+              {savingPaypal ? "Saving..." : "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

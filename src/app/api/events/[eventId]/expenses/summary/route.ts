@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import type { ExpenseSummary, FamilyBalance, SettlementTransaction } from "@/types";
+import type { ExpenseSummary, Family, FamilyBalance, SettlementTransaction } from "@/types";
+
+// When 4+ families have non-zero balances, route everything through the
+// highest receiver instead of pairing debtors and creditors directly.
+const CENTRALIZED_THRESHOLD = 4;
+const EPSILON = 0.01;
+const round2 = (n: number) => Math.round(n * 100) / 100;
 
 export async function GET(
   _request: Request,
@@ -42,34 +48,60 @@ export async function GET(
   // Sort balances: creditors (positive) first, then debtors (negative)
   balances.sort((a, b) => b.balance - a.balance);
 
-  // Calculate settlement transactions using greedy algorithm
-  const settlements: SettlementTransaction[] = [];
-  const creditors = balances.filter((b) => b.balance > 0.01).map((b) => ({ ...b }));
-  const debtors = balances.filter((b) => b.balance < -0.01).map((b) => ({ ...b, balance: Math.abs(b.balance) }));
+  const creditors = balances.filter((b) => b.balance > EPSILON).map((b) => ({ ...b }));
+  const debtors = balances.filter((b) => b.balance < -EPSILON).map((b) => ({ ...b, balance: Math.abs(b.balance) }));
+  const nonZeroCount = creditors.length + debtors.length;
 
-  let ci = 0;
-  let di = 0;
-  while (ci < creditors.length && di < debtors.length) {
-    const amount = Math.min(creditors[ci].balance, debtors[di].balance);
-    if (amount > 0.01) {
-      settlements.push({
-        from: debtors[di].family,
-        to: creditors[ci].family,
-        amount: Math.round(amount * 100) / 100,
-      });
+  const useCentralized = nonZeroCount >= CENTRALIZED_THRESHOLD && creditors.length > 0 && debtors.length > 0;
+
+  let settlements: SettlementTransaction[] = [];
+  let collector: Family | undefined;
+
+  if (useCentralized) {
+    // Highest receiver collects from all debtors, then redistributes to other creditors.
+    const hub = creditors[0];
+    collector = hub.family;
+
+    settlements = [
+      ...debtors.map((d) => ({
+        from: d.family,
+        to: hub.family,
+        amount: round2(d.balance),
+      })),
+      ...creditors.slice(1).map((c) => ({
+        from: hub.family,
+        to: c.family,
+        amount: round2(c.balance),
+      })),
+    ];
+  } else {
+    // Bilateral greedy minimum-cash-flow.
+    let ci = 0;
+    let di = 0;
+    while (ci < creditors.length && di < debtors.length) {
+      const amount = Math.min(creditors[ci].balance, debtors[di].balance);
+      if (amount > EPSILON) {
+        settlements.push({
+          from: debtors[di].family,
+          to: creditors[ci].family,
+          amount: round2(amount),
+        });
+      }
+      creditors[ci].balance -= amount;
+      debtors[di].balance -= amount;
+      if (creditors[ci].balance < EPSILON) ci++;
+      if (debtors[di].balance < EPSILON) di++;
     }
-    creditors[ci].balance -= amount;
-    debtors[di].balance -= amount;
-    if (creditors[ci].balance < 0.01) ci++;
-    if (debtors[di].balance < 0.01) di++;
   }
 
   const summary: ExpenseSummary = {
-    totalExpenses: Math.round(totalExpenses * 100) / 100,
+    totalExpenses: round2(totalExpenses),
     familyCount,
-    perFamilyShare: Math.round(perFamilyShare * 100) / 100,
+    perFamilyShare: round2(perFamilyShare),
     balances,
     settlements,
+    settlementMode: useCentralized ? "centralized" : "bilateral",
+    collector,
   };
 
   return NextResponse.json(summary);
