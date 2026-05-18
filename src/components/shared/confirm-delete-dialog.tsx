@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import {
   Dialog,
   DialogContent,
@@ -13,7 +14,7 @@ import { Button } from "@/components/ui/button";
 interface ConfirmDeleteDialogProps {
   open: boolean;
   title?: string;
-  description?: string;
+  description?: React.ReactNode;
   confirmLabel?: string;
   onConfirm: () => void;
   onCancel: () => void;

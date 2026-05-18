@@ -39,6 +39,10 @@ model Family {
   mealVolunteers       MealVolunteer[]
   ledActivities        Activity[]            @relation("ActivityLeader")
   activityVolunteers   ActivityVolunteer[]
+  assignedSupplies     Supply[]
+  supplyVolunteers     SupplyVolunteer[]
+  // Legacy relations — kept until the supplies data migration has been run
+  // and the old GroceryItem/Equipment tables are dropped.
   assignedGroceries    GroceryItem[]
   groceryVolunteers    GroceryVolunteer[]
   ownedEquipment       Equipment[]
@@ -76,6 +80,9 @@ model CampingEvent {
   signups      EventSignup[]
   meals        Meal[]
   activities   Activity[]
+  supplies     Supply[]
+  // Legacy relations — kept until the supplies data migration has been run
+  // and the old GroceryItem/Equipment tables are dropped.
   groceryItems GroceryItem[]
   equipment    Equipment[]
   expenses            Expense[]
@@ -179,6 +186,39 @@ model ActivityVolunteer {
 
   @@unique([activityId, familyId])
 }
+
+model Supply {
+  id               Int      @id @default(autoincrement())
+  eventId          Int
+  name             String
+  category         String?
+  assignedFamilyId Int?
+  assignedLabel    String?
+  sortOrder        Int      @default(0)
+  notes            String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  event      CampingEvent      @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  assignedTo Family?           @relation(fields: [assignedFamilyId], references: [id])
+  volunteers SupplyVolunteer[]
+
+  @@index([eventId])
+}
+
+model SupplyVolunteer {
+  id        Int      @id @default(autoincrement())
+  supplyId  Int
+  familyId  Int
+  createdAt DateTime @default(now())
+
+  supply Supply @relation(fields: [supplyId], references: [id], onDelete: Cascade)
+  family Family @relation(fields: [familyId], references: [id])
+
+  @@unique([supplyId, familyId])
+}
+
+// === LEGACY MODELS — to be removed after migrate-supplies.ts runs ===
 
 model GroceryItem {
   id               Int      @id @default(autoincrement())

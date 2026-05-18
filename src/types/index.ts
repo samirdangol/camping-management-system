@@ -8,10 +8,8 @@ import type {
   FoodItemVolunteer,
   Activity,
   ActivityVolunteer,
-  GroceryItem,
-  GroceryVolunteer,
-  Equipment,
-  EquipmentVolunteer,
+  Supply,
+  SupplyVolunteer,
   Expense,
 } from "@prisma/client";
 
@@ -47,16 +45,10 @@ export type ActivityWithDetails = Activity & {
   volunteers: (ActivityVolunteer & { family: Family })[];
 };
 
-// Grocery with assigned family and volunteers
-export type GroceryWithFamily = GroceryItem & {
+// Supply (unified food + gear) with assigned family and volunteers
+export type SupplyWithFamily = Supply & {
   assignedTo: Family | null;
-  volunteers: (GroceryVolunteer & { family: Family })[];
-};
-
-// Equipment with owner and volunteers
-export type EquipmentWithOwner = Equipment & {
-  owner: Family | null;
-  volunteers: (EquipmentVolunteer & { family: Family })[];
+  volunteers: (SupplyVolunteer & { family: Family })[];
 };
 
 // Expense with payer
@@ -109,9 +101,7 @@ export type {
   FoodItemVolunteer,
   Activity,
   ActivityVolunteer,
-  GroceryItem,
-  GroceryVolunteer,
-  Equipment,
-  EquipmentVolunteer,
+  Supply,
+  SupplyVolunteer,
   Expense,
 };

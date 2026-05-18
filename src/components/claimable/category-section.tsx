@@ -1,17 +1,44 @@
 "use client";
 
 import { useState } from "react";
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Check, ChevronDown, ChevronRight, Pencil, X } from "lucide-react";
-import { ItemCardShell } from "./item-card-shell";
+import { ItemCardShell, type ItemCardShellProps } from "./item-card-shell";
 import type { ReactNode } from "react";
 import type { Family } from "@/types";
 import type {
   ClaimableItem,
   ClaimableOwnership,
 } from "./use-claimable-items";
+
+/** Prefix used on SortableContext ids so the page-level drag-end handler can
+ *  tell "dropped on item id 42" apart from "dropped on empty category X". */
+export const CATEGORY_DROPZONE_PREFIX = "cat@@";
+
+function SortableItemCard<T extends ClaimableItem, EditVals>(
+  props: Omit<ItemCardShellProps<T, EditVals>, "dnd">
+) {
+  const sortable = useSortable({ id: props.item.id });
+  const dnd: ItemCardShellProps<T, EditVals>["dnd"] = {
+    setNodeRef: sortable.setNodeRef,
+    style: {
+      transform: CSS.Transform.toString(sortable.transform),
+      transition: sortable.transition,
+    },
+    attributes: sortable.attributes,
+    listeners: sortable.listeners,
+    isDragging: sortable.isDragging,
+  };
+  return <ItemCardShell<T, EditVals> {...props} dnd={dnd} />;
+}
 
 export interface ClaimableCategorySectionProps<
   T extends ClaimableItem,
@@ -37,12 +64,6 @@ export interface ClaimableCategorySectionProps<
   ) => Promise<void>;
   onUnvolunteer: (id: number) => void;
   onSaveEdit: (id: number, vals: EditVals) => Promise<void>;
-  /** Page-level reorder signature; this component closes over the section's category. */
-  onReorder: (
-    id: number,
-    direction: "up" | "down",
-    category?: string
-  ) => Promise<void>;
   onMoveCategory: (id: number, newCategory: string) => Promise<void>;
 
   /* category-level handlers */
@@ -91,7 +112,6 @@ export function ClaimableCategorySection<
   onOrganizerAssign,
   onUnvolunteer,
   onSaveEdit,
-  onReorder,
   onMoveCategory,
   onBulkAdd,
   onRename,
@@ -211,33 +231,34 @@ export function ClaimableCategorySection<
       </div>
 
       {!collapsed && (
-        <div className="space-y-1.5 pl-6">
-          {items.map((item, idx) => (
-            <ItemCardShell<T, EditVals>
-              key={item.id}
-              item={item}
-              families={families}
-              familyId={familyId}
-              isOrganizer={isOrganizer}
-              isFirst={idx === 0}
-              isLast={idx === items.length - 1}
-              categoryOptions={categoryOptions}
-              ownership={ownership}
-              onDelete={onDelete}
-              onClaim={onClaim}
-              onUnclaim={onUnclaim}
-              onOrganizerAssign={onOrganizerAssign}
-              onUnvolunteer={onUnvolunteer}
-              onSaveEdit={onSaveEdit}
-              onReorder={(dir) =>
-                onReorder(item.id, dir, category || undefined)
-              }
-              onMoveCategory={onMoveCategory}
-              renderLeading={renderLeading}
-              renderBody={renderBody}
-              renderEditor={renderEditor}
-            />
-          ))}
+        <div className="space-y-1.5 pl-2">
+          <SortableContext
+            id={`${CATEGORY_DROPZONE_PREFIX}${category}`}
+            items={items.map((i) => i.id)}
+            strategy={verticalListSortingStrategy}
+          >
+            {items.map((item) => (
+              <SortableItemCard<T, EditVals>
+                key={item.id}
+                item={item}
+                families={families}
+                familyId={familyId}
+                isOrganizer={isOrganizer}
+                categoryOptions={categoryOptions}
+                ownership={ownership}
+                onDelete={onDelete}
+                onClaim={onClaim}
+                onUnclaim={onUnclaim}
+                onOrganizerAssign={onOrganizerAssign}
+                onUnvolunteer={onUnvolunteer}
+                onSaveEdit={onSaveEdit}
+                onMoveCategory={onMoveCategory}
+                renderLeading={renderLeading}
+                renderBody={renderBody}
+                renderEditor={renderEditor}
+              />
+            ))}
+          </SortableContext>
 
           {renderQuickAdd({ category, displayName, onAdd: handleAddOne })}
         </div>

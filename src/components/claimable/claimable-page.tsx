@@ -1,6 +1,17 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import {
+  DndContext,
+  DragOverlay,
+  PointerSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+  closestCenter,
+  type DragEndEvent,
+  type DragStartEvent,
+} from "@dnd-kit/core";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -8,12 +19,16 @@ import { ConfirmDeleteDialog } from "@/components/shared/confirm-delete-dialog";
 import { CategoryBulkAdd } from "@/components/bulk-import/category-bulk-add";
 import { PasteImportDialog } from "@/components/bulk-import/paste-import-dialog";
 import { ClipboardPaste, FolderPlus, Plus } from "lucide-react";
-import { ClaimableCategorySection } from "./category-section";
+import {
+  CATEGORY_DROPZONE_PREFIX,
+  ClaimableCategorySection,
+} from "./category-section";
 import {
   useClaimableItems,
   type ClaimableActions,
   type ClaimableItem,
   type ClaimableOwnership,
+  type SortOrderUpdate,
 } from "./use-claimable-items";
 import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
@@ -118,6 +133,7 @@ export function ClaimablePage<
 }: ClaimablePageProps<T, BulkRow, EditVals>) {
   const [newCatInput, setNewCatInput] = useState("");
   const [importOpen, setImportOpen] = useState(false);
+  const [activeDragId, setActiveDragId] = useState<number | null>(null);
 
   const hook = useClaimableItems<T, BulkRow, EditVals>({
     eventId,
@@ -125,6 +141,83 @@ export function ClaimablePage<
     actions,
     ownership,
   });
+
+  // Pointer needs a small distance to start a drag so click on the handle
+  // doesn't immediately become a drag. Touch uses a delay (long-press) so
+  // scrolling the page stays primary.
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 5 } })
+  );
+
+  function handleDragStart(e: DragStartEvent) {
+    setActiveDragId(typeof e.active.id === "number" ? e.active.id : null);
+  }
+
+  function handleDragEnd(e: DragEndEvent) {
+    setActiveDragId(null);
+    const { active, over } = e;
+    if (!over || active.id === over.id) return;
+    if (typeof active.id !== "number") return;
+
+    const moved = hook.items.find((i) => i.id === active.id);
+    if (!moved) return;
+
+    // Resolve target category — either from another item (over.id is a number)
+    // or from the SortableContext id (over.id is "cat@@<category>").
+    let overCategory = "";
+    let overItemId: number | null = null;
+
+    if (typeof over.id === "number") {
+      overItemId = over.id;
+      const overItem = hook.items.find((i) => i.id === over.id);
+      if (!overItem) return;
+      overCategory = overItem.category?.trim() ?? "";
+    } else if (
+      typeof over.id === "string" &&
+      over.id.startsWith(CATEGORY_DROPZONE_PREFIX)
+    ) {
+      overCategory = over.id.slice(CATEGORY_DROPZONE_PREFIX.length);
+    } else {
+      return;
+    }
+
+    const targetSubgroup = hook.items
+      .filter(
+        (i) => (i.category?.trim() ?? "") === overCategory && i.id !== moved.id
+      )
+      .sort((x, y) => x.sortOrder - y.sortOrder);
+
+    let insertIdx = targetSubgroup.length;
+    if (overItemId !== null) {
+      const idx = targetSubgroup.findIndex((i) => i.id === overItemId);
+      if (idx !== -1) {
+        const movedCategory = moved.category?.trim() ?? "";
+        const sameCategory = movedCategory === overCategory;
+        const overItem = targetSubgroup[idx];
+        // Within the same category, removing `moved` shifts later indices
+        // down by 1 — so when dragging downward (moved sat above `over`)
+        // insert *after* `over` to land on the slot the user pointed at.
+        insertIdx =
+          sameCategory && moved.sortOrder < overItem.sortOrder ? idx + 1 : idx;
+      }
+    }
+
+    const newOrder = [
+      ...targetSubgroup.slice(0, insertIdx),
+      moved,
+      ...targetSubgroup.slice(insertIdx),
+    ];
+
+    const targetCategoryDb = overCategory || null;
+    const updates: SortOrderUpdate[] = newOrder.map((item, idx) => ({
+      id: item.id,
+      category: targetCategoryDb,
+      sortOrder: (idx + 1) * 10,
+    }));
+
+    hook.handleBulkReorder(updates);
+  }
 
   const allSuggestions = useMemo(() => {
     const set = new Set(hook.existingCategories.map((c) => c.toLowerCase()));
@@ -166,7 +259,6 @@ export function ClaimablePage<
     onUnvolunteer: hook.handleUnvolunteer,
     onSaveEdit: hook.handleSaveEdit,
     onBulkAdd: hook.handleBulkAdd,
-    onReorder: hook.handleReorder,
     onMoveCategory: hook.handleMoveCategory,
     renderLeading: renderLeading
       ? (item: T) => renderLeading(item, hook.refetch)
@@ -238,41 +330,59 @@ export function ClaimablePage<
         />
       )}
 
-      {/* Category sections */}
-      {hook.categoryOrder.map((cat) => (
-        <ClaimableCategorySection<T, BulkRow, EditVals>
-          key={cat}
-          category={cat}
-          items={hook.grouped[cat]}
-          {...sectionShared}
-          onRename={(newName) => hook.handleRenameCategory(cat, newName)}
-          onClear={() => hook.handleClearCategory(cat)}
-        />
-      ))}
+      {/* Category sections — wrapped in a single DndContext so items can be
+          dragged between categories. */}
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+        onDragCancel={() => setActiveDragId(null)}
+      >
+        <div className="space-y-6">
+          {hook.categoryOrder.map((cat) => (
+            <ClaimableCategorySection<T, BulkRow, EditVals>
+              key={cat}
+              category={cat}
+              items={hook.grouped[cat]}
+              {...sectionShared}
+              onRename={(newName) => hook.handleRenameCategory(cat, newName)}
+              onClear={() => hook.handleClearCategory(cat)}
+            />
+          ))}
 
-      {/* New (empty) categories */}
-      {hook.newCategories.map((cat) =>
-        !hook.categoryOrder.includes(cat) ? (
-          <ClaimableCategorySection<T, BulkRow, EditVals>
-            key={`new-${cat}`}
-            category={cat}
-            items={[]}
-            {...sectionShared}
-            onRename={(newName) => hook.renameNewCategory(cat, newName)}
-            onClear={() => hook.removeNewCategory(cat)}
-          />
-        ) : null
-      )}
+          {/* New (empty) categories */}
+          {hook.newCategories.map((cat) =>
+            !hook.categoryOrder.includes(cat) ? (
+              <ClaimableCategorySection<T, BulkRow, EditVals>
+                key={`new-${cat}`}
+                category={cat}
+                items={[]}
+                {...sectionShared}
+                onRename={(newName) => hook.renameNewCategory(cat, newName)}
+                onClear={() => hook.removeNewCategory(cat)}
+              />
+            ) : null
+          )}
 
-      {/* Uncategorized */}
-      {hook.uncategorized.length > 0 && (
-        <ClaimableCategorySection<T, BulkRow, EditVals>
-          key="__uncategorized__"
-          category=""
-          items={hook.uncategorized}
-          {...sectionShared}
-        />
-      )}
+          {/* Uncategorized */}
+          {hook.uncategorized.length > 0 && (
+            <ClaimableCategorySection<T, BulkRow, EditVals>
+              key="__uncategorized__"
+              category=""
+              items={hook.uncategorized}
+              {...sectionShared}
+            />
+          )}
+        </div>
+        <DragOverlay>
+          {activeDragId !== null ? (
+            <div className="rounded-lg border bg-card px-2.5 py-2 text-sm shadow-lg opacity-90">
+              Moving…
+            </div>
+          ) : null}
+        </DragOverlay>
+      </DndContext>
 
       {/* Add Category */}
       <form

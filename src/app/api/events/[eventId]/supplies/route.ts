@@ -6,10 +6,10 @@ export async function GET(
   { params }: { params: Promise<{ eventId: string }> }
 ) {
   const { eventId } = await params;
-  const equipment = await prisma.equipment.findMany({
+  const supplies = await prisma.supply.findMany({
     where: { eventId: parseInt(eventId, 10) },
-    include: { owner: true, volunteers: { include: { family: true } } },
+    include: { assignedTo: true, volunteers: { include: { family: true } } },
     orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
   });
-  return NextResponse.json(equipment);
+  return NextResponse.json(supplies);
 }

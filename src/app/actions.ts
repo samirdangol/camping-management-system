@@ -364,17 +364,16 @@ export async function removeActivityVolunteer(activityId: number, eventId: numbe
   revalidatePath(`/events/${eventId}`);
 }
 
-// ============ GROCERY ACTIONS ============
+// ============ SUPPLY ACTIONS ============
 
-export async function createGroceryItem(
+export async function createSupply(
   eventId: number,
   data: { name: string; category?: string; assignedFamilyId?: number; notes?: string }
 ) {
-  // Auto-assign sortOrder at the end
-  const maxSort = await prisma.groceryItem.aggregate({ where: { eventId }, _max: { sortOrder: true } });
+  const maxSort = await prisma.supply.aggregate({ where: { eventId }, _max: { sortOrder: true } });
   const nextSort = (maxSort._max.sortOrder ?? 0) + 10;
 
-  await prisma.groceryItem.create({
+  await prisma.supply.create({
     data: {
       eventId,
       name: data.name,
@@ -387,25 +386,25 @@ export async function createGroceryItem(
   revalidatePath(`/events/${eventId}`);
 }
 
-export async function updateGroceryItem(
+export async function updateSupply(
   itemId: number,
   eventId: number,
   data: { name?: string; category?: string; assignedFamilyId?: number | null; notes?: string | null }
 ) {
-  await prisma.groceryItem.update({
+  await prisma.supply.update({
     where: { id: itemId },
     data,
   });
   revalidatePath(`/events/${eventId}`);
 }
 
-export async function deleteGroceryItem(itemId: number, eventId: number) {
-  await prisma.groceryItem.delete({ where: { id: itemId } });
+export async function deleteSupply(itemId: number, eventId: number) {
+  await prisma.supply.delete({ where: { id: itemId } });
   revalidatePath(`/events/${eventId}`);
 }
 
-export async function claimGroceryItem(itemId: number, eventId: number, familyId: number | null, label?: string) {
-  await prisma.groceryItem.update({
+export async function claimSupply(itemId: number, eventId: number, familyId: number | null, label?: string) {
+  await prisma.supply.update({
     where: { id: itemId },
     data: {
       assignedFamilyId: familyId,
@@ -415,22 +414,22 @@ export async function claimGroceryItem(itemId: number, eventId: number, familyId
   revalidatePath(`/events/${eventId}`);
 }
 
-export async function unclaimGroceryItem(itemId: number, eventId: number) {
-  await prisma.groceryItem.update({
+export async function unclaimSupply(itemId: number, eventId: number) {
+  await prisma.supply.update({
     where: { id: itemId },
     data: { assignedFamilyId: null, assignedLabel: null },
   });
   revalidatePath(`/events/${eventId}`);
 }
 
-export async function bulkCreateGroceryItems(
+export async function bulkCreateSupplies(
   eventId: number,
   items: Array<{ name: string; category?: string; notes?: string }>
 ) {
-  const maxSort = await prisma.groceryItem.aggregate({ where: { eventId }, _max: { sortOrder: true } });
+  const maxSort = await prisma.supply.aggregate({ where: { eventId }, _max: { sortOrder: true } });
   let nextSort = (maxSort._max.sortOrder ?? 0) + 10;
 
-  await prisma.groceryItem.createMany({
+  await prisma.supply.createMany({
     data: items.map((item) => {
       const sortOrder = nextSort;
       nextSort += 10;
@@ -446,216 +445,43 @@ export async function bulkCreateGroceryItems(
   revalidatePath(`/events/${eventId}`);
 }
 
-// ============ EQUIPMENT ACTIONS ============
-
-export async function createEquipment(
-  eventId: number,
-  data: { name: string; category?: string; ownerFamilyId?: number; notes?: string }
-) {
-  const maxSort = await prisma.equipment.aggregate({ where: { eventId }, _max: { sortOrder: true } });
-  const nextSort = (maxSort._max.sortOrder ?? 0) + 10;
-
-  await prisma.equipment.create({
-    data: {
-      eventId,
-      name: data.name,
-      category: data.category || null,
-      ownerFamilyId: data.ownerFamilyId || null,
-      sortOrder: nextSort,
-      notes: data.notes || null,
-    },
-  });
-  revalidatePath(`/events/${eventId}`);
-}
-
-export async function updateEquipment(
-  itemId: number,
-  eventId: number,
-  data: { name?: string; category?: string; ownerFamilyId?: number | null; notes?: string | null }
-) {
-  await prisma.equipment.update({
-    where: { id: itemId },
-    data,
-  });
-  revalidatePath(`/events/${eventId}`);
-}
-
-export async function deleteEquipment(itemId: number, eventId: number) {
-  await prisma.equipment.delete({ where: { id: itemId } });
-  revalidatePath(`/events/${eventId}`);
-}
-
-export async function bulkCreateEquipment(
-  eventId: number,
-  items: Array<{ name: string; category?: string; notes?: string }>
-) {
-  const maxSort = await prisma.equipment.aggregate({ where: { eventId }, _max: { sortOrder: true } });
-  let nextSort = (maxSort._max.sortOrder ?? 0) + 10;
-
-  await prisma.equipment.createMany({
-    data: items.map((item) => {
-      const sortOrder = nextSort;
-      nextSort += 10;
-      return {
-        eventId,
-        name: item.name,
-        category: item.category || null,
-        notes: item.notes || null,
-        sortOrder,
-      };
-    }),
-  });
-  revalidatePath(`/events/${eventId}`);
-}
-
-export async function claimEquipment(itemId: number, eventId: number, familyId: number | null, label?: string) {
-  await prisma.equipment.update({
-    where: { id: itemId },
-    data: {
-      ownerFamilyId: familyId,
-      ownerLabel: familyId ? null : (label || null),
-    },
-  });
-  revalidatePath(`/events/${eventId}`);
-}
-
-export async function unclaimEquipment(itemId: number, eventId: number) {
-  await prisma.equipment.update({
-    where: { id: itemId },
-    data: { ownerFamilyId: null, ownerLabel: null },
-  });
-  revalidatePath(`/events/${eventId}`);
-}
-
-// ============ CATEGORY MANAGEMENT ACTIONS ============
-
-export async function renameGroceryCategory(eventId: number, oldName: string, newName: string) {
-  await prisma.groceryItem.updateMany({
+export async function renameSupplyCategory(eventId: number, oldName: string, newName: string) {
+  await prisma.supply.updateMany({
     where: { eventId, category: oldName },
     data: { category: newName },
   });
   revalidatePath(`/events/${eventId}`);
 }
 
-export async function clearGroceryCategory(eventId: number, categoryName: string) {
-  await prisma.groceryItem.updateMany({
+export async function clearSupplyCategory(eventId: number, categoryName: string) {
+  await prisma.supply.updateMany({
     where: { eventId, category: categoryName },
     data: { category: null },
   });
   revalidatePath(`/events/${eventId}`);
 }
 
-export async function renameEquipmentCategory(eventId: number, oldName: string, newName: string) {
-  await prisma.equipment.updateMany({
-    where: { eventId, category: oldName },
-    data: { category: newName },
+export async function addSupplyVolunteer(supplyId: number, eventId: number, familyId: number) {
+  await prisma.supplyVolunteer.create({
+    data: { supplyId, familyId },
   });
   revalidatePath(`/events/${eventId}`);
 }
 
-export async function clearEquipmentCategory(eventId: number, categoryName: string) {
-  await prisma.equipment.updateMany({
-    where: { eventId, category: categoryName },
-    data: { category: null },
+export async function removeSupplyVolunteer(supplyId: number, eventId: number, familyId: number) {
+  await prisma.supplyVolunteer.delete({
+    where: { supplyId_familyId: { supplyId, familyId } },
   });
-  revalidatePath(`/events/${eventId}`);
-}
-
-// ============ GROCERY VOLUNTEER ACTIONS ============
-
-export async function addGroceryVolunteer(groceryItemId: number, eventId: number, familyId: number) {
-  await prisma.groceryVolunteer.create({
-    data: { groceryItemId, familyId },
-  });
-  revalidatePath(`/events/${eventId}`);
-}
-
-export async function removeGroceryVolunteer(groceryItemId: number, eventId: number, familyId: number) {
-  await prisma.groceryVolunteer.delete({
-    where: { groceryItemId_familyId: { groceryItemId, familyId } },
-  });
-  revalidatePath(`/events/${eventId}`);
-}
-
-// ============ EQUIPMENT VOLUNTEER ACTIONS ============
-
-export async function addEquipmentVolunteer(equipmentId: number, eventId: number, familyId: number) {
-  await prisma.equipmentVolunteer.create({
-    data: { equipmentId, familyId },
-  });
-  revalidatePath(`/events/${eventId}`);
-}
-
-export async function removeEquipmentVolunteer(equipmentId: number, eventId: number, familyId: number) {
-  await prisma.equipmentVolunteer.delete({
-    where: { equipmentId_familyId: { equipmentId, familyId } },
-  });
-  revalidatePath(`/events/${eventId}`);
-}
-
-// ============ REORDER ACTIONS ============
-
-export async function reorderGroceryItem(itemId: number, eventId: number, direction: "up" | "down", category?: string) {
-  const items = await prisma.groceryItem.findMany({
-    where: { eventId, ...(category !== undefined ? { category: category || null } : {}) },
-    orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
-    select: { id: true, sortOrder: true },
-  });
-
-  const idx = items.findIndex((i) => i.id === itemId);
-  if (idx === -1) return;
-
-  const swapIdx = direction === "up" ? idx - 1 : idx + 1;
-  if (swapIdx < 0 || swapIdx >= items.length) return;
-
-  // Swap sortOrder values
-  await prisma.$transaction([
-    prisma.groceryItem.update({ where: { id: items[idx].id }, data: { sortOrder: items[swapIdx].sortOrder } }),
-    prisma.groceryItem.update({ where: { id: items[swapIdx].id }, data: { sortOrder: items[idx].sortOrder } }),
-  ]);
-  revalidatePath(`/events/${eventId}`);
-}
-
-export async function reorderEquipment(itemId: number, eventId: number, direction: "up" | "down", category?: string) {
-  const items = await prisma.equipment.findMany({
-    where: { eventId, ...(category !== undefined ? { category: category || null } : {}) },
-    orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
-    select: { id: true, sortOrder: true },
-  });
-
-  const idx = items.findIndex((i) => i.id === itemId);
-  if (idx === -1) return;
-
-  const swapIdx = direction === "up" ? idx - 1 : idx + 1;
-  if (swapIdx < 0 || swapIdx >= items.length) return;
-
-  await prisma.$transaction([
-    prisma.equipment.update({ where: { id: items[idx].id }, data: { sortOrder: items[swapIdx].sortOrder } }),
-    prisma.equipment.update({ where: { id: items[swapIdx].id }, data: { sortOrder: items[idx].sortOrder } }),
-  ]);
   revalidatePath(`/events/${eventId}`);
 }
 
 export type SortOrderUpdate = { id: number; category: string | null; sortOrder: number };
 
-export async function setGroceryOrder(eventId: number, updates: SortOrderUpdate[]) {
+export async function setSupplyOrder(eventId: number, updates: SortOrderUpdate[]) {
   if (updates.length === 0) return;
   await prisma.$transaction(
     updates.map((u) =>
-      prisma.groceryItem.update({
-        where: { id: u.id },
-        data: { category: u.category, sortOrder: u.sortOrder },
-      })
-    )
-  );
-  revalidatePath(`/events/${eventId}`);
-}
-
-export async function setEquipmentOrder(eventId: number, updates: SortOrderUpdate[]) {
-  if (updates.length === 0) return;
-  await prisma.$transaction(
-    updates.map((u) =>
-      prisma.equipment.update({
+      prisma.supply.update({
         where: { id: u.id },
         data: { category: u.category, sortOrder: u.sortOrder },
       })

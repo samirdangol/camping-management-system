@@ -30,7 +30,6 @@ export interface ClaimableActions<
   removeVolunteer: (id: number, eventId: number, familyId: number) => Promise<void>;
   update: (id: number, eventId: number, vals: EditVals) => Promise<void>;
   bulkCreate: (eventId: number, rows: BulkRow[]) => Promise<void>;
-  reorder: (id: number, eventId: number, dir: "up" | "down", category?: string) => Promise<void>;
   bulkReorder: (eventId: number, updates: SortOrderUpdate[]) => Promise<void>;
   renameCategory: (eventId: number, oldName: string, newName: string) => Promise<void>;
   clearCategory: (eventId: number, name: string) => Promise<void>;
@@ -286,27 +285,29 @@ export function useClaimableItems<
     [eventId, fetchData]
   );
 
-  const handleReorder = useCallback(
-    async (id: number, dir: "up" | "down", category?: string) => {
-      await actionsRef.current.reorder(id, eventId, dir, category);
-      await fetchData();
-    },
-    [eventId, fetchData]
-  );
-
   const handleBulkReorder = useCallback(
     async (updates: SortOrderUpdate[]) => {
       if (updates.length === 0) return;
-      // Optimistic: apply the updates to local state immediately so the drag
-      // doesn't visibly snap back while the server round-trips. The full
-      // refetch below reconciles any drift.
+      // Optimistic: apply the updates AND re-sort the array so DOM order
+      // matches the new sortOrder immediately. Without the re-sort, the
+      // grouping useMemo iterates items in their existing array order, so
+      // the dropped row snaps back to its old DOM position and only moves
+      // once the server refetch returns pre-sorted rows ~1s later.
       setItems((prev) => {
         const updateMap = new Map(updates.map((u) => [u.id, u]));
-        return prev.map((item) => {
+        const next = prev.map((item) => {
           const u = updateMap.get(item.id);
           if (!u) return item;
           return { ...item, category: u.category, sortOrder: u.sortOrder };
         });
+        next.sort((a, b) => {
+          const ca = a.category ?? "";
+          const cb = b.category ?? "";
+          if (ca !== cb) return ca.localeCompare(cb);
+          if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;
+          return a.id - b.id;
+        });
+        return next;
       });
       await actionsRef.current.bulkReorder(eventId, updates);
       await fetchData();
@@ -404,7 +405,6 @@ export function useClaimableItems<
     handleSaveEdit,
     handleMoveCategory,
     handleBulkAdd,
-    handleReorder,
     handleBulkReorder,
     handleRenameCategory,
     handleClearCategory,

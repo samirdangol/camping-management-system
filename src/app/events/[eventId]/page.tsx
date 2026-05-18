@@ -15,7 +15,7 @@ export default async function EventDashboardPage({
     include: {
       organizer: true,
       signups: { include: { family: true } },
-      _count: { select: { meals: true, activities: true, groceryItems: true, equipment: true, expenses: true } },
+      _count: { select: { meals: true, activities: true, supplies: true, expenses: true } },
     },
   });
 

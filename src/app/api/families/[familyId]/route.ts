@@ -42,10 +42,8 @@ export async function DELETE(
     mealVolunteers,
     ledActivities,
     activityVolunteers,
-    assignedGroceries,
-    groceryVolunteers,
-    ownedEquipment,
-    equipmentVolunteers,
+    assignedSupplies,
+    supplyVolunteers,
     expenses,
   ] = await Promise.all([
     prisma.eventSignup.count({ where: { familyId: id } }),
@@ -53,10 +51,8 @@ export async function DELETE(
     prisma.mealVolunteer.count({ where: { familyId: id } }),
     prisma.activity.count({ where: { leaderFamilyId: id } }),
     prisma.activityVolunteer.count({ where: { familyId: id } }),
-    prisma.groceryItem.count({ where: { assignedFamilyId: id } }),
-    prisma.groceryVolunteer.count({ where: { familyId: id } }),
-    prisma.equipment.count({ where: { ownerFamilyId: id } }),
-    prisma.equipmentVolunteer.count({ where: { familyId: id } }),
+    prisma.supply.count({ where: { assignedFamilyId: id } }),
+    prisma.supplyVolunteer.count({ where: { familyId: id } }),
     prisma.expense.count({ where: { paidByFamilyId: id } }),
   ]);
 
@@ -66,10 +62,8 @@ export async function DELETE(
   if (mealVolunteers > 0) reasons.push(`Volunteered for ${mealVolunteers} meal(s)`);
   if (ledActivities > 0) reasons.push(`Leading ${ledActivities} activity(ies)`);
   if (activityVolunteers > 0) reasons.push(`Volunteered for ${activityVolunteers} activity(ies)`);
-  if (assignedGroceries > 0) reasons.push(`Assigned to ${assignedGroceries} grocery item(s)`);
-  if (groceryVolunteers > 0) reasons.push(`Volunteered for ${groceryVolunteers} grocery item(s)`);
-  if (ownedEquipment > 0) reasons.push(`Owns ${ownedEquipment} equipment item(s)`);
-  if (equipmentVolunteers > 0) reasons.push(`Volunteered for ${equipmentVolunteers} equipment item(s)`);
+  if (assignedSupplies > 0) reasons.push(`Assigned to ${assignedSupplies} supply item(s)`);
+  if (supplyVolunteers > 0) reasons.push(`Volunteered for ${supplyVolunteers} supply item(s)`);
   if (expenses > 0) reasons.push(`Has ${expenses} expense record(s)`);
 
   if (reasons.length > 0) {

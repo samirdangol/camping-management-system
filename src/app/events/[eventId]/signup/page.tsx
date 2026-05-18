@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Users, Trash2, Pencil } from "lucide-react";
 import { useIsOrganizer } from "@/hooks/use-is-organizer";
+import { useCurrentFamily } from "@/hooks/use-current-family";
 import { emojiMembers } from "@/lib/utils";
 import { FamilyAvatar } from "@/components/shared/family-avatar";
 import { ConfirmDeleteDialog } from "@/components/shared/confirm-delete-dialog";
@@ -18,6 +19,7 @@ import type { Family, SignupWithFamily, HeadcountSummary } from "@/types";
 export default function SignupPage() {
   const { eventId } = useParams<{ eventId: string }>();
   const isOrganizer = useIsOrganizer(eventId);
+  const { familyId: currentFamilyId } = useCurrentFamily();
   const [signups, setSignups] = useState<SignupWithFamily[]>([]);
   const [familyName, setFamilyName] = useState("");
   const [contactName, setContactName] = useState("");
@@ -221,7 +223,7 @@ export default function SignupPage() {
                   <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEdit(s)}>
                     <Pencil className="h-3.5 w-3.5" />
                   </Button>
-                  {isOrganizer && (
+                  {(isOrganizer || s.familyId === currentFamilyId) && (
                     <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleRemove(s.familyId)}>
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
@@ -366,7 +368,11 @@ export default function SignupPage() {
       <ConfirmDeleteDialog
         open={pendingDeleteId !== null}
         title="Remove signup?"
-        description="This will remove the family's registration and all their headcount data for this trip."
+        description={
+          pendingDeleteId === currentFamilyId
+            ? "This will cancel your registration for this trip."
+            : "This will remove the family's registration and all their headcount data for this trip."
+        }
         onConfirm={confirmRemove}
         onCancel={() => setPendingDeleteId(null)}
       />

@@ -18,7 +18,9 @@ export const TARGET_GROUP_LABELS: Record<TargetGroup, string> = {
   elderly: "Elderly",
 };
 
-export const GROCERY_CATEGORIES = [
+/** Suggested supply categories — food + gear merged, deduped. Users can type anything. */
+export const SUPPLY_CATEGORY_SUGGESTIONS = [
+  // food
   "breakfast",
   "lunch/dinner",
   "bbq",
@@ -26,13 +28,7 @@ export const GROCERY_CATEGORIES = [
   "spices",
   "dessert",
   "snacks",
-  "other",
-] as const;
-
-/** Suggested categories shown as autocomplete options — users can type anything */
-export const GROCERY_CATEGORY_SUGGESTIONS = GROCERY_CATEGORIES;
-
-export const EQUIPMENT_CATEGORIES = [
+  // gear
   "cookwares",
   "utensils",
   "bbq utensils",
@@ -40,11 +36,9 @@ export const EQUIPMENT_CATEGORIES = [
   "shelter",
   "lighting",
   "cleaning",
+  // shared
   "other",
 ] as const;
-
-/** Suggested categories shown as autocomplete options — users can type anything */
-export const EQUIPMENT_CATEGORY_SUGGESTIONS = EQUIPMENT_CATEGORIES;
 
 export const EXPENSE_CATEGORIES = [
   "food",

@@ -3,70 +3,62 @@
 import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import {
-  bulkCreateEquipment,
-  updateEquipment,
-  deleteEquipment,
-  claimEquipment,
-  unclaimEquipment,
-  addEquipmentVolunteer,
-  removeEquipmentVolunteer,
-  renameEquipmentCategory,
-  clearEquipmentCategory,
-  reorderEquipment,
-  setEquipmentOrder,
+  bulkCreateSupplies,
+  updateSupply,
+  deleteSupply,
+  claimSupply,
+  unclaimSupply,
+  addSupplyVolunteer,
+  removeSupplyVolunteer,
+  renameSupplyCategory,
+  clearSupplyCategory,
+  setSupplyOrder,
 } from "@/app/actions";
 import { ItemEditCard } from "./item-edit-card";
 import type {
   ClaimableActions,
   ClaimableOwnership,
 } from "./use-claimable-items";
-import type { EquipmentWithOwner } from "@/types";
+import type { SupplyWithFamily } from "@/types";
 
-/* ─── types ─── */
-
-export type EquipmentBulkRow = {
+export type SupplyBulkRow = {
   name: string;
   category?: string;
   notes?: string;
 };
 
-export type EquipmentEditVals = {
+export type SupplyEditVals = {
   name?: string;
   category?: string;
   notes?: string | null;
 };
 
-/* ─── action / ownership bundles ─── */
-
-export const equipmentActions: ClaimableActions<
-  EquipmentWithOwner,
-  EquipmentBulkRow,
-  EquipmentEditVals
+export const supplyActions: ClaimableActions<
+  SupplyWithFamily,
+  SupplyBulkRow,
+  SupplyEditVals
 > = {
   fetchItems: (eventId) =>
-    fetch(`/api/events/${eventId}/equipment`).then((r) => r.json()),
-  claim: claimEquipment,
-  unclaim: unclaimEquipment,
-  delete: deleteEquipment,
-  addVolunteer: addEquipmentVolunteer,
-  removeVolunteer: removeEquipmentVolunteer,
-  update: updateEquipment,
-  bulkCreate: bulkCreateEquipment,
-  reorder: reorderEquipment,
-  bulkReorder: setEquipmentOrder,
-  renameCategory: renameEquipmentCategory,
-  clearCategory: clearEquipmentCategory,
+    fetch(`/api/events/${eventId}/supplies`).then((r) => r.json()),
+  claim: claimSupply,
+  unclaim: unclaimSupply,
+  delete: deleteSupply,
+  addVolunteer: addSupplyVolunteer,
+  removeVolunteer: removeSupplyVolunteer,
+  update: updateSupply,
+  bulkCreate: bulkCreateSupplies,
+  bulkReorder: setSupplyOrder,
+  renameCategory: renameSupplyCategory,
+  clearCategory: clearSupplyCategory,
 };
 
-export const equipmentOwnership: ClaimableOwnership<EquipmentWithOwner> = {
-  getOwnerFamilyId: (i) => i.ownerFamilyId,
-  getOwnerLabel: (i) => i.ownerLabel,
-  getOwner: (i) => i.owner,
+export const supplyOwnership: ClaimableOwnership<SupplyWithFamily> = {
+  getOwnerFamilyId: (i) => i.assignedFamilyId,
+  getOwnerLabel: (i) => i.assignedLabel,
+  getOwner: (i) => i.assignedTo,
 };
 
-/* ─── display body ─── */
-
-export function EquipmentItemBody({ item }: { item: EquipmentWithOwner }) {
+export function SupplyItemBody({ item }: { item: SupplyWithFamily }) {
   return (
     <>
       <span className="text-sm font-medium">{item.name}</span>
@@ -79,17 +71,15 @@ export function EquipmentItemBody({ item }: { item: EquipmentWithOwner }) {
   );
 }
 
-/* ─── edit form ─── */
-
-export function EquipmentItemEditor({
+export function SupplyItemEditor({
   item,
   datalistId,
   onSave,
   onCancel,
 }: {
-  item: EquipmentWithOwner;
+  item: SupplyWithFamily;
   datalistId: string;
-  onSave: (vals: EquipmentEditVals) => Promise<void>;
+  onSave: (vals: SupplyEditVals) => Promise<void>;
   onCancel: () => void;
 }) {
   const [name, setName] = useState(item.name);
@@ -132,7 +122,7 @@ export function EquipmentItemEditor({
       <Input
         value={notes}
         onChange={(e) => setNotes(e.target.value)}
-        placeholder="Note (qty, condition, etc.)"
+        placeholder="Note (qty, brand, condition, etc.)"
         className="h-8 text-sm col-span-2 sm:col-span-3"
       />
     </ItemEditCard>

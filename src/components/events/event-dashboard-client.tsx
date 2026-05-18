@@ -52,8 +52,7 @@ type EventDashboardData = {
   _count: {
     meals: number;
     activities: number;
-    groceryItems: number;
-    equipment: number;
+    supplies: number;
     expenses: number;
   };
   totalExpenses: number;
@@ -286,12 +285,11 @@ export function EventDashboardClient({ event }: { event: EventDashboardData }) {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-4 gap-2 text-center">
+            <div className="grid grid-cols-3 gap-2 text-center">
               {[
                 { label: "Meals", count: event._count.meals, href: `/events/${event.id}/meals` },
                 { label: "Activities", count: event._count.activities, href: `/events/${event.id}/activities` },
-                { label: "Grocery", count: event._count.groceryItems, href: `/events/${event.id}/groceries` },
-                { label: "Equipment", count: event._count.equipment, href: `/events/${event.id}/equipment` },
+                { label: "Supplies", count: event._count.supplies, href: `/events/${event.id}/supplies` },
               ].map(({ label, count, href }) => (
                 <button
                   key={label}
@@ -484,7 +482,7 @@ export function EventDashboardClient({ event }: { event: EventDashboardData }) {
           <DialogHeader>
             <DialogTitle>Delete Trip</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete &quot;{event.title}&quot;? This will remove all signups, meals, activities, groceries, equipment, and expenses. This action cannot be undone.
+              Are you sure you want to delete &quot;{event.title}&quot;? This will remove all signups, meals, activities, supplies, and expenses. This action cannot be undone.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

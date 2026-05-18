@@ -14,8 +14,6 @@ import { FamilyAvatar } from "@/components/shared/family-avatar";
 import { AssignPanel } from "./assign-panel";
 import { MoveCategorySubmenu } from "./move-category-submenu";
 import {
-  ArrowDown,
-  ArrowUp,
   GripVertical,
   Hand,
   MoreVertical,
@@ -36,8 +34,6 @@ export interface ItemCardShellProps<T extends ClaimableItem, EditVals> {
   families: Family[];
   familyId: number | null;
   isOrganizer: boolean;
-  isFirst: boolean;
-  isLast: boolean;
   categoryOptions: string[];
   ownership: ClaimableOwnership<T>;
 
@@ -51,7 +47,6 @@ export interface ItemCardShellProps<T extends ClaimableItem, EditVals> {
   ) => Promise<void>;
   onUnvolunteer: (id: number) => void;
   onSaveEdit: (id: number, vals: EditVals) => Promise<void>;
-  onReorder: (direction: "up" | "down") => Promise<void>;
   onMoveCategory: (id: number, newCategory: string) => Promise<void>;
 
   /** Optional leading slot before the body — e.g. the grocery purchased checkbox. */
@@ -66,11 +61,6 @@ export interface ItemCardShellProps<T extends ClaimableItem, EditVals> {
     onSave: (vals: EditVals) => Promise<void>,
     onCancel: () => void
   ) => ReactNode;
-
-  /** Show the "Move up / Move down" menu items. Default true. The unified
-   *  supplies page hides these because cross-kind reordering has no clean
-   *  semantics. */
-  showReorder?: boolean;
 
   /** Drag-and-drop wiring. Provided by a `useSortable`-aware wrapper. When
    *  omitted, no drag handle is rendered. */
@@ -93,8 +83,6 @@ export function ItemCardShell<T extends ClaimableItem, EditVals>({
   families,
   familyId,
   isOrganizer,
-  isFirst,
-  isLast,
   categoryOptions,
   ownership,
   onDelete,
@@ -103,12 +91,10 @@ export function ItemCardShell<T extends ClaimableItem, EditVals>({
   onOrganizerAssign,
   onUnvolunteer,
   onSaveEdit,
-  onReorder,
   onMoveCategory,
   renderLeading,
   renderBody,
   renderEditor,
-  showReorder = true,
   dnd,
 }: ItemCardShellProps<T, EditVals>) {
   const [editing, setEditing] = useState(false);
@@ -138,7 +124,7 @@ export function ItemCardShell<T extends ClaimableItem, EditVals>({
 
   const bg = needsVolunteer
     ? "bg-card border-border"
-    : "bg-emerald-950/30 border-l-4 border-l-emerald-600 border-emerald-900/40";
+    : "bg-emerald-950/30 border-emerald-900/40";
 
   const draggingCls = dnd?.isDragging ? "opacity-40" : "";
 
@@ -256,24 +242,6 @@ export function ItemCardShell<T extends ClaimableItem, EditVals>({
                 <Pencil className="h-4 w-4" />
                 Edit
               </DropdownMenuItem>
-              {showReorder && (
-                <>
-                  <DropdownMenuItem
-                    onClick={() => onReorder("up")}
-                    disabled={isFirst}
-                  >
-                    <ArrowUp className="h-4 w-4" />
-                    Move up
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => onReorder("down")}
-                    disabled={isLast}
-                  >
-                    <ArrowDown className="h-4 w-4" />
-                    Move down
-                  </DropdownMenuItem>
-                </>
-              )}
               <MoveCategorySubmenu
                 currentCategory={item.category || ""}
                 categoryOptions={categoryOptions}
