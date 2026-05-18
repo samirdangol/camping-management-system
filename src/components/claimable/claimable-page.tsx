@@ -529,6 +529,7 @@ export function ClaimablePage<
           confirmLabel="Clear All"
           onConfirm={async () => {
             await onDeleteAll();
+            await hook.refetch();
             setClearAllOpen(false);
           }}
           onCancel={() => setClearAllOpen(false)}
