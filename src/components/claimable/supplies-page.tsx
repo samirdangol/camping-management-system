@@ -665,7 +665,17 @@ export function SuppliesPage({
     let insertIdx = targetSubgroup.length;
     if (overItemId !== null) {
       const idx = targetSubgroup.findIndex((i) => i.id === overItemId);
-      if (idx !== -1) insertIdx = idx;
+      if (idx !== -1) {
+        const movedCategory = moved.category?.trim() ?? "";
+        const sameCategory = movedCategory === overCategory;
+        const overItem = targetSubgroup[idx];
+        // Within the same category, removing `moved` from the list shifts
+        // every later index down by 1. So when dragging downward (moved
+        // originally sat above `over`), insert *after* `over` to land on
+        // the slot the user actually pointed at.
+        insertIdx =
+          sameCategory && moved.sortOrder < overItem.sortOrder ? idx + 1 : idx;
+      }
     }
 
     const newOrder = [
