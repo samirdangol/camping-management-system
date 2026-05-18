@@ -368,7 +368,7 @@ export async function removeActivityVolunteer(activityId: number, eventId: numbe
 
 export async function createGroceryItem(
   eventId: number,
-  data: { name: string; category?: string; quantity?: string; estimatedCost?: number; assignedFamilyId?: number; mealTag?: string; notes?: string }
+  data: { name: string; category?: string; estimatedCost?: number; assignedFamilyId?: number; mealTag?: string; notes?: string }
 ) {
   // Auto-assign sortOrder at the end
   const maxSort = await prisma.groceryItem.aggregate({ where: { eventId }, _max: { sortOrder: true } });
@@ -379,7 +379,6 @@ export async function createGroceryItem(
       eventId,
       name: data.name,
       category: data.category || null,
-      quantity: data.quantity || null,
       estimatedCost: data.estimatedCost || null,
       assignedFamilyId: data.assignedFamilyId || null,
       mealTag: data.mealTag || null,
@@ -393,7 +392,7 @@ export async function createGroceryItem(
 export async function updateGroceryItem(
   itemId: number,
   eventId: number,
-  data: { name?: string; category?: string; quantity?: string; estimatedCost?: number | null; assignedFamilyId?: number | null; isPurchased?: boolean; mealTag?: string | null; notes?: string }
+  data: { name?: string; category?: string; estimatedCost?: number | null; assignedFamilyId?: number | null; mealTag?: string | null; notes?: string | null }
 ) {
   await prisma.groceryItem.update({
     where: { id: itemId },
@@ -426,17 +425,9 @@ export async function unclaimGroceryItem(itemId: number, eventId: number) {
   revalidatePath(`/events/${eventId}`);
 }
 
-export async function toggleGroceryPurchased(itemId: number, eventId: number, isPurchased: boolean) {
-  await prisma.groceryItem.update({
-    where: { id: itemId },
-    data: { isPurchased },
-  });
-  revalidatePath(`/events/${eventId}`);
-}
-
 export async function bulkCreateGroceryItems(
   eventId: number,
-  items: Array<{ name: string; category?: string; quantity?: string; estimatedCost?: number; mealTag?: string }>
+  items: Array<{ name: string; category?: string; estimatedCost?: number; mealTag?: string; notes?: string }>
 ) {
   const maxSort = await prisma.groceryItem.aggregate({ where: { eventId }, _max: { sortOrder: true } });
   let nextSort = (maxSort._max.sortOrder ?? 0) + 10;
@@ -449,9 +440,9 @@ export async function bulkCreateGroceryItems(
         eventId,
         name: item.name,
         category: item.category || null,
-        quantity: item.quantity || null,
         estimatedCost: item.estimatedCost || null,
         mealTag: item.mealTag || null,
+        notes: item.notes || null,
         sortOrder,
       };
     }),
@@ -463,7 +454,7 @@ export async function bulkCreateGroceryItems(
 
 export async function createEquipment(
   eventId: number,
-  data: { name: string; category?: string; quantity?: number; ownerFamilyId?: number; notes?: string }
+  data: { name: string; category?: string; ownerFamilyId?: number; notes?: string }
 ) {
   const maxSort = await prisma.equipment.aggregate({ where: { eventId }, _max: { sortOrder: true } });
   const nextSort = (maxSort._max.sortOrder ?? 0) + 10;
@@ -473,7 +464,6 @@ export async function createEquipment(
       eventId,
       name: data.name,
       category: data.category || null,
-      quantity: data.quantity || 1,
       ownerFamilyId: data.ownerFamilyId || null,
       sortOrder: nextSort,
       notes: data.notes || null,
@@ -485,7 +475,7 @@ export async function createEquipment(
 export async function updateEquipment(
   itemId: number,
   eventId: number,
-  data: { name?: string; category?: string; quantity?: number; ownerFamilyId?: number | null; notes?: string }
+  data: { name?: string; category?: string; ownerFamilyId?: number | null; notes?: string | null }
 ) {
   await prisma.equipment.update({
     where: { id: itemId },
@@ -501,7 +491,7 @@ export async function deleteEquipment(itemId: number, eventId: number) {
 
 export async function bulkCreateEquipment(
   eventId: number,
-  items: Array<{ name: string; category?: string; quantity?: number; notes?: string }>
+  items: Array<{ name: string; category?: string; notes?: string }>
 ) {
   const maxSort = await prisma.equipment.aggregate({ where: { eventId }, _max: { sortOrder: true } });
   let nextSort = (maxSort._max.sortOrder ?? 0) + 10;
@@ -514,7 +504,6 @@ export async function bulkCreateEquipment(
         eventId,
         name: item.name,
         category: item.category || null,
-        quantity: item.quantity || 1,
         notes: item.notes || null,
         sortOrder,
       };

@@ -2,10 +2,8 @@
 
 import { useState } from "react";
 import { useParams } from "next/navigation";
-import { toggleGroceryPurchased } from "@/app/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Checkbox } from "@/components/ui/checkbox";
 import { useCurrentFamily } from "@/hooks/use-current-family";
 import { useIsOrganizer } from "@/hooks/use-is-organizer";
 import { GROCERY_CATEGORY_SUGGESTIONS } from "@/lib/constants";
@@ -23,7 +21,7 @@ import type { GroceryWithFamily } from "@/types";
 
 const DATALIST_ID = "grocery-cat-suggestions";
 
-/** Standalone-page inline quick-add row (name + qty string). */
+/** Standalone-page inline quick-add row (name + free-text note). */
 function GroceryQuickAddRow({
   category,
   displayName,
@@ -34,7 +32,7 @@ function GroceryQuickAddRow({
   onAdd: (row: GroceryBulkRow) => Promise<void>;
 }) {
   const [name, setName] = useState("");
-  const [qty, setQty] = useState("");
+  const [note, setNote] = useState("");
   const [adding, setAdding] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -44,10 +42,10 @@ function GroceryQuickAddRow({
     await onAdd({
       name: name.trim(),
       category: category || undefined,
-      quantity: qty || undefined,
+      notes: note.trim() || undefined,
     });
     setName("");
-    setQty("");
+    setNote("");
     setAdding(false);
   }
 
@@ -60,10 +58,10 @@ function GroceryQuickAddRow({
         className="h-8 text-sm flex-1"
       />
       <Input
-        value={qty}
-        onChange={(e) => setQty(e.target.value)}
-        placeholder="Qty"
-        className="h-8 text-sm w-16"
+        value={note}
+        onChange={(e) => setNote(e.target.value)}
+        placeholder="Note (optional)"
+        className="h-8 text-sm w-32"
       />
       <Button
         type="submit"
@@ -103,10 +101,6 @@ export default function GroceriesPage() {
         needsHelp: (n) => `Needs Help (${n})`,
         mine: (n) => `My Items (${n})`,
       }}
-      renderItemCountExtra={(items) => {
-        const purchased = items.filter((i) => i.isPurchased).length;
-        return purchased > 0 ? ` · ${purchased} purchased` : null;
-      }}
       categorySuggestions={GROCERY_CATEGORY_SUGGESTIONS}
       importTitle="Import Groceries"
       importPlaceholder={
@@ -115,16 +109,6 @@ export default function GroceriesPage() {
       deleteDialogTitle="Delete grocery item?"
       deleteDialogDescription="This will permanently remove the item and any volunteer assignments."
       unvolunteerDialogDescription="This will remove you as a volunteer for this grocery item."
-      renderLeading={(item, refetch) => (
-        <Checkbox
-          checked={item.isPurchased}
-          onCheckedChange={async () => {
-            await toggleGroceryPurchased(item.id, eid, !item.isPurchased);
-            await refetch();
-          }}
-          className="shrink-0"
-        />
-      )}
       renderBody={(item) => <GroceryItemBody item={item} />}
       renderEditor={(item, onSave, onCancel) => (
         <GroceryItemEditor

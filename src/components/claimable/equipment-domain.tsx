@@ -27,15 +27,13 @@ import type { EquipmentWithOwner } from "@/types";
 export type EquipmentBulkRow = {
   name: string;
   category?: string;
-  quantity?: number;
   notes?: string;
 };
 
 export type EquipmentEditVals = {
   name?: string;
   category?: string;
-  quantity?: number;
-  notes?: string;
+  notes?: string | null;
 };
 
 /* ─── action / ownership bundles ─── */
@@ -72,9 +70,6 @@ export function EquipmentItemBody({ item }: { item: EquipmentWithOwner }) {
   return (
     <>
       <span className="text-sm font-medium">{item.name}</span>
-      {item.quantity > 1 && (
-        <span className="text-xs text-muted-foreground">×{item.quantity}</span>
-      )}
       {item.notes && (
         <span className="text-xs text-muted-foreground italic">
           {item.notes}
@@ -99,7 +94,6 @@ export function EquipmentItemEditor({
 }) {
   const [name, setName] = useState(item.name);
   const [category, setCategory] = useState(item.category || "");
-  const [qty, setQty] = useState(String(item.quantity));
   const [notes, setNotes] = useState(item.notes || "");
   const [busy, setBusy] = useState(false);
 
@@ -109,8 +103,7 @@ export function EquipmentItemEditor({
     await onSave({
       name: name.trim(),
       category: category.trim() || undefined,
-      quantity: parseInt(qty) || 1,
-      notes: notes.trim() || undefined,
+      notes: notes.trim() || null,
     });
     setBusy(false);
   }
@@ -137,18 +130,10 @@ export function EquipmentItemEditor({
         className="h-8 text-sm"
       />
       <Input
-        type="number"
-        min={1}
-        value={qty}
-        onChange={(e) => setQty(e.target.value)}
-        placeholder="Qty"
-        className="h-8 text-sm"
-      />
-      <Input
         value={notes}
         onChange={(e) => setNotes(e.target.value)}
-        placeholder="Notes"
-        className="h-8 text-sm col-span-2 sm:col-span-4"
+        placeholder="Note (qty, condition, etc.)"
+        className="h-8 text-sm col-span-2 sm:col-span-3"
       />
     </ItemEditCard>
   );
