@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import {
   bulkCreateGroceryItems,
   updateGroceryItem,
@@ -28,14 +27,12 @@ import type { GroceryWithFamily } from "@/types";
 export type GroceryBulkRow = {
   name: string;
   category?: string;
-  mealTag?: string;
   notes?: string;
 };
 
 export type GroceryEditVals = {
   name?: string;
   category?: string;
-  mealTag?: string | null;
   notes?: string | null;
 };
 
@@ -78,11 +75,6 @@ export function GroceryItemBody({ item }: { item: GroceryWithFamily }) {
           {item.notes}
         </span>
       )}
-      {item.mealTag && (
-        <Badge className="text-[10px] px-1.5 py-0 bg-purple-900/40 text-purple-300 hover:bg-purple-900/50">
-          {item.mealTag}
-        </Badge>
-      )}
     </>
   );
 }
@@ -103,7 +95,6 @@ export function GroceryItemEditor({
   const [name, setName] = useState(item.name);
   const [category, setCategory] = useState(item.category || "");
   const [notes, setNotes] = useState(item.notes || "");
-  const [mealTag, setMealTag] = useState(item.mealTag || "");
   const [busy, setBusy] = useState(false);
 
   async function handleSave() {
@@ -113,7 +104,6 @@ export function GroceryItemEditor({
       name: name.trim(),
       category: category.trim() || undefined,
       notes: notes.trim() || null,
-      mealTag: mealTag.trim() || null,
     });
     setBusy(false);
   }
@@ -137,12 +127,6 @@ export function GroceryItemEditor({
         value={category}
         onChange={(e) => setCategory(e.target.value)}
         placeholder="Category"
-        className="h-8 text-sm"
-      />
-      <Input
-        value={mealTag}
-        onChange={(e) => setMealTag(e.target.value)}
-        placeholder="Meal tag"
         className="h-8 text-sm"
       />
       <Input
