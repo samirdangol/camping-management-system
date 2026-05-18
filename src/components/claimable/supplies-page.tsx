@@ -55,9 +55,9 @@ import {
 import type { ReactNode } from "react";
 import type { GroceryWithFamily, EquipmentWithOwner } from "@/types";
 
-const DATALIST_ID = "bring-list-cat-suggestions";
+const DATALIST_ID = "supplies-cat-suggestions";
 
-type BringItem =
+type SupplyItem =
   | { kind: "food"; item: GroceryWithFamily }
   | { kind: "gear"; item: EquipmentWithOwner };
 
@@ -92,7 +92,7 @@ function KindChip({ kind }: { kind: "food" | "gear" }) {
 
 /* ─── quick-add row with kind toggle ─── */
 
-function BringListQuickAdd({
+function SuppliesQuickAdd({
   category,
   displayName,
   onAddFood,
@@ -186,8 +186,8 @@ function BringListQuickAdd({
 
 /* ─── item row (routes per kind) ─── */
 
-function BringItemRow({
-  bringItem,
+function SupplyItemRow({
+  supplyItem,
   isOrganizer,
   familyId,
   families,
@@ -195,7 +195,7 @@ function BringItemRow({
   food,
   gear,
 }: {
-  bringItem: BringItem;
+  supplyItem: SupplyItem;
   isOrganizer: boolean;
   familyId: number | null;
   families: ReturnType<
@@ -213,8 +213,8 @@ function BringItemRow({
     >
   >;
 }) {
-  if (bringItem.kind === "food") {
-    const item = bringItem.item;
+  if (supplyItem.kind === "food") {
+    const item = supplyItem.item;
     return (
       <ItemCardShell<GroceryWithFamily, GroceryEditVals>
         item={item}
@@ -264,7 +264,7 @@ function BringItemRow({
     );
   }
 
-  const item = bringItem.item;
+  const item = supplyItem.item;
   return (
     <ItemCardShell<EquipmentWithOwner, EquipmentEditVals>
       item={item}
@@ -306,7 +306,7 @@ function BringItemRow({
 
 /* ─── category section ─── */
 
-function BringCategorySection({
+function SupplyCategorySection({
   category,
   items,
   isOrganizer,
@@ -319,7 +319,7 @@ function BringCategorySection({
   onClear,
 }: {
   category: string;
-  items: BringItem[];
+  items: SupplyItem[];
   isOrganizer: boolean;
   familyId: number | null;
   families: ReturnType<
@@ -463,9 +463,9 @@ function BringCategorySection({
       {!collapsed && (
         <div className="space-y-1.5 pl-6">
           {items.map((bi) => (
-            <BringItemRow
+            <SupplyItemRow
               key={`${bi.kind}-${bi.item.id}`}
-              bringItem={bi}
+              supplyItem={bi}
               isOrganizer={isOrganizer}
               familyId={familyId}
               families={families}
@@ -475,7 +475,7 @@ function BringCategorySection({
             />
           ))}
 
-          <BringListQuickAdd
+          <SuppliesQuickAdd
             category={category}
             displayName={displayName}
             onAddFood={handleAddFood}
@@ -489,7 +489,7 @@ function BringCategorySection({
 
 /* ─── main shell ─── */
 
-export function BringListPage({
+export function SuppliesPage({
   eventId,
   familyId,
   isOrganizer,
@@ -526,7 +526,7 @@ export function BringListPage({
 
   /* ── merge ── */
 
-  const allItems = useMemo<BringItem[]>(
+  const allItems = useMemo<SupplyItem[]>(
     () => [
       ...food.items.map((item) => ({ kind: "food" as const, item })),
       ...gear.items.map((item) => ({ kind: "gear" as const, item })),
@@ -536,7 +536,7 @@ export function BringListPage({
 
   /* ── filter ── */
 
-  const filtered = useMemo<BringItem[]>(() => {
+  const filtered = useMemo<SupplyItem[]>(() => {
     return allItems.filter(({ kind, item }) => {
       if (filter === "food") return kind === "food";
       if (filter === "gear") return kind === "gear";
@@ -573,8 +573,8 @@ export function BringListPage({
   /* ── group by category ── */
 
   const { byCategory, categoryOrder, uncategorized } = useMemo(() => {
-    const map: Record<string, BringItem[]> = {};
-    const uncat: BringItem[] = [];
+    const map: Record<string, SupplyItem[]> = {};
+    const uncat: SupplyItem[] = [];
     for (const bi of filtered) {
       const cat = bi.item.category?.trim();
       if (cat) {
@@ -585,7 +585,7 @@ export function BringListPage({
       }
     }
     // Within a category, food first then gear, then by sortOrder.
-    const sorter = (a: BringItem, b: BringItem) => {
+    const sorter = (a: SupplyItem, b: SupplyItem) => {
       if (a.kind !== b.kind) return a.kind === "food" ? -1 : 1;
       return a.item.sortOrder - b.item.sortOrder;
     };
@@ -751,7 +751,7 @@ export function BringListPage({
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <h2 className="text-lg font-semibold">Bring List</h2>
+          <h2 className="text-lg font-semibold">Supplies</h2>
           {familyId && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -803,7 +803,7 @@ export function BringListPage({
       {filtered.length === 0 && (
         <EmptyState
           icon={Package}
-          title="Nothing to bring yet"
+          title="No supplies yet"
           description={
             filter !== "all"
               ? "No items match this filter."
@@ -814,7 +814,7 @@ export function BringListPage({
 
       {/* Category sections */}
       {categoryOrder.map((cat) => (
-        <BringCategorySection
+        <SupplyCategorySection
           key={cat}
           category={cat}
           items={byCategory[cat]}
@@ -827,7 +827,7 @@ export function BringListPage({
       {/* New (empty) categories */}
       {newCategories.map((cat) =>
         !categoryOrder.includes(cat) ? (
-          <BringCategorySection
+          <SupplyCategorySection
             key={`new-${cat}`}
             category={cat}
             items={[]}
@@ -840,7 +840,7 @@ export function BringListPage({
 
       {/* Uncategorized */}
       {uncategorized.length > 0 && (
-        <BringCategorySection
+        <SupplyCategorySection
           key="__uncategorized__"
           category=""
           items={uncategorized}

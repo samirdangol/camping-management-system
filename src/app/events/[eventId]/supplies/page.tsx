@@ -3,16 +3,16 @@
 import { useParams } from "next/navigation";
 import { useCurrentFamily } from "@/hooks/use-current-family";
 import { useIsOrganizer } from "@/hooks/use-is-organizer";
-import { BringListPage } from "@/components/claimable/bring-list-page";
+import { SuppliesPage } from "@/components/claimable/supplies-page";
 
-export default function BringListRoute() {
+export default function SuppliesRoute() {
   const { eventId } = useParams<{ eventId: string }>();
   const eid = parseInt(eventId, 10);
   const { familyId } = useCurrentFamily();
   const isOrganizer = useIsOrganizer(eventId);
 
   return (
-    <BringListPage
+    <SuppliesPage
       eventId={eid}
       familyId={familyId}
       isOrganizer={isOrganizer}

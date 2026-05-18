@@ -67,7 +67,7 @@ export interface ItemCardShellProps<T extends ClaimableItem, EditVals> {
   ) => ReactNode;
 
   /** Show the "Move up / Move down" menu items. Default true. The unified
-   *  bring-list hides these because cross-kind reordering has no clean
+   *  supplies page hides these because cross-kind reordering has no clean
    *  semantics. */
   showReorder?: boolean;
 }

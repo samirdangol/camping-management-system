@@ -19,7 +19,7 @@ const tabs: { label: string; href: string; icon: LucideIcon }[] = [
   { label: "Overview", href: "", icon: LayoutDashboard },
   { label: "Signup", href: "/signup", icon: Users },
   { label: "Meals", href: "/meals", icon: UtensilsCrossed },
-  { label: "Bring List", href: "/bring-list", icon: Package },
+  { label: "Supplies", href: "/supplies", icon: Package },
   { label: "Activities", href: "/activities", icon: TreePine },
   { label: "Expenses", href: "/expenses", icon: DollarSign },
 ];
