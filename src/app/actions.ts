@@ -651,6 +651,34 @@ export async function reorderEquipment(itemId: number, eventId: number, directio
   revalidatePath(`/events/${eventId}`);
 }
 
+export type SortOrderUpdate = { id: number; category: string | null; sortOrder: number };
+
+export async function setGroceryOrder(eventId: number, updates: SortOrderUpdate[]) {
+  if (updates.length === 0) return;
+  await prisma.$transaction(
+    updates.map((u) =>
+      prisma.groceryItem.update({
+        where: { id: u.id },
+        data: { category: u.category, sortOrder: u.sortOrder },
+      })
+    )
+  );
+  revalidatePath(`/events/${eventId}`);
+}
+
+export async function setEquipmentOrder(eventId: number, updates: SortOrderUpdate[]) {
+  if (updates.length === 0) return;
+  await prisma.$transaction(
+    updates.map((u) =>
+      prisma.equipment.update({
+        where: { id: u.id },
+        data: { category: u.category, sortOrder: u.sortOrder },
+      })
+    )
+  );
+  revalidatePath(`/events/${eventId}`);
+}
+
 // ============ EXPENSE ACTIONS ============
 
 export async function createExpense(

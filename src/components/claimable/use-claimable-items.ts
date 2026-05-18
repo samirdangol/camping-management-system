@@ -31,9 +31,16 @@ export interface ClaimableActions<
   update: (id: number, eventId: number, vals: EditVals) => Promise<void>;
   bulkCreate: (eventId: number, rows: BulkRow[]) => Promise<void>;
   reorder: (id: number, eventId: number, dir: "up" | "down", category?: string) => Promise<void>;
+  bulkReorder: (eventId: number, updates: SortOrderUpdate[]) => Promise<void>;
   renameCategory: (eventId: number, oldName: string, newName: string) => Promise<void>;
   clearCategory: (eventId: number, name: string) => Promise<void>;
 }
+
+export type SortOrderUpdate = {
+  id: number;
+  category: string | null;
+  sortOrder: number;
+};
 
 export interface ClaimableOwnership<T> {
   getOwnerFamilyId: (item: T) => number | null;
@@ -287,6 +294,26 @@ export function useClaimableItems<
     [eventId, fetchData]
   );
 
+  const handleBulkReorder = useCallback(
+    async (updates: SortOrderUpdate[]) => {
+      if (updates.length === 0) return;
+      // Optimistic: apply the updates to local state immediately so the drag
+      // doesn't visibly snap back while the server round-trips. The full
+      // refetch below reconciles any drift.
+      setItems((prev) => {
+        const updateMap = new Map(updates.map((u) => [u.id, u]));
+        return prev.map((item) => {
+          const u = updateMap.get(item.id);
+          if (!u) return item;
+          return { ...item, category: u.category, sortOrder: u.sortOrder };
+        });
+      });
+      await actionsRef.current.bulkReorder(eventId, updates);
+      await fetchData();
+    },
+    [eventId, fetchData]
+  );
+
   const handleRenameCategory = useCallback(
     async (oldName: string, newName: string) => {
       if (!newName.trim() || newName.trim() === oldName) return;
@@ -378,6 +405,7 @@ export function useClaimableItems<
     handleMoveCategory,
     handleBulkAdd,
     handleReorder,
+    handleBulkReorder,
     handleRenameCategory,
     handleClearCategory,
 

@@ -14,6 +14,7 @@ import {
   renameGroceryCategory,
   clearGroceryCategory,
   reorderGroceryItem,
+  setGroceryOrder,
 } from "@/app/actions";
 import { ItemEditCard } from "./item-edit-card";
 import type {
@@ -57,6 +58,7 @@ export const groceryActions: ClaimableActions<
   update: updateGroceryItem,
   bulkCreate: bulkCreateGroceryItems,
   reorder: reorderGroceryItem,
+  bulkReorder: setGroceryOrder,
   renameCategory: renameGroceryCategory,
   clearCategory: clearGroceryCategory,
 };

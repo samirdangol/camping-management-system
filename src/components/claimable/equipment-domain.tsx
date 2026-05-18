@@ -13,6 +13,7 @@ import {
   renameEquipmentCategory,
   clearEquipmentCategory,
   reorderEquipment,
+  setEquipmentOrder,
 } from "@/app/actions";
 import { ItemEditCard } from "./item-edit-card";
 import type {
@@ -54,6 +55,7 @@ export const equipmentActions: ClaimableActions<
   update: updateEquipment,
   bulkCreate: bulkCreateEquipment,
   reorder: reorderEquipment,
+  bulkReorder: setEquipmentOrder,
   renameCategory: renameEquipmentCategory,
   clearCategory: clearEquipmentCategory,
 };

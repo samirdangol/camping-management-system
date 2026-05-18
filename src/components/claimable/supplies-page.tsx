@@ -1,7 +1,25 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import {
+  DndContext,
+  DragOverlay,
+  PointerSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+  closestCenter,
+  type DragEndEvent,
+  type DragStartEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { toggleGroceryPurchased } from "@/app/actions";
+import type { SortOrderUpdate } from "./use-claimable-items";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -186,6 +204,24 @@ function SuppliesQuickAdd({
 
 /* ─── item row (routes per kind) ─── */
 
+/** A stable string id for a supply item that encodes its kind. Used as
+ *  the SortableContext item id so the page-level DndContext can tell food
+ *  and gear apart from the drag events alone. */
+function supplyDragId(si: SupplyItem): string {
+  return `${si.kind}-${si.item.id}`;
+}
+
+function parseDragId(
+  id: string | number | null | undefined
+): { kind: "food" | "gear"; id: number } | null {
+  if (typeof id !== "string") return null;
+  const [kind, rest] = id.split("-", 2);
+  if (kind !== "food" && kind !== "gear") return null;
+  const numId = parseInt(rest, 10);
+  if (Number.isNaN(numId)) return null;
+  return { kind, id: numId };
+}
+
 function SupplyItemRow({
   supplyItem,
   isOrganizer,
@@ -213,6 +249,18 @@ function SupplyItemRow({
     >
   >;
 }) {
+  const sortable = useSortable({ id: supplyDragId(supplyItem) });
+  const dnd = {
+    setNodeRef: sortable.setNodeRef,
+    style: {
+      transform: CSS.Transform.toString(sortable.transform),
+      transition: sortable.transition,
+    },
+    attributes: sortable.attributes,
+    listeners: sortable.listeners,
+    isDragging: sortable.isDragging,
+  };
+
   if (supplyItem.kind === "food") {
     const item = supplyItem.item;
     return (
@@ -236,6 +284,7 @@ function SupplyItemRow({
         }}
         onMoveCategory={food.handleMoveCategory}
         showReorder={false}
+        dnd={dnd}
         renderLeading={(it) => (
           <Checkbox
             checked={it.isPurchased}
@@ -286,6 +335,7 @@ function SupplyItemRow({
       }}
       onMoveCategory={gear.handleMoveCategory}
       showReorder={false}
+      dnd={dnd}
       renderBody={(it) => (
         <>
           <KindChip kind="gear" />
@@ -462,18 +512,53 @@ function SupplyCategorySection({
 
       {!collapsed && (
         <div className="space-y-1.5 pl-6">
-          {items.map((bi) => (
-            <SupplyItemRow
-              key={`${bi.kind}-${bi.item.id}`}
-              supplyItem={bi}
-              isOrganizer={isOrganizer}
-              familyId={familyId}
-              families={families}
-              categoryOptions={categoryOptions}
-              food={food}
-              gear={gear}
-            />
-          ))}
+          {/* Two adjacent SortableContexts (food, then gear) so that items
+              are only sortable among their own kind. The page-level
+              DndContext supplies the drag events. */}
+          <SortableContext
+            id={`food@@${category}`}
+            items={items
+              .filter((si) => si.kind === "food")
+              .map(supplyDragId)}
+            strategy={verticalListSortingStrategy}
+          >
+            {items
+              .filter((si) => si.kind === "food")
+              .map((bi) => (
+                <SupplyItemRow
+                  key={supplyDragId(bi)}
+                  supplyItem={bi}
+                  isOrganizer={isOrganizer}
+                  familyId={familyId}
+                  families={families}
+                  categoryOptions={categoryOptions}
+                  food={food}
+                  gear={gear}
+                />
+              ))}
+          </SortableContext>
+          <SortableContext
+            id={`gear@@${category}`}
+            items={items
+              .filter((si) => si.kind === "gear")
+              .map(supplyDragId)}
+            strategy={verticalListSortingStrategy}
+          >
+            {items
+              .filter((si) => si.kind === "gear")
+              .map((bi) => (
+                <SupplyItemRow
+                  key={supplyDragId(bi)}
+                  supplyItem={bi}
+                  isOrganizer={isOrganizer}
+                  familyId={familyId}
+                  families={families}
+                  categoryOptions={categoryOptions}
+                  food={food}
+                  gear={gear}
+                />
+              ))}
+          </SortableContext>
 
           <SuppliesQuickAdd
             category={category}
@@ -523,6 +608,96 @@ export function SuppliesPage({
   const [filter, setFilter] = useState<Filter>("all");
   const [newCatInput, setNewCatInput] = useState("");
   const [importOpen, setImportOpen] = useState<"food" | "gear" | null>(null);
+  const [activeDragId, setActiveDragId] = useState<string | null>(null);
+
+  // Pointer needs a small distance to start a drag so clicks on the handle
+  // don't immediately become drags. Touch uses a delay (long-press) so
+  // scrolling the page stays primary.
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 5 } })
+  );
+
+  function handleDragStart(e: DragStartEvent) {
+    setActiveDragId(typeof e.active.id === "string" ? e.active.id : null);
+  }
+
+  function handleDragEnd(e: DragEndEvent) {
+    setActiveDragId(null);
+    const { active, over } = e;
+    if (!over || active.id === over.id) return;
+
+    const a = parseDragId(active.id as string);
+    if (!a) return;
+
+    // Resolve target kind + category, either from another item or from a
+    // SortableContext id (drop on empty subgroup).
+    let overKind: "food" | "gear" | null = null;
+    let overCategory = "";
+    let overItemId: number | null = null;
+
+    const b = parseDragId(over.id as string);
+    if (b) {
+      overKind = b.kind;
+      overItemId = b.id;
+      if (b.kind === "food") {
+        const item = food.items.find((i) => i.id === b.id);
+        if (!item) return;
+        overCategory = item.category?.trim() ?? "";
+      } else {
+        const item = gear.items.find((i) => i.id === b.id);
+        if (!item) return;
+        overCategory = item.category?.trim() ?? "";
+      }
+    } else if (typeof over.id === "string" && over.id.includes("@@")) {
+      const [kind, cat] = over.id.split("@@", 2);
+      if (kind !== "food" && kind !== "gear") return;
+      overKind = kind;
+      overCategory = cat;
+    } else {
+      return;
+    }
+
+    // Cross-kind drops snap back — food and gear live in separate tables
+    // and the visual sort groups them; mixing breaks the grouping.
+    if (a.kind !== overKind) return;
+
+    const kind = a.kind;
+    const list = kind === "food" ? food.items : gear.items;
+    const moved = list.find((i) => i.id === a.id);
+    if (!moved) return;
+
+    const targetSubgroup = list
+      .filter(
+        (i) => (i.category?.trim() ?? "") === overCategory && i.id !== a.id
+      )
+      .sort((x, y) => x.sortOrder - y.sortOrder);
+
+    let insertIdx = targetSubgroup.length;
+    if (overItemId !== null) {
+      const idx = targetSubgroup.findIndex((i) => i.id === overItemId);
+      if (idx !== -1) insertIdx = idx;
+    }
+
+    const newOrder = [
+      ...targetSubgroup.slice(0, insertIdx),
+      moved,
+      ...targetSubgroup.slice(insertIdx),
+    ];
+
+    const targetCategoryDb = overCategory || null;
+    const updates: SortOrderUpdate[] = newOrder.map((item, idx) => ({
+      id: item.id,
+      category: targetCategoryDb,
+      sortOrder: (idx + 1) * 10,
+    }));
+
+    if (kind === "food") {
+      food.handleBulkReorder(updates);
+    } else {
+      gear.handleBulkReorder(updates);
+    }
+  }
 
   /* ── merge ── */
 
@@ -812,41 +987,59 @@ export function SuppliesPage({
         />
       )}
 
-      {/* Category sections */}
-      {categoryOrder.map((cat) => (
-        <SupplyCategorySection
-          key={cat}
-          category={cat}
-          items={byCategory[cat]}
-          {...sectionShared}
-          onRename={(newName) => handleRenameCategory(cat, newName)}
-          onClear={() => handleClearCategory(cat)}
-        />
-      ))}
+      {/* Category sections — wrapped in a single DndContext so items can
+          be dragged between (category, kind) subgroups. */}
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+        onDragCancel={() => setActiveDragId(null)}
+      >
+        <div className="space-y-6">
+          {categoryOrder.map((cat) => (
+            <SupplyCategorySection
+              key={cat}
+              category={cat}
+              items={byCategory[cat]}
+              {...sectionShared}
+              onRename={(newName) => handleRenameCategory(cat, newName)}
+              onClear={() => handleClearCategory(cat)}
+            />
+          ))}
 
-      {/* New (empty) categories */}
-      {newCategories.map((cat) =>
-        !categoryOrder.includes(cat) ? (
-          <SupplyCategorySection
-            key={`new-${cat}`}
-            category={cat}
-            items={[]}
-            {...sectionShared}
-            onRename={(newName) => renameNewCategory(cat, newName)}
-            onClear={() => removeNewCategory(cat)}
-          />
-        ) : null
-      )}
+          {/* New (empty) categories */}
+          {newCategories.map((cat) =>
+            !categoryOrder.includes(cat) ? (
+              <SupplyCategorySection
+                key={`new-${cat}`}
+                category={cat}
+                items={[]}
+                {...sectionShared}
+                onRename={(newName) => renameNewCategory(cat, newName)}
+                onClear={() => removeNewCategory(cat)}
+              />
+            ) : null
+          )}
 
-      {/* Uncategorized */}
-      {uncategorized.length > 0 && (
-        <SupplyCategorySection
-          key="__uncategorized__"
-          category=""
-          items={uncategorized}
-          {...sectionShared}
-        />
-      )}
+          {/* Uncategorized */}
+          {uncategorized.length > 0 && (
+            <SupplyCategorySection
+              key="__uncategorized__"
+              category=""
+              items={uncategorized}
+              {...sectionShared}
+            />
+          )}
+        </div>
+        <DragOverlay>
+          {activeDragId ? (
+            <div className="rounded-lg border bg-card px-2.5 py-2 text-sm shadow-lg opacity-90">
+              Moving…
+            </div>
+          ) : null}
+        </DragOverlay>
+      </DndContext>
 
       {/* Add Category */}
       <form

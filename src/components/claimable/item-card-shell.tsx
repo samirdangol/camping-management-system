@@ -16,6 +16,7 @@ import { MoveCategorySubmenu } from "./move-category-submenu";
 import {
   ArrowDown,
   ArrowUp,
+  GripVertical,
   Hand,
   MoreVertical,
   Pencil,
@@ -23,7 +24,7 @@ import {
   UserPlus,
   X,
 } from "lucide-react";
-import type { ReactNode } from "react";
+import type { CSSProperties, HTMLAttributes, ReactNode, Ref } from "react";
 import type { Family } from "@/types";
 import type {
   ClaimableItem,
@@ -70,6 +71,16 @@ export interface ItemCardShellProps<T extends ClaimableItem, EditVals> {
    *  supplies page hides these because cross-kind reordering has no clean
    *  semantics. */
   showReorder?: boolean;
+
+  /** Drag-and-drop wiring. Provided by a `useSortable`-aware wrapper. When
+   *  omitted, no drag handle is rendered. */
+  dnd?: {
+    setNodeRef: Ref<HTMLDivElement>;
+    style?: CSSProperties;
+    attributes?: HTMLAttributes<HTMLElement>;
+    listeners?: HTMLAttributes<HTMLElement>;
+    isDragging?: boolean;
+  };
 }
 
 /**
@@ -98,6 +109,7 @@ export function ItemCardShell<T extends ClaimableItem, EditVals>({
   renderBody,
   renderEditor,
   showReorder = true,
+  dnd,
 }: ItemCardShellProps<T, EditVals>) {
   const [editing, setEditing] = useState(false);
   const [showAssignPanel, setShowAssignPanel] = useState(false);
@@ -128,9 +140,26 @@ export function ItemCardShell<T extends ClaimableItem, EditVals>({
     ? "bg-card border-border"
     : "bg-emerald-950/30 border-l-4 border-l-emerald-600 border-emerald-900/40";
 
+  const draggingCls = dnd?.isDragging ? "opacity-40" : "";
+
   return (
-    <div className={`rounded-lg border p-2.5 ${bg}`}>
+    <div
+      ref={dnd?.setNodeRef}
+      style={dnd?.style}
+      {...(dnd?.attributes ?? {})}
+      className={`rounded-lg border p-2.5 ${bg} ${draggingCls}`}
+    >
       <div className="flex items-center gap-2">
+        {dnd && (
+          <button
+            type="button"
+            aria-label="Drag to reorder"
+            className="touch-none shrink-0 cursor-grab active:cursor-grabbing text-muted-foreground/60 hover:text-muted-foreground"
+            {...(dnd.listeners ?? {})}
+          >
+            <GripVertical className="h-4 w-4" />
+          </button>
+        )}
         {renderLeading?.(item)}
         <div className="flex-1 min-w-0 flex items-center gap-1.5 flex-wrap">
           {needsVolunteer && (
