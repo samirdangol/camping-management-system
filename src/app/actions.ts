@@ -8,7 +8,7 @@ import { getCurrentGroup } from "@/lib/auth";
 
 export async function signupFamily(
   eventId: number,
-  familyData: { name: string; contactName: string; contactName2?: string; phone?: string; email?: string; pin?: string; paypalMe?: string },
+  familyData: { name: string; contactName: string; contactName2?: string; phone?: string; email?: string; pin?: string; paypalMe?: string; familyId?: number },
   headcount: { adults: number; kids: number; elderly: number; vegetarians: number; notes?: string }
 ) {
   if (familyData.pin && !/^\d{4}$/.test(familyData.pin)) {
@@ -18,15 +18,16 @@ export async function signupFamily(
   const { groupId } = await getCurrentGroup();
 
   const result = await prisma.$transaction(async (tx) => {
-    // Find existing family by name within the same group
-    let family = await tx.family.findFirst({
-      where: { name: familyData.name, groupId: groupId ?? null },
-    });
+    // When editing, look up by ID so renames work correctly
+    let family = familyData.familyId
+      ? await tx.family.findUnique({ where: { id: familyData.familyId } })
+      : await tx.family.findFirst({ where: { name: familyData.name, groupId: groupId ?? null } });
 
     if (family) {
       family = await tx.family.update({
         where: { id: family.id },
         data: {
+          name: familyData.name,
           contactName: familyData.contactName,
           contactName2: familyData.contactName2 || null,
           phone: familyData.phone || null,

@@ -61,7 +61,6 @@ export default function SignupPage() {
 
   function handleFamilyNameChange(value: string) {
     setFamilyName(value);
-    setEditingFamilyId(null);
 
     if (debounceRef.current) clearTimeout(debounceRef.current);
 
@@ -87,7 +86,7 @@ export default function SignupPage() {
     setPaypalMe(family.paypalMe || "");
     setShowSuggestions(false);
 
-    // If already signed up for this event, load their headcount
+    // If already signed up for this event, load their headcount; always set editing ID
     const existing = signups.find((s) => s.familyId === family.id);
     if (existing) {
       setAdults(existing.adults);
@@ -95,8 +94,8 @@ export default function SignupPage() {
       setElderly(existing.elderly);
       setVegetarians(existing.vegetarians);
       setNotes(existing.notes || "");
-      setEditingFamilyId(family.id);
     }
+    setEditingFamilyId(family.id);
   }
 
   function handleEdit(signup: SignupWithFamily) {
@@ -138,7 +137,7 @@ export default function SignupPage() {
     setLoading(true);
     await signupFamily(
       parseInt(eventId, 10),
-      { name: familyName.trim(), contactName: contactName.trim(), contactName2: contactName2.trim() || undefined, phone: phone || undefined, email: email || undefined, paypalMe: paypalMe.trim() || undefined },
+      { name: familyName.trim(), contactName: contactName.trim(), contactName2: contactName2.trim() || undefined, phone: phone || undefined, email: email || undefined, paypalMe: paypalMe.trim() || undefined, familyId: editingFamilyId ?? undefined },
       { adults, kids, elderly, vegetarians, notes: notes || undefined }
     );
     await fetchSignups();
