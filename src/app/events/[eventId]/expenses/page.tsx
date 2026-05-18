@@ -59,7 +59,7 @@ import { toast } from "sonner";
 import { useIsOrganizer } from "@/hooks/use-is-organizer";
 import { FamilyAvatar } from "@/components/shared/family-avatar";
 import { ConfirmDeleteDialog } from "@/components/shared/confirm-delete-dialog";
-import type { Family, ExpenseWithFamily, ExpenseSummary } from "@/types";
+import type { Family, ExpenseWithFamily, ExpenseSummary, SettlementTransaction } from "@/types";
 
 type SignupInfo = {
   familyId: number;
@@ -369,6 +369,131 @@ export default function ExpensesPage() {
   const allReady = familyStatuses.length > 0 && familyStatuses.every((f) => f.ready);
   const readyCount = familyStatuses.filter((f) => f.ready).length;
 
+  const payingIn = summary?.settlements.filter((s) => s.to.id === summary.collector?.id) ?? [];
+  const payingOut = summary?.settlements.filter((s) => s.from.id === summary.collector?.id) ?? [];
+
+  function renderSettlement(s: SettlementTransaction, key: number) {
+    const isSettled = settlementPayments.some(
+      (p) => p.fromFamilyId === s.from.id && p.toFamilyId === s.to.id
+    );
+    const canSettle = familyId === s.from.id || familyId === s.to.id || isOrganizer;
+    return (
+      <div
+        key={key}
+        className={`relative rounded-lg border p-2.5 transition-colors ${
+          isSettled ? "bg-emerald-950/20 border-emerald-800/40" : "bg-card border-border"
+        }`}
+      >
+        {!isSettled && (
+          <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-red-500" />
+        )}
+        <div className="text-red-400 font-medium text-sm text-center inline-flex items-center justify-center w-full">
+          <FamilyAvatar familyId={s.from.id} />{s.from.name}
+        </div>
+        <div className="flex justify-center my-1">
+          <ArrowDown className="h-5 w-5 text-muted-foreground" aria-label="pays" />
+        </div>
+        <div className="text-emerald-400 font-medium text-sm text-center inline-flex items-center justify-center w-full">
+          <FamilyAvatar familyId={s.to.id} />{s.to.name}
+        </div>
+        <div className="text-center text-xl font-bold tabular-nums mt-2">
+          {formatCurrency(s.amount)}
+        </div>
+        <div className="flex items-center justify-center mt-2 pt-2 border-t border-border/40 gap-2">
+          <div className="flex items-center flex-wrap justify-center gap-2">
+            {isSettled ? (
+              <>
+                <Badge variant="secondary" className="text-[10px] bg-emerald-900/40 text-emerald-300 border-emerald-800/50 gap-1">
+                  <CheckCircle2 className="h-2.5 w-2.5" />
+                  Settled
+                </Badge>
+                {canSettle && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 text-[10px] text-muted-foreground"
+                    onClick={() => handleUnmarkSettled(s.from.id, s.to.id)}
+                  >
+                    Undo
+                  </Button>
+                )}
+              </>
+            ) : canSettle ? (
+              <>
+                {(() => {
+                  const toFamily = families.find((f) => f.id === s.to.id);
+                  if (!toFamily) return null;
+                  const canEdit = familyId === s.to.id || isOrganizer;
+                  const isSelf = familyId === s.to.id;
+                  return (
+                    <>
+                      {toFamily.paypalMe ? (
+                        <a
+                          href={`https://paypal.me/${toFamily.paypalMe}/${s.amount.toFixed(2)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 h-6 px-2 rounded-md text-[10px] font-medium bg-blue-600 text-white hover:bg-blue-500 transition-colors"
+                        >
+                          <DollarSign className="h-2.5 w-2.5" />
+                          PayPal
+                        </a>
+                      ) : canEdit ? (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 text-[10px] gap-1 text-blue-400 hover:text-blue-300"
+                          onClick={() => openPaypalEdit(toFamily)}
+                        >
+                          <DollarSign className="h-2.5 w-2.5" />
+                          {isSelf ? "Set up your PayPal" : "Add PayPal"}
+                        </Button>
+                      ) : null}
+                      {toFamily.phone ? (
+                        <button
+                          type="button"
+                          onClick={() => copyZelle(toFamily.phone!)}
+                          title={`Copy Zelle phone: ${toFamily.phone}`}
+                          className="inline-flex items-center gap-1 h-6 px-2 rounded-md text-[10px] font-medium bg-purple-600 text-white hover:bg-purple-500 transition-colors"
+                        >
+                          <Smartphone className="h-2.5 w-2.5" />
+                          Zelle
+                        </button>
+                      ) : canEdit ? (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 text-[10px] gap-1 text-purple-400 hover:text-purple-300"
+                          onClick={() => openZelleEdit(toFamily)}
+                        >
+                          <Smartphone className="h-2.5 w-2.5" />
+                          {isSelf ? "Set up your Zelle" : "Add Zelle"}
+                        </Button>
+                      ) : null}
+                    </>
+                  );
+                })()}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-6 text-[10px] gap-1"
+                  onClick={() => handleMarkSettled(s.from.id, s.to.id, s.amount)}
+                >
+                  <Check className="h-2.5 w-2.5" />
+                  Mark as Paid
+                </Button>
+              </>
+            ) : (
+              <Badge variant="secondary" className="text-[10px] bg-muted text-muted-foreground gap-1">
+                <Clock className="h-2.5 w-2.5" />
+                Pending
+              </Badge>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (loading)
     return (
       <div className="text-center py-8 text-muted-foreground">Loading...</div>
@@ -640,7 +765,7 @@ export default function ExpensesPage() {
                     Centralized settlement: <FamilyAvatar familyId={summary.collector.id} className="w-5 h-5 mr-1" />{summary.collector.name} collects and redistributes
                   </div>
                   <p className="text-xs text-blue-400/80">
-                    With {summary.balances.filter((b) => Math.abs(b.balance) > 0.01).length} families involved, everyone pays one person instead of tracking many bilateral payments.
+                    Everyone pays one person instead of tracking many bilateral payments.
                   </p>
                 </div>
               )}
@@ -658,130 +783,26 @@ export default function ExpensesPage() {
                       )}
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-2">
-                    {summary.settlements.map((s, i) => {
-                      const isSettled = settlementPayments.some(
-                        (p) => p.fromFamilyId === s.from.id && p.toFamilyId === s.to.id
-                      );
-                      const canSettle = familyId === s.from.id || familyId === s.to.id || isOrganizer;
-                      return (
-                        <div
-                          key={i}
-                          className={`relative rounded-lg border p-2.5 transition-colors ${
-                            isSettled
-                              ? "bg-emerald-950/20 border-emerald-800/40"
-                              : "bg-card border-border"
-                          }`}
-                        >
-                          {!isSettled && (
-                            <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-red-500" />
-                          )}
-                          <div className="text-red-400 font-medium text-sm text-center inline-flex items-center justify-center w-full">
-                            <FamilyAvatar familyId={s.from.id} />{s.from.name}
-                          </div>
-                          <div className="flex justify-center my-1">
-                            <ArrowDown className="h-5 w-5 text-muted-foreground" aria-label="pays" />
-                          </div>
-                          <div className="text-emerald-400 font-medium text-sm text-center inline-flex items-center justify-center w-full">
-                            <FamilyAvatar familyId={s.to.id} />{s.to.name}
-                          </div>
-                          <div className="text-center text-xl font-bold tabular-nums mt-2">
-                            {formatCurrency(s.amount)}
-                          </div>
-                          <div className="flex items-center justify-center mt-2 pt-2 border-t border-border/40 gap-2">
-                            <div className="flex items-center flex-wrap justify-center gap-2">
-                            {isSettled ? (
-                              <>
-                                <Badge variant="secondary" className="text-[10px] bg-emerald-900/40 text-emerald-300 border-emerald-800/50 gap-1">
-                                  <CheckCircle2 className="h-2.5 w-2.5" />
-                                  Settled
-                                </Badge>
-                                {canSettle && (
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-6 text-[10px] text-muted-foreground"
-                                    onClick={() => handleUnmarkSettled(s.from.id, s.to.id)}
-                                  >
-                                    Undo
-                                  </Button>
-                                )}
-                              </>
-                            ) : canSettle ? (
-                              <>
-                                {(() => {
-                                  const toFamily = families.find((f) => f.id === s.to.id);
-                                  if (!toFamily) return null;
-                                  const canEdit = familyId === s.to.id || isOrganizer;
-                                  const isSelf = familyId === s.to.id;
-                                  return (
-                                    <>
-                                      {toFamily.paypalMe ? (
-                                        <a
-                                          href={`https://paypal.me/${toFamily.paypalMe}/${s.amount.toFixed(2)}`}
-                                          target="_blank"
-                                          rel="noopener noreferrer"
-                                          className="inline-flex items-center gap-1 h-6 px-2 rounded-md text-[10px] font-medium bg-blue-600 text-white hover:bg-blue-500 transition-colors"
-                                        >
-                                          <DollarSign className="h-2.5 w-2.5" />
-                                          PayPal
-                                        </a>
-                                      ) : canEdit ? (
-                                        <Button
-                                          variant="ghost"
-                                          size="sm"
-                                          className="h-6 text-[10px] gap-1 text-blue-400 hover:text-blue-300"
-                                          onClick={() => openPaypalEdit(toFamily)}
-                                        >
-                                          <DollarSign className="h-2.5 w-2.5" />
-                                          {isSelf ? "Set up your PayPal" : "Add PayPal"}
-                                        </Button>
-                                      ) : null}
-                                      {toFamily.phone ? (
-                                        <button
-                                          type="button"
-                                          onClick={() => copyZelle(toFamily.phone!)}
-                                          title={`Copy Zelle phone: ${toFamily.phone}`}
-                                          className="inline-flex items-center gap-1 h-6 px-2 rounded-md text-[10px] font-medium bg-purple-600 text-white hover:bg-purple-500 transition-colors"
-                                        >
-                                          <Smartphone className="h-2.5 w-2.5" />
-                                          Zelle
-                                        </button>
-                                      ) : canEdit ? (
-                                        <Button
-                                          variant="ghost"
-                                          size="sm"
-                                          className="h-6 text-[10px] gap-1 text-purple-400 hover:text-purple-300"
-                                          onClick={() => openZelleEdit(toFamily)}
-                                        >
-                                          <Smartphone className="h-2.5 w-2.5" />
-                                          {isSelf ? "Set up your Zelle" : "Add Zelle"}
-                                        </Button>
-                                      ) : null}
-                                    </>
-                                  );
-                                })()}
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="h-6 text-[10px] gap-1"
-                                  onClick={() => handleMarkSettled(s.from.id, s.to.id, s.amount)}
-                                >
-                                  <Check className="h-2.5 w-2.5" />
-                                  Mark as Paid
-                                </Button>
-                              </>
-                            ) : (
-                              <Badge variant="secondary" className="text-[10px] bg-muted text-muted-foreground gap-1">
-                                <Clock className="h-2.5 w-2.5" />
-                                Pending
-                              </Badge>
-                            )}
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
+                  <CardContent className="space-y-4">
+                    {payingIn.length > 0 && (
+                      <div className="space-y-2">
+                        <p className="text-xs font-medium text-muted-foreground">
+                          Paying <span className="text-foreground">{summary.collector?.name}</span>
+                        </p>
+                        {payingIn.map((s, i) => renderSettlement(s, i))}
+                      </div>
+                    )}
+                    {payingIn.length > 0 && payingOut.length > 0 && (
+                      <div className="border-t border-border" />
+                    )}
+                    {payingOut.length > 0 && (
+                      <div className="space-y-2">
+                        <p className="text-xs font-medium text-muted-foreground">
+                          <span className="text-foreground">{summary.collector?.name}</span> redistributes
+                        </p>
+                        {payingOut.map((s, i) => renderSettlement(s, payingIn.length + i))}
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               )}

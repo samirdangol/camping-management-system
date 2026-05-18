@@ -2,9 +2,6 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import type { ExpenseSummary, Family, FamilyBalance, SettlementTransaction } from "@/types";
 
-// When 4+ families have non-zero balances, route everything through the
-// highest receiver instead of pairing debtors and creditors directly.
-const CENTRALIZED_THRESHOLD = 4;
 const EPSILON = 0.01;
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
@@ -50,14 +47,10 @@ export async function GET(
 
   const creditors = balances.filter((b) => b.balance > EPSILON).map((b) => ({ ...b }));
   const debtors = balances.filter((b) => b.balance < -EPSILON).map((b) => ({ ...b, balance: Math.abs(b.balance) }));
-  const nonZeroCount = creditors.length + debtors.length;
-
-  const useCentralized = nonZeroCount >= CENTRALIZED_THRESHOLD && creditors.length > 0 && debtors.length > 0;
-
   let settlements: SettlementTransaction[] = [];
   let collector: Family | undefined;
 
-  if (useCentralized) {
+  if (creditors.length > 0 && debtors.length > 0) {
     // Highest receiver collects from all debtors, then redistributes to other creditors.
     const hub = creditors[0];
     collector = hub.family;
@@ -74,24 +67,6 @@ export async function GET(
         amount: round2(c.balance),
       })),
     ];
-  } else {
-    // Bilateral greedy minimum-cash-flow.
-    let ci = 0;
-    let di = 0;
-    while (ci < creditors.length && di < debtors.length) {
-      const amount = Math.min(creditors[ci].balance, debtors[di].balance);
-      if (amount > EPSILON) {
-        settlements.push({
-          from: debtors[di].family,
-          to: creditors[ci].family,
-          amount: round2(amount),
-        });
-      }
-      creditors[ci].balance -= amount;
-      debtors[di].balance -= amount;
-      if (creditors[ci].balance < EPSILON) ci++;
-      if (debtors[di].balance < EPSILON) di++;
-    }
   }
 
   const summary: ExpenseSummary = {
@@ -100,7 +75,7 @@ export async function GET(
     perFamilyShare: round2(perFamilyShare),
     balances,
     settlements,
-    settlementMode: useCentralized ? "centralized" : "bilateral",
+    settlementMode: "centralized",
     collector,
   };
 
