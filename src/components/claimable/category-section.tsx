@@ -10,7 +10,22 @@ import { CSS } from "@dnd-kit/utilities";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Check, ChevronDown, ChevronRight, Pencil, X } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Check,
+  ChevronDown,
+  ChevronRight,
+  Pencil,
+  Trash2,
+  X,
+} from "lucide-react";
 import { ItemCardShell, type ItemCardShellProps } from "./item-card-shell";
 import type { ReactNode } from "react";
 import type { Family } from "@/types";
@@ -124,6 +139,7 @@ export function ClaimableCategorySection<
   const [collapsed, setCollapsed] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState(category);
+  const [confirmingClear, setConfirmingClear] = useState(false);
 
   const claimed = items.filter(
     (i) =>
@@ -208,7 +224,7 @@ export function ClaimableCategorySection<
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                className="h-6 w-6 opacity-40 group-hover:opacity-100 transition-opacity"
                 onClick={startRename}
                 title="Rename category"
               >
@@ -219,16 +235,46 @@ export function ClaimableCategorySection<
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-red-500 hover:text-destructive"
-                onClick={onClear}
+                className="h-6 w-6 opacity-40 group-hover:opacity-100 transition-opacity text-red-500 hover:text-destructive"
+                onClick={() => setConfirmingClear(true)}
                 title="Remove category (items move to Uncategorized)"
               >
-                <X className="h-3 w-3" />
+                <Trash2 className="h-3 w-3" />
               </Button>
             )}
           </>
         )}
       </div>
+
+      <Dialog open={confirmingClear} onOpenChange={setConfirmingClear}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Remove "{displayName}" category?</DialogTitle>
+            <DialogDescription>
+              {items.length === 0
+                ? "This category has no items. It will be removed from the list."
+                : `${items.length} item${items.length === 1 ? "" : "s"} will move to Uncategorized. Items, claims, and notes are preserved — you can undo from the toast.`}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="ghost"
+              onClick={() => setConfirmingClear(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                setConfirmingClear(false);
+                onClear?.();
+              }}
+            >
+              Move to Uncategorized
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {!collapsed && (
         <div className="space-y-1.5 pl-2">

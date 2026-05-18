@@ -461,6 +461,19 @@ export async function clearSupplyCategory(eventId: number, categoryName: string)
   revalidatePath(`/events/${eventId}`);
 }
 
+export async function restoreSupplyCategory(
+  eventId: number,
+  supplyIds: number[],
+  categoryName: string
+) {
+  if (supplyIds.length === 0) return;
+  await prisma.supply.updateMany({
+    where: { eventId, id: { in: supplyIds } },
+    data: { category: categoryName },
+  });
+  revalidatePath(`/events/${eventId}`);
+}
+
 export async function addSupplyVolunteer(supplyId: number, eventId: number, familyId: number) {
   await prisma.supplyVolunteer.create({
     data: { supplyId, familyId },

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
 import type { Family } from "@/types";
 
 export interface ClaimableVolunteer {
@@ -33,6 +34,7 @@ export interface ClaimableActions<
   bulkReorder: (eventId: number, updates: SortOrderUpdate[]) => Promise<void>;
   renameCategory: (eventId: number, oldName: string, newName: string) => Promise<void>;
   clearCategory: (eventId: number, name: string) => Promise<void>;
+  restoreCategory: (eventId: number, itemIds: number[], name: string) => Promise<void>;
 }
 
 export type SortOrderUpdate = {
@@ -329,11 +331,26 @@ export function useClaimableItems<
 
   const handleClearCategory = useCallback(
     async (categoryName: string) => {
+      const affectedIds = items
+        .filter((i) => i.category === categoryName)
+        .map((i) => i.id);
       await actionsRef.current.clearCategory(eventId, categoryName);
       setNewCategories((prev) => prev.filter((c) => c !== categoryName));
       await fetchData();
+      if (affectedIds.length > 0) {
+        toast(`Moved ${affectedIds.length} item${affectedIds.length === 1 ? "" : "s"} to Uncategorized`, {
+          action: {
+            label: "Undo",
+            onClick: async () => {
+              await actionsRef.current.restoreCategory(eventId, affectedIds, categoryName);
+              await fetchData();
+            },
+          },
+          duration: 8000,
+        });
+      }
     },
-    [eventId, fetchData]
+    [eventId, fetchData, items]
   );
 
   const addNewCategory = useCallback(

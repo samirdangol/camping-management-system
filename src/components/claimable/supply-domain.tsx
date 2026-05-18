@@ -12,6 +12,7 @@ import {
   removeSupplyVolunteer,
   renameSupplyCategory,
   clearSupplyCategory,
+  restoreSupplyCategory,
   setSupplyOrder,
 } from "@/app/actions";
 import { ItemEditCard } from "./item-edit-card";
@@ -50,6 +51,7 @@ export const supplyActions: ClaimableActions<
   bulkReorder: setSupplyOrder,
   renameCategory: renameSupplyCategory,
   clearCategory: clearSupplyCategory,
+  restoreCategory: restoreSupplyCategory,
 };
 
 export const supplyOwnership: ClaimableOwnership<SupplyWithFamily> = {
