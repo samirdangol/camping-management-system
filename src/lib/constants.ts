@@ -49,10 +49,5 @@ export const EXPENSE_CATEGORIES = [
   "other",
 ] as const;
 
-export const EVENT_STATUSES = [
-  "upcoming",
-  "active",
-  "completed",
-  "cancelled",
-] as const;
-export type EventStatus = (typeof EVENT_STATUSES)[number];
+// Event lifecycle is now derived from dates via `getEventPhase()` in lib/event-phase.ts.
+// The `status` column on CampingEvent is only used to flag "cancelled" — everything else flows from dates.

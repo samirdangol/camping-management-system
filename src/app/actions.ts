@@ -90,6 +90,8 @@ export async function createEvent(formData: FormData) {
   const description = (formData.get("description") as string) || null;
   const startDate = new Date(formData.get("startDate") as string);
   const endDate = new Date(formData.get("endDate") as string);
+  const signupDeadlineRaw = formData.get("signupDeadline") as string | null;
+  const signupDeadline = signupDeadlineRaw ? new Date(signupDeadlineRaw) : null;
   const familyId = parseInt(formData.get("familyId") as string, 10);
   const reservationNo = (formData.get("reservationNo") as string) || null;
   const checkIn = (formData.get("checkIn") as string) || null;
@@ -105,7 +107,7 @@ export async function createEvent(formData: FormData) {
   const result = await prisma.$transaction(async (tx) => {
     const event = await tx.campingEvent.create({
       data: {
-        title, location, locationUrl, description, startDate, endDate,
+        title, location, locationUrl, description, startDate, endDate, signupDeadline,
         organizerFamilyId: familyId,
         groupId: groupId ?? null,
         reservationNo,
@@ -134,6 +136,8 @@ export async function updateEvent(eventId: number, formData: FormData) {
   const description = (formData.get("description") as string) || null;
   const startDate = new Date(formData.get("startDate") as string);
   const endDate = new Date(formData.get("endDate") as string);
+  const signupDeadlineRaw = formData.get("signupDeadline") as string | null;
+  const signupDeadline = signupDeadlineRaw ? new Date(signupDeadlineRaw) : null;
   const reservationNo = (formData.get("reservationNo") as string) || null;
   const checkIn = (formData.get("checkIn") as string) || null;
   const checkOut = (formData.get("checkOut") as string) || null;
@@ -144,7 +148,7 @@ export async function updateEvent(eventId: number, formData: FormData) {
   await prisma.campingEvent.update({
     where: { id: eventId },
     data: {
-      title, location, locationUrl, description, startDate, endDate,
+      title, location, locationUrl, description, startDate, endDate, signupDeadline,
       reservationNo,
       checkIn,
       checkOut,

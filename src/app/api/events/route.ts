@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentGroup } from "@/lib/auth";
+import { computeSettlementStatus } from "@/lib/settlement-status";
 
 export async function GET(request: NextRequest) {
   const familyId = request.nextUrl.searchParams.get("familyId");
@@ -28,9 +29,21 @@ export async function GET(request: NextRequest) {
     include: {
       organizer: true,
       _count: { select: { signups: true } },
+      expenses: { select: { amount: true, paidByFamilyId: true } },
+      signups: { select: { familyId: true } },
+      settlementPayments: { select: { fromFamilyId: true, toFamilyId: true } },
     },
     orderBy: { startDate: "desc" },
   });
 
-  return NextResponse.json(events);
+  const enriched = events.map(({ expenses, signups, settlementPayments, ...rest }) => {
+    const { allSettled } = computeSettlementStatus(
+      expenses,
+      signups.map((s) => s.familyId),
+      settlementPayments,
+    );
+    return { ...rest, allSettled };
+  });
+
+  return NextResponse.json(enriched);
 }

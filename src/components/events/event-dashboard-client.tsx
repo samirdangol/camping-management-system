@@ -19,9 +19,9 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Users, UtensilsCrossed, DollarSign, Pencil, Trash2, ExternalLink, Upload, X, Clock, ClipboardList, ChevronRight } from "lucide-react";
+import { Users, UtensilsCrossed, DollarSign, Pencil, Trash2, ExternalLink, Upload, X, ClipboardList, ChevronRight, Ban, RotateCcw } from "lucide-react";
 import { formatCurrency, blobUrl } from "@/lib/utils";
-import { EVENT_STATUSES } from "@/lib/constants";
+import { getEventPhase, PHASE_BADGE_CLASSES, PHASE_LABELS, PHASE_DESCRIPTIONS } from "@/lib/event-phase";
 import type { Family } from "@/types";
 
 type EventDashboardData = {
@@ -32,6 +32,7 @@ type EventDashboardData = {
   description: string | null;
   startDate: string;
   endDate: string;
+  signupDeadline: string | null;
   reservationNo: string | null;
   checkIn: string | null;
   checkOut: string | null;
@@ -56,16 +57,12 @@ type EventDashboardData = {
     expenses: number;
   };
   totalExpenses: number;
-};
-
-const STATUS_COLORS: Record<string, string> = {
-  upcoming: "bg-blue-900/40 text-blue-300",
-  active: "bg-emerald-900/40 text-emerald-300",
-  completed: "bg-muted text-muted-foreground",
-  cancelled: "bg-red-900/40 text-red-300",
+  allSettled: boolean;
 };
 
 export function EventDashboardClient({ event }: { event: EventDashboardData }) {
+  const phase = getEventPhase(event);
+  const isCancelled = phase === "cancelled";
   const { familyId } = useCurrentFamily();
   const router = useRouter();
   const isOrganizer = familyId === event.organizerFamilyId;
@@ -125,8 +122,8 @@ export function EventDashboardClient({ event }: { event: EventDashboardData }) {
     router.push("/events");
   }
 
-  async function handleStatusChange(status: string) {
-    await updateEventStatus(event.id, status);
+  async function toggleCancelled() {
+    await updateEventStatus(event.id, isCancelled ? "" : "cancelled");
     router.refresh();
   }
 
@@ -147,40 +144,35 @@ export function EventDashboardClient({ event }: { event: EventDashboardData }) {
 
   return (
     <div className="space-y-6">
-      {/* Status + Organizer Controls */}
+      {/* Phase + Organizer Controls */}
       <div className="flex flex-wrap items-center gap-2">
-        <Badge className={STATUS_COLORS[event.status] || "bg-gray-100 text-gray-700"}>
-          {event.status}
+        <Badge className={PHASE_BADGE_CLASSES[phase]} variant="secondary">
+          {PHASE_LABELS[phase]}
         </Badge>
+        <span className="text-xs text-muted-foreground">{PHASE_DESCRIPTIONS[phase]}</span>
         {isOrganizer && (
-          <>
+          <div className="flex flex-wrap gap-2 ml-auto">
             <Button variant="outline" size="sm" onClick={openEditDialog}>
               <Pencil className="h-3.5 w-3.5 mr-1" /> Edit
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className={isCancelled ? "" : "text-red-600 hover:text-red-700"}
+              onClick={toggleCancelled}
+            >
+              {isCancelled ? (
+                <><RotateCcw className="h-3.5 w-3.5 mr-1" /> Restore</>
+              ) : (
+                <><Ban className="h-3.5 w-3.5 mr-1" /> Cancel</>
+              )}
             </Button>
             <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700" onClick={() => setDeletingDialog(true)}>
               <Trash2 className="h-3.5 w-3.5 mr-1" /> Delete
             </Button>
-          </>
+          </div>
         )}
       </div>
-
-      {/* Status Quick-Change (organizer only) */}
-      {isOrganizer && (
-        <div className="flex flex-wrap gap-1.5">
-          {EVENT_STATUSES.map((s) => (
-            <Button
-              key={s}
-              variant={event.status === s ? "default" : "outline"}
-              size="sm"
-              className="text-xs h-7 capitalize"
-              onClick={() => handleStatusChange(s)}
-              disabled={event.status === s}
-            >
-              {s}
-            </Button>
-          ))}
-        </div>
-      )}
 
       {event.description && (
         <p className="text-sm text-muted-foreground">{event.description}</p>
@@ -370,6 +362,17 @@ export function EventDashboardClient({ event }: { event: EventDashboardData }) {
                 <Label htmlFor="edit-endDate">End Date</Label>
                 <Input id="edit-endDate" name="endDate" type="date" defaultValue={fmtDate(event.endDate)} required />
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-signupDeadline">Signup Deadline</Label>
+              <Input
+                id="edit-signupDeadline"
+                name="signupDeadline"
+                type="date"
+                defaultValue={event.signupDeadline ? fmtDate(event.signupDeadline) : ""}
+              />
+              <p className="text-xs text-muted-foreground">Leave empty to keep signups open until the trip starts.</p>
             </div>
 
             {/* Reservation fields */}

@@ -12,6 +12,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useCurrentFamily } from "@/hooks/use-current-family";
 import { Plus, Tent, MapPin, Calendar, Users } from "lucide-react";
+import {
+  getEventPhase,
+  isPastPhase,
+  isOpenForSignup,
+  PHASE_BADGE_CLASSES,
+  PHASE_LABELS,
+  PHASE_LIST_ORDER,
+  type Phase,
+} from "@/lib/event-phase";
 import type { Family } from "@/types";
 
 type EventWithOrganizer = {
@@ -22,19 +31,16 @@ type EventWithOrganizer = {
   campsiteUrl: string | null;
   startDate: string;
   endDate: string;
+  signupDeadline: string | null;
   status: string;
   description: string | null;
   inviteCode: string;
   organizer: Family;
+  allSettled: boolean;
   _count: { signups: number };
 };
 
-const statusColors: Record<string, string> = {
-  upcoming: "bg-blue-900/40 text-blue-300 border-blue-700/50",
-  active: "bg-emerald-900/40 text-emerald-300 border-emerald-700/50",
-  completed: "bg-muted text-muted-foreground",
-  cancelled: "bg-red-900/40 text-red-300 border-red-700/50",
-};
+type EventWithPhase = EventWithOrganizer & { phase: Phase };
 
 export default function EventsPage() {
   const { familyId, isLoaded } = useCurrentFamily();
@@ -62,19 +68,26 @@ export default function EventsPage() {
         setCommunityEvents(
           allEvents.filter(
             (e: EventWithOrganizer) =>
-              !myEventIds.has(e.id) &&
-              (e.status === "upcoming" || e.status === "active")
+              !myEventIds.has(e.id) && isOpenForSignup(getEventPhase(e))
           )
         );
       })
       .finally(() => setLoading(false));
   }, [familyId, isLoaded]);
 
-  const upcoming = events
-    .filter((e) => e.status === "upcoming" || e.status === "active")
+  const withPhase: EventWithPhase[] = events.map((e) => ({ ...e, phase: getEventPhase(e) }));
+  const upcoming = withPhase
+    .filter((e) => e.phase === "signup")
     .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
-  const past = events
-    .filter((e) => e.status === "completed" || e.status === "cancelled")
+  const active = withPhase
+    .filter((e) => e.phase === "planning" || e.phase === "live" || e.phase === "settlement")
+    .sort((a, b) => {
+      const orderDiff = PHASE_LIST_ORDER[a.phase] - PHASE_LIST_ORDER[b.phase];
+      if (orderDiff !== 0) return orderDiff;
+      return new Date(a.startDate).getTime() - new Date(b.startDate).getTime();
+    });
+  const past = withPhase
+    .filter((e) => isPastPhase(e.phase))
     .sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime());
 
   if (!isLoaded || loading) {
@@ -116,8 +129,8 @@ export default function EventsPage() {
                     <CardHeader className="pb-1.5 px-3 pt-3">
                       <div className="flex items-start justify-between">
                         <CardTitle className="text-base">{event.title}</CardTitle>
-                        <Badge className={statusColors[event.status]} variant="secondary">
-                          {event.status}
+                        <Badge className={PHASE_BADGE_CLASSES[event.phase]} variant="secondary">
+                          {PHASE_LABELS[event.phase]}
                         </Badge>
                       </div>
                     </CardHeader>
@@ -135,6 +148,42 @@ export default function EventsPage() {
                         {event._count.signups} {event._count.signups === 1 ? "family" : "families"}
                       </div>
                       {event.description && <p className="text-xs">{event.description}</p>}
+                      <div className="text-xs inline-flex items-center">Organized by <FamilyAvatar familyId={event.organizer.id} className="w-4 h-4 text-[10px] ml-1 mr-0.5" />{event.organizer.name}</div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {active.length > 0 && (
+            <section className="space-y-2">
+              <h2 className="text-base font-semibold">Active Trips</h2>
+              <p className="text-xs text-muted-foreground">Planning, on the trip, or wrapping up expenses</p>
+              <div className="grid gap-2">
+                {active.map((event) => (
+                  <Card key={event.id} className="hover:border-primary/40 transition-colors cursor-pointer" onClick={() => router.push(`/events/${event.id}`)}>
+                    <CardHeader className="pb-1.5 px-3 pt-3">
+                      <div className="flex items-start justify-between">
+                        <CardTitle className="text-base">{event.title}</CardTitle>
+                        <Badge className={PHASE_BADGE_CLASSES[event.phase]} variant="secondary">
+                          {PHASE_LABELS[event.phase]}
+                        </Badge>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-1 text-sm text-muted-foreground px-3 pb-3">
+                      <div className="flex items-center gap-2">
+                        <MapPin className="h-3.5 w-3.5 shrink-0" />
+                        {event.location}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Calendar className="h-3.5 w-3.5 shrink-0" />
+                        {formatDateRange(new Date(event.startDate), new Date(event.endDate))}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Users className="h-3.5 w-3.5 shrink-0" />
+                        {event._count.signups} {event._count.signups === 1 ? "family" : "families"}
+                      </div>
                       <div className="text-xs inline-flex items-center">Organized by <FamilyAvatar familyId={event.organizer.id} className="w-4 h-4 text-[10px] ml-1 mr-0.5" />{event.organizer.name}</div>
                     </CardContent>
                   </Card>
@@ -189,8 +238,8 @@ export default function EventsPage() {
                       <CardHeader className="pb-1.5 px-3 pt-3">
                         <div className="flex items-start justify-between">
                           <CardTitle className="text-base">{event.title}</CardTitle>
-                          <Badge className={statusColors[event.status]} variant="secondary">
-                            {event.status}
+                          <Badge className={PHASE_BADGE_CLASSES[event.phase]} variant="secondary">
+                            {PHASE_LABELS[event.phase]}
                           </Badge>
                         </div>
                       </CardHeader>

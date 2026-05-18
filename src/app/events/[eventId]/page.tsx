@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import { EventDashboardClient } from "@/components/events/event-dashboard-client";
+import { computeSettlementStatus } from "@/lib/settlement-status";
 
 export default async function EventDashboardPage({
   params,
@@ -21,11 +22,22 @@ export default async function EventDashboardPage({
 
   if (!event) notFound();
 
-  const expenses = await prisma.expense.aggregate({
-    where: { eventId },
-    _sum: { amount: true },
-  });
-  const totalExpenses = Number(expenses._sum.amount || 0);
+  const [expenseRows, settlementPayments] = await Promise.all([
+    prisma.expense.findMany({
+      where: { eventId },
+      select: { amount: true, paidByFamilyId: true },
+    }),
+    prisma.settlementPayment.findMany({
+      where: { eventId },
+      select: { fromFamilyId: true, toFamilyId: true },
+    }),
+  ]);
+  const totalExpenses = expenseRows.reduce((sum, e) => sum + Number(e.amount), 0);
+  const { allSettled } = computeSettlementStatus(
+    expenseRows,
+    event.signups.map((s) => s.familyId),
+    settlementPayments,
+  );
 
   // Serialize dates for client component
   const eventData = {
@@ -36,6 +48,7 @@ export default async function EventDashboardPage({
     description: event.description,
     startDate: event.startDate.toISOString(),
     endDate: event.endDate.toISOString(),
+    signupDeadline: event.signupDeadline ? event.signupDeadline.toISOString() : null,
     reservationNo: event.reservationNo,
     checkIn: event.checkIn,
     checkOut: event.checkOut,
@@ -55,6 +68,7 @@ export default async function EventDashboardPage({
     })),
     _count: event._count,
     totalExpenses,
+    allSettled,
   };
 
   return <EventDashboardClient event={eventData} />;

@@ -21,6 +21,8 @@ export default function NewEventPage() {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [endDateManual, setEndDateManual] = useState(false);
+  const [signupDeadline, setSignupDeadline] = useState("");
+  const [signupDeadlineManual, setSignupDeadlineManual] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
   const { familyId, familyName, isLoaded } = useCurrentFamily();
@@ -122,6 +124,11 @@ export default function NewEventPage() {
                       d.setDate(d.getDate() + 2);
                       setEndDate(d.toISOString().split("T")[0]);
                     }
+                    if (val && !signupDeadlineManual) {
+                      const d = new Date(val + "T12:00:00");
+                      d.setDate(d.getDate() - 7);
+                      setSignupDeadline(d.toISOString().split("T")[0]);
+                    }
                   }}
                 />
               </div>
@@ -140,6 +147,24 @@ export default function NewEventPage() {
                   }}
                 />
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="signupDeadline">Signup Deadline (optional)</Label>
+              <Input
+                id="signupDeadline"
+                name="signupDeadline"
+                type="date"
+                value={signupDeadline}
+                max={startDate || undefined}
+                onChange={(e) => {
+                  setSignupDeadline(e.target.value);
+                  setSignupDeadlineManual(true);
+                }}
+              />
+              <p className="text-xs text-muted-foreground">
+                Last day families can RSVP. Defaults to a week before start.
+              </p>
             </div>
 
             {/* Reservation & Campsite */}

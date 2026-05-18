@@ -63,6 +63,7 @@ model CampingEvent {
   description       String?
   startDate         DateTime
   endDate           DateTime
+  signupDeadline    DateTime?
   reservationNo     String?
   checkIn           String?
   checkOut          String?
