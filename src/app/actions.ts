@@ -368,7 +368,7 @@ export async function removeActivityVolunteer(activityId: number, eventId: numbe
 
 export async function createGroceryItem(
   eventId: number,
-  data: { name: string; category?: string; assignedFamilyId?: number; mealTag?: string; notes?: string }
+  data: { name: string; category?: string; assignedFamilyId?: number; notes?: string }
 ) {
   // Auto-assign sortOrder at the end
   const maxSort = await prisma.groceryItem.aggregate({ where: { eventId }, _max: { sortOrder: true } });
@@ -380,7 +380,6 @@ export async function createGroceryItem(
       name: data.name,
       category: data.category || null,
       assignedFamilyId: data.assignedFamilyId || null,
-      mealTag: data.mealTag || null,
       sortOrder: nextSort,
       notes: data.notes || null,
     },
@@ -391,7 +390,7 @@ export async function createGroceryItem(
 export async function updateGroceryItem(
   itemId: number,
   eventId: number,
-  data: { name?: string; category?: string; assignedFamilyId?: number | null; mealTag?: string | null; notes?: string | null }
+  data: { name?: string; category?: string; assignedFamilyId?: number | null; notes?: string | null }
 ) {
   await prisma.groceryItem.update({
     where: { id: itemId },
@@ -426,7 +425,7 @@ export async function unclaimGroceryItem(itemId: number, eventId: number) {
 
 export async function bulkCreateGroceryItems(
   eventId: number,
-  items: Array<{ name: string; category?: string; mealTag?: string; notes?: string }>
+  items: Array<{ name: string; category?: string; notes?: string }>
 ) {
   const maxSort = await prisma.groceryItem.aggregate({ where: { eventId }, _max: { sortOrder: true } });
   let nextSort = (maxSort._max.sortOrder ?? 0) + 10;
@@ -439,7 +438,6 @@ export async function bulkCreateGroceryItems(
         eventId,
         name: item.name,
         category: item.category || null,
-        mealTag: item.mealTag || null,
         notes: item.notes || null,
         sortOrder,
       };

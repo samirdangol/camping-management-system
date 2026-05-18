@@ -187,7 +187,6 @@ model GroceryItem {
   category         String?
   assignedFamilyId Int?
   assignedLabel    String?
-  mealTag          String?
   sortOrder        Int      @default(0)
   notes            String?
   createdAt        DateTime @default(now())
