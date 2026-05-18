@@ -18,7 +18,7 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { ConfirmDeleteDialog } from "@/components/shared/confirm-delete-dialog";
 import { CategoryBulkAdd } from "@/components/bulk-import/category-bulk-add";
 import { PasteImportDialog } from "@/components/bulk-import/paste-import-dialog";
-import { ClipboardPaste, FolderPlus, Plus } from "lucide-react";
+import { ClipboardPaste, FolderPlus, Plus, Trash2 } from "lucide-react";
 import {
   CATEGORY_DROPZONE_PREFIX,
   ClaimableCategorySection,
@@ -82,6 +82,9 @@ export interface ClaimablePageProps<
   deleteDialogDescription: string;
   unvolunteerDialogDescription: string;
 
+  /** Organizer-only: wipe every item for this event. */
+  onDeleteAll?: () => Promise<void>;
+
   /* render slots (forwarded to ClaimableCategorySection / ItemCardShell) */
   renderLeading?: (item: T, refetch: () => Promise<void>) => ReactNode;
   renderBody: (item: T) => ReactNode;
@@ -130,9 +133,11 @@ export function ClaimablePage<
   renderBody,
   renderEditor,
   renderQuickAdd,
+  onDeleteAll,
 }: ClaimablePageProps<T, BulkRow, EditVals>) {
   const [newCatInput, setNewCatInput] = useState("");
   const [importOpen, setImportOpen] = useState(false);
+  const [clearAllOpen, setClearAllOpen] = useState(false);
   const [activeDragId, setActiveDragId] = useState<number | null>(null);
 
   const hook = useClaimableItems<T, BulkRow, EditVals>({
@@ -293,10 +298,23 @@ export function ClaimablePage<
             </Button>
           )}
         </div>
-        <span className="text-sm text-muted-foreground">
-          {hook.items.length} item{hook.items.length !== 1 && "s"}
-          {renderItemCountExtra?.(hook.items)}
-        </span>
+        <div className="flex items-center gap-2">
+          {isOrganizer && onDeleteAll && hook.items.length > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 text-xs gap-1 text-destructive hover:text-destructive"
+              onClick={() => setClearAllOpen(true)}
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              Clear All
+            </Button>
+          )}
+          <span className="text-sm text-muted-foreground">
+            {hook.items.length} item{hook.items.length !== 1 && "s"}
+            {renderItemCountExtra?.(hook.items)}
+          </span>
+        </div>
       </div>
 
       {/* Filter tabs */}
@@ -447,6 +465,21 @@ export function ClaimablePage<
         onConfirm={hook.confirmUnvolunteer}
         onCancel={hook.cancelUnvolunteer}
       />
+
+      {/* Clear all confirmation */}
+      {onDeleteAll && (
+        <ConfirmDeleteDialog
+          open={clearAllOpen}
+          title="Clear all supplies?"
+          description="This will permanently delete every supply item and all volunteer assignments. This cannot be undone."
+          confirmLabel="Clear All"
+          onConfirm={async () => {
+            await onDeleteAll();
+            setClearAllOpen(false);
+          }}
+          onCancel={() => setClearAllOpen(false)}
+        />
+      )}
     </div>
   );
 }

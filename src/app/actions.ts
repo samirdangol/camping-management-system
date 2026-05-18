@@ -461,6 +461,11 @@ export async function clearSupplyCategory(eventId: number, categoryName: string)
   revalidatePath(`/events/${eventId}`);
 }
 
+export async function deleteAllSupplies(eventId: number) {
+  await prisma.supply.deleteMany({ where: { eventId } });
+  revalidatePath(`/events/${eventId}`);
+}
+
 export async function restoreSupplyCategory(
   eventId: number,
   supplyIds: number[],

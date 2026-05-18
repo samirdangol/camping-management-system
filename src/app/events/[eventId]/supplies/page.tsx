@@ -17,6 +17,7 @@ import {
   type SupplyBulkRow,
   type SupplyEditVals,
 } from "@/components/claimable/supply-domain";
+import { deleteAllSupplies } from "@/app/actions";
 import type { SupplyWithFamily } from "@/types";
 
 const DATALIST_ID = "supply-cat-suggestions";
@@ -109,6 +110,7 @@ export default function SuppliesPage() {
       deleteDialogTitle="Delete supply item?"
       deleteDialogDescription="This will permanently remove the item and any volunteer assignments."
       unvolunteerDialogDescription="This will remove you as a volunteer for this supply item."
+      onDeleteAll={() => deleteAllSupplies(eid)}
       renderBody={(item) => <SupplyItemBody item={item} />}
       renderEditor={(item, onSave, onCancel) => (
         <SupplyItemEditor
