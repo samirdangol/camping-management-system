@@ -28,17 +28,17 @@ import type { GroceryWithFamily } from "@/types";
 export type GroceryBulkRow = {
   name: string;
   category?: string;
-  quantity?: string;
   estimatedCost?: number;
   mealTag?: string;
+  notes?: string;
 };
 
 export type GroceryEditVals = {
   name?: string;
   category?: string;
-  quantity?: string;
   estimatedCost?: number | null;
   mealTag?: string | null;
+  notes?: string | null;
 };
 
 /* ─── action / ownership bundles ─── */
@@ -75,8 +75,10 @@ export function GroceryItemBody({ item }: { item: GroceryWithFamily }) {
   return (
     <>
       <span className="text-sm font-medium">{item.name}</span>
-      {item.quantity && (
-        <span className="text-xs text-muted-foreground">×{item.quantity}</span>
+      {item.notes && (
+        <span className="text-xs text-muted-foreground italic">
+          {item.notes}
+        </span>
       )}
       {item.mealTag && (
         <Badge className="text-[10px] px-1.5 py-0 bg-purple-900/40 text-purple-300 hover:bg-purple-900/50">
@@ -102,7 +104,7 @@ export function GroceryItemEditor({
 }) {
   const [name, setName] = useState(item.name);
   const [category, setCategory] = useState(item.category || "");
-  const [qty, setQty] = useState(item.quantity || "");
+  const [notes, setNotes] = useState(item.notes || "");
   const [cost, setCost] = useState(
     item.estimatedCost ? String(item.estimatedCost) : ""
   );
@@ -115,7 +117,7 @@ export function GroceryItemEditor({
     await onSave({
       name: name.trim(),
       category: category.trim() || undefined,
-      quantity: qty.trim() || undefined,
+      notes: notes.trim() || null,
       estimatedCost: cost ? parseFloat(cost) : null,
       mealTag: mealTag.trim() || null,
     });
@@ -150,18 +152,18 @@ export function GroceryItemEditor({
         className="h-8 text-sm"
       />
       <Input
-        value={qty}
-        onChange={(e) => setQty(e.target.value)}
-        placeholder="Qty"
-        className="h-8 text-sm"
-      />
-      <Input
         type="number"
         step="0.01"
         value={cost}
         onChange={(e) => setCost(e.target.value)}
         placeholder="Est. cost"
         className="h-8 text-sm"
+      />
+      <Input
+        value={notes}
+        onChange={(e) => setNotes(e.target.value)}
+        placeholder="Note (qty, brand, etc.)"
+        className="h-8 text-sm col-span-2 sm:col-span-4"
       />
     </ItemEditCard>
   );

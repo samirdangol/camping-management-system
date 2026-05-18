@@ -667,12 +667,15 @@ export default function ExpensesPage() {
                       return (
                         <div
                           key={i}
-                          className={`rounded-lg border p-2.5 transition-colors ${
+                          className={`relative rounded-lg border p-2.5 transition-colors ${
                             isSettled
                               ? "bg-emerald-950/20 border-emerald-800/40"
                               : "bg-card border-border"
                           }`}
                         >
+                          {!isSettled && (
+                            <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-red-500" />
+                          )}
                           <div className="text-red-400 font-medium text-sm text-center inline-flex items-center justify-center w-full">
                             <FamilyAvatar familyId={s.from.id} />{s.from.name}
                           </div>

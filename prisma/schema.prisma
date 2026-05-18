@@ -185,11 +185,9 @@ model GroceryItem {
   eventId          Int
   name             String
   category         String?
-  quantity         String?
   estimatedCost    Float?
   assignedFamilyId Int?
   assignedLabel    String?
-  isPurchased      Boolean  @default(false)
   mealTag          String?
   sortOrder        Int      @default(0)
   notes            String?
@@ -218,7 +216,6 @@ model Equipment {
   eventId       Int
   name          String
   category      String?
-  quantity      Int      @default(1)
   ownerFamilyId Int?
   ownerLabel    String?
   sortOrder     Int      @default(0)

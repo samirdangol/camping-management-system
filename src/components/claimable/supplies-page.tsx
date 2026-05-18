@@ -18,12 +18,10 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { toggleGroceryPurchased } from "@/app/actions";
 import type { SortOrderUpdate } from "./use-claimable-items";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -122,7 +120,7 @@ function SuppliesQuickAdd({
   onAddGear: (row: EquipmentBulkRow) => Promise<void>;
 }) {
   const [name, setName] = useState("");
-  const [qty, setQty] = useState("");
+  const [note, setNote] = useState("");
   const [kind, setKind] = useState<"food" | "gear">("food");
   const [adding, setAdding] = useState(false);
 
@@ -130,21 +128,22 @@ function SuppliesQuickAdd({
     e.preventDefault();
     if (!name.trim()) return;
     setAdding(true);
+    const trimmedNote = note.trim() || undefined;
     if (kind === "food") {
       await onAddFood({
         name: name.trim(),
         category: category || undefined,
-        quantity: qty || undefined,
+        notes: trimmedNote,
       });
     } else {
       await onAddGear({
         name: name.trim(),
         category: category || undefined,
-        quantity: parseInt(qty) || 1,
+        notes: trimmedNote,
       });
     }
     setName("");
-    setQty("");
+    setNote("");
     setAdding(false);
   }
 
@@ -184,10 +183,10 @@ function SuppliesQuickAdd({
         className="h-8 text-sm flex-1 min-w-[140px]"
       />
       <Input
-        value={qty}
-        onChange={(e) => setQty(e.target.value)}
-        placeholder="Qty"
-        className="h-8 text-sm w-16"
+        value={note}
+        onChange={(e) => setNote(e.target.value)}
+        placeholder="Note (optional)"
+        className="h-8 text-sm w-32"
       />
       <Button
         type="submit"
@@ -285,16 +284,6 @@ function SupplyItemRow({
         onMoveCategory={food.handleMoveCategory}
         showReorder={false}
         dnd={dnd}
-        renderLeading={(it) => (
-          <Checkbox
-            checked={it.isPurchased}
-            onCheckedChange={async () => {
-              await toggleGroceryPurchased(it.id, it.eventId, !it.isPurchased);
-              await food.refetch();
-            }}
-            className="shrink-0"
-          />
-        )}
         renderBody={(it) => (
           <>
             <KindChip kind="food" />
@@ -857,7 +846,6 @@ export function SuppliesPage({
   const totalCount = food.items.length + gear.items.length;
   const foodCount = food.items.length;
   const gearCount = gear.items.length;
-  const purchasedCount = food.items.filter((i) => i.isPurchased).length;
   const needsHelpCount = food.needsHelpCount + gear.needsHelpCount;
   const myCount = food.myCount + gear.myCount;
 
@@ -956,7 +944,6 @@ export function SuppliesPage({
           {totalCount} item{totalCount !== 1 && "s"}
           {foodCount > 0 && ` · ${foodCount} food`}
           {gearCount > 0 && ` · ${gearCount} gear`}
-          {purchasedCount > 0 && ` · ${purchasedCount} purchased`}
         </span>
       </div>
 

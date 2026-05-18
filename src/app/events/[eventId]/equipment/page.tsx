@@ -21,7 +21,7 @@ import type { EquipmentWithOwner } from "@/types";
 
 const DATALIST_ID = "equip-cat-suggestions";
 
-/** Standalone-page inline quick-add row (name + qty int + notes). */
+/** Standalone-page inline quick-add row (name + free-text note). */
 function EquipmentQuickAddRow({
   category,
   displayName,
@@ -32,8 +32,7 @@ function EquipmentQuickAddRow({
   onAdd: (row: EquipmentBulkRow) => Promise<void>;
 }) {
   const [name, setName] = useState("");
-  const [qty, setQty] = useState("1");
-  const [notes, setNotes] = useState("");
+  const [note, setNote] = useState("");
   const [adding, setAdding] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -43,12 +42,10 @@ function EquipmentQuickAddRow({
     await onAdd({
       name: name.trim(),
       category: category || undefined,
-      quantity: parseInt(qty) || 1,
-      notes: notes.trim() || undefined,
+      notes: note.trim() || undefined,
     });
     setName("");
-    setQty("1");
-    setNotes("");
+    setNote("");
     setAdding(false);
   }
 
@@ -61,18 +58,10 @@ function EquipmentQuickAddRow({
         className="h-8 text-sm flex-1"
       />
       <Input
-        type="number"
-        min={1}
-        value={qty}
-        onChange={(e) => setQty(e.target.value)}
-        placeholder="Qty"
-        className="h-8 text-sm w-16"
-      />
-      <Input
-        value={notes}
-        onChange={(e) => setNotes(e.target.value)}
-        placeholder="Notes"
-        className="h-8 text-sm w-28"
+        value={note}
+        onChange={(e) => setNote(e.target.value)}
+        placeholder="Note (optional)"
+        className="h-8 text-sm w-32"
       />
       <Button
         type="submit"
