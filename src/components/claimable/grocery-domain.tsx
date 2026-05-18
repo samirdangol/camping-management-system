@@ -28,7 +28,6 @@ import type { GroceryWithFamily } from "@/types";
 export type GroceryBulkRow = {
   name: string;
   category?: string;
-  estimatedCost?: number;
   mealTag?: string;
   notes?: string;
 };
@@ -36,7 +35,6 @@ export type GroceryBulkRow = {
 export type GroceryEditVals = {
   name?: string;
   category?: string;
-  estimatedCost?: number | null;
   mealTag?: string | null;
   notes?: string | null;
 };
@@ -105,9 +103,6 @@ export function GroceryItemEditor({
   const [name, setName] = useState(item.name);
   const [category, setCategory] = useState(item.category || "");
   const [notes, setNotes] = useState(item.notes || "");
-  const [cost, setCost] = useState(
-    item.estimatedCost ? String(item.estimatedCost) : ""
-  );
   const [mealTag, setMealTag] = useState(item.mealTag || "");
   const [busy, setBusy] = useState(false);
 
@@ -118,7 +113,6 @@ export function GroceryItemEditor({
       name: name.trim(),
       category: category.trim() || undefined,
       notes: notes.trim() || null,
-      estimatedCost: cost ? parseFloat(cost) : null,
       mealTag: mealTag.trim() || null,
     });
     setBusy(false);
@@ -152,18 +146,10 @@ export function GroceryItemEditor({
         className="h-8 text-sm"
       />
       <Input
-        type="number"
-        step="0.01"
-        value={cost}
-        onChange={(e) => setCost(e.target.value)}
-        placeholder="Est. cost"
-        className="h-8 text-sm"
-      />
-      <Input
         value={notes}
         onChange={(e) => setNotes(e.target.value)}
         placeholder="Note (qty, brand, etc.)"
-        className="h-8 text-sm col-span-2 sm:col-span-4"
+        className="h-8 text-sm col-span-2 sm:col-span-3"
       />
     </ItemEditCard>
   );

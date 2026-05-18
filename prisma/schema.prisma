@@ -185,7 +185,6 @@ model GroceryItem {
   eventId          Int
   name             String
   category         String?
-  estimatedCost    Float?
   assignedFamilyId Int?
   assignedLabel    String?
   mealTag          String?
