@@ -18,7 +18,11 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { ConfirmDeleteDialog } from "@/components/shared/confirm-delete-dialog";
 import { CategoryBulkAdd } from "@/components/bulk-import/category-bulk-add";
 import { PasteImportDialog } from "@/components/bulk-import/paste-import-dialog";
-import { ClipboardPaste, FolderPlus, Plus, Trash2 } from "lucide-react";
+import {
+  ExportListDialog,
+  type ExportCategoryGroup,
+} from "@/components/bulk-import/export-list-dialog";
+import { ClipboardPaste, FileDown, FolderPlus, Plus, Trash2 } from "lucide-react";
 import {
   CATEGORY_DROPZONE_PREFIX,
   ClaimableCategorySection,
@@ -77,6 +81,12 @@ export interface ClaimablePageProps<
   importTitle: string;
   importPlaceholder: string;
 
+  /* export dialog copy */
+  exportTitle?: string;
+  exportDownloadName?: string;
+  /** Accessor for the per-item note included in the exported text (e.g. `(i) => i.notes`). */
+  exportItemNote?: (item: T) => string | null | undefined;
+
   /* confirm dialog copy */
   deleteDialogTitle: string;
   deleteDialogDescription: string;
@@ -126,6 +136,9 @@ export function ClaimablePage<
   categorySuggestions,
   importTitle,
   importPlaceholder,
+  exportTitle,
+  exportDownloadName,
+  exportItemNote,
   deleteDialogTitle,
   deleteDialogDescription,
   unvolunteerDialogDescription,
@@ -137,6 +150,7 @@ export function ClaimablePage<
 }: ClaimablePageProps<T, BulkRow, EditVals>) {
   const [newCatInput, setNewCatInput] = useState("");
   const [importOpen, setImportOpen] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
   const [clearAllOpen, setClearAllOpen] = useState(false);
   const [activeDragId, setActiveDragId] = useState<number | null>(null);
 
@@ -224,6 +238,26 @@ export function ClaimablePage<
     hook.handleBulkReorder(updates);
   }
 
+  // Serializable view of the list, ordered to match what the user sees:
+  // user-ordered categories first, then any items without a category.
+  const exportGroups = useMemo<ExportCategoryGroup[]>(() => {
+    const noteOf = (i: T) => exportItemNote?.(i) ?? null;
+    const groups: ExportCategoryGroup[] = hook.categoryOrder.map((cat) => ({
+      category: cat,
+      items: hook.grouped[cat].map((i) => ({ name: i.name, notes: noteOf(i) })),
+    }));
+    if (hook.uncategorized.length > 0) {
+      groups.push({
+        category: "",
+        items: hook.uncategorized.map((i) => ({
+          name: i.name,
+          notes: noteOf(i),
+        })),
+      });
+    }
+    return groups;
+  }, [hook.categoryOrder, hook.grouped, hook.uncategorized, exportItemNote]);
+
   const allSuggestions = useMemo(() => {
     const set = new Set(hook.existingCategories.map((c) => c.toLowerCase()));
     const extra = categorySuggestions
@@ -295,6 +329,17 @@ export function ClaimablePage<
             >
               <ClipboardPaste className="h-3.5 w-3.5" />
               Import List
+            </Button>
+          )}
+          {hook.items.length > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs gap-1"
+              onClick={() => setExportOpen(true)}
+            >
+              <FileDown className="h-3.5 w-3.5" />
+              Export List
             </Button>
           )}
         </div>
@@ -445,6 +490,15 @@ export function ClaimablePage<
         onImport={bulkAddForImport}
         title={importTitle}
         placeholder={importPlaceholder}
+      />
+
+      {/* Export dialog */}
+      <ExportListDialog
+        open={exportOpen}
+        onOpenChange={setExportOpen}
+        groups={exportGroups}
+        title={exportTitle}
+        downloadName={exportDownloadName}
       />
 
       {/* Delete confirmation */}

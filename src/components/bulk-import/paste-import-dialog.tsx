@@ -16,9 +16,14 @@ import { Badge } from "@/components/ui/badge";
 
 /* ── Types ── */
 
+interface ParsedItem {
+  name: string;
+  notes?: string;
+}
+
 interface ParsedCategory {
   category: string;
-  items: string[];
+  items: ParsedItem[];
 }
 
 interface PasteImportDialogProps {
@@ -32,6 +37,39 @@ interface PasteImportDialogProps {
 }
 
 /* ── Parser ── */
+
+// Split on commas at paren depth 0 so "Milk (2 gallons, organic)" stays
+// one item even though the note contains a comma.
+function splitItemsRespectingParens(s: string): string[] {
+  const out: string[] = [];
+  let buf = "";
+  let depth = 0;
+  for (const ch of s) {
+    if (ch === "(") depth++;
+    else if (ch === ")" && depth > 0) depth--;
+    if (ch === "," && depth === 0) {
+      const t = buf.trim();
+      if (t) out.push(t);
+      buf = "";
+    } else {
+      buf += ch;
+    }
+  }
+  const t = buf.trim();
+  if (t) out.push(t);
+  return out;
+}
+
+// Pull a trailing "(note)" off an item token. The inner pattern forbids
+// nested parens so things like "Beer (6-pack) (cold)" fail safely and stay
+// part of the name.
+function extractNote(token: string): ParsedItem {
+  const m = token.match(/^(.*?)\s*\(([^()]*)\)\s*$/);
+  if (m && m[1].trim()) {
+    return { name: m[1].trim(), notes: m[2].trim() || undefined };
+  }
+  return { name: token.trim() };
+}
 
 function parseImportText(text: string): ParsedCategory[] {
   const lines = text.split("\n").map((l) => l.trimEnd());
@@ -57,10 +95,7 @@ function parseColonFormat(lines: string[]): ParsedCategory[] {
     if (colonIdx > 0) {
       const category = trimmed.substring(0, colonIdx).trim();
       const itemsPart = trimmed.substring(colonIdx + 1).trim();
-      const items = itemsPart
-        .split(",")
-        .map((i) => i.trim())
-        .filter((i) => i.length > 0);
+      const items = splitItemsRespectingParens(itemsPart).map(extractNote);
       if (category) results.push({ category, items });
     }
   }
@@ -70,7 +105,7 @@ function parseColonFormat(lines: string[]): ParsedCategory[] {
 function parseBlankLineFormat(lines: string[]): ParsedCategory[] {
   const results: ParsedCategory[] = [];
   let currentCategory = "";
-  let currentItems: string[] = [];
+  let currentItems: ParsedItem[] = [];
 
   for (const line of lines) {
     const trimmed = line.trim();
@@ -85,7 +120,7 @@ function parseBlankLineFormat(lines: string[]): ParsedCategory[] {
     if (!currentCategory) {
       currentCategory = trimmed;
     } else {
-      currentItems.push(trimmed);
+      currentItems.push(extractNote(trimmed));
     }
   }
   // Flush final group
@@ -133,7 +168,11 @@ export function PasteImportDialog({
 
   async function handleImport() {
     const items = parsed.flatMap((c) =>
-      c.items.map((name) => ({ name, category: c.category }))
+      c.items.map((it) => ({
+        name: it.name,
+        category: c.category,
+        ...(it.notes ? { notes: it.notes } : {}),
+      }))
     );
     if (items.length === 0) return;
     setImporting(true);
@@ -168,7 +207,8 @@ export function PasteImportDialog({
               Paste your list below. Supported formats:{" "}
               <span className="font-medium">Category: Item1, Item2, Item3</span>{" "}
               (one per line) — or category name on its own line with items below,
-              separated by blank lines.
+              separated by blank lines. Add a note in parens after an item:{" "}
+              <span className="font-medium">Milk (2 gallons)</span>.
             </DialogDescription>
           )}
           {step === "preview" && (
@@ -223,7 +263,10 @@ export function PasteImportDialog({
                       variant="secondary"
                       className="text-xs gap-1 pr-1"
                     >
-                      {item}
+                      <span>{item.name}</span>
+                      {item.notes && (
+                        <span className="opacity-60">({item.notes})</span>
+                      )}
                       <button
                         onClick={() => removeItem(catIdx, itemIdx)}
                         className="hover:text-red-500 ml-0.5"

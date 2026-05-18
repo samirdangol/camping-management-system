@@ -102,11 +102,14 @@ export default function SuppliesPage() {
       categorySuggestions={SUPPLY_CATEGORY_SUGGESTIONS}
       importTitle="Import Supplies"
       importPlaceholder={
-        "Breakfast: Milk, Tea, Coffee, Sugar\n" +
-        "Lunch/Dinner: Chicken, Rice, Oil\n" +
-        "Cookwares: Pots, Pans, Pressure Cooker\n" +
+        "Breakfast: Milk (2 gallons), Tea, Coffee, Sugar\n" +
+        "Lunch/Dinner: Chicken, Rice (10 lb), Oil\n" +
+        "Cookwares: Pots, Pans, Pressure Cooker (borrow from Raj)\n" +
         "Campfire: Lighter, Fire Wood, Marshmallow sticks"
       }
+      exportTitle="Export Supplies"
+      exportDownloadName="supplies"
+      exportItemNote={(i) => i.notes}
       deleteDialogTitle="Delete supply item?"
       deleteDialogDescription="This will permanently remove the item and any volunteer assignments."
       unvolunteerDialogDescription="This will remove you as a volunteer for this supply item."
