@@ -774,21 +774,19 @@ export default function ExpensesPage() {
               {summary.settlements.length > 0 && (
                 <Card>
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-sm flex items-center justify-between">
-                      Settlement Plan
-                      {summary.settlements.length > 0 && (
-                        <span className="text-xs font-normal text-muted-foreground">
-                          {settlementPayments.length}/{summary.settlements.length} settled
-                        </span>
-                      )}
-                    </CardTitle>
+                    <CardTitle className="text-sm">Settlement Plan</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     {payingIn.length > 0 && (
                       <div className="space-y-2">
-                        <p className="text-xs font-medium text-muted-foreground">
-                          Paying <span className="text-foreground">{summary.collector?.name}</span>
-                        </p>
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs font-medium text-muted-foreground">
+                            Paying <span className="text-foreground">{summary.collector?.name}</span>
+                          </p>
+                          <span className="text-xs text-muted-foreground">
+                            {settlementPayments.filter((p) => payingIn.some((s) => s.from.id === p.fromFamilyId && s.to.id === p.toFamilyId)).length}/{payingIn.length} settled
+                          </span>
+                        </div>
                         {payingIn.map((s, i) => renderSettlement(s, i))}
                       </div>
                     )}
@@ -797,9 +795,14 @@ export default function ExpensesPage() {
                     )}
                     {payingOut.length > 0 && (
                       <div className="space-y-2">
-                        <p className="text-xs font-medium text-muted-foreground">
-                          <span className="text-foreground">{summary.collector?.name}</span> redistributes
-                        </p>
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs font-medium text-muted-foreground">
+                            <span className="text-foreground">{summary.collector?.name}</span> redistributes
+                          </p>
+                          <span className="text-xs text-muted-foreground">
+                            {settlementPayments.filter((p) => payingOut.some((s) => s.from.id === p.fromFamilyId && s.to.id === p.toFamilyId)).length}/{payingOut.length} settled
+                          </span>
+                        </div>
                         {payingOut.map((s, i) => renderSettlement(s, payingIn.length + i))}
                       </div>
                     )}
