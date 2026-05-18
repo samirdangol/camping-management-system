@@ -2,18 +2,6 @@
 
 import { useState } from "react";
 import { useParams } from "next/navigation";
-import {
-  bulkCreateEquipment,
-  updateEquipment,
-  deleteEquipment,
-  claimEquipment,
-  unclaimEquipment,
-  addEquipmentVolunteer,
-  removeEquipmentVolunteer,
-  renameEquipmentCategory,
-  clearEquipmentCategory,
-  reorderEquipment,
-} from "@/app/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useCurrentFamily } from "@/hooks/use-current-family";
@@ -21,138 +9,19 @@ import { useIsOrganizer } from "@/hooks/use-is-organizer";
 import { EQUIPMENT_CATEGORY_SUGGESTIONS } from "@/lib/constants";
 import { Backpack, Plus } from "lucide-react";
 import { ClaimablePage } from "@/components/claimable/claimable-page";
-import { ItemEditCard } from "@/components/claimable/item-edit-card";
-import type {
-  ClaimableActions,
-  ClaimableOwnership,
-} from "@/components/claimable/use-claimable-items";
+import {
+  equipmentActions,
+  equipmentOwnership,
+  EquipmentItemBody,
+  EquipmentItemEditor,
+  type EquipmentBulkRow,
+  type EquipmentEditVals,
+} from "@/components/claimable/equipment-domain";
 import type { EquipmentWithOwner } from "@/types";
 
 const DATALIST_ID = "equip-cat-suggestions";
 
-type EquipmentBulkRow = {
-  name: string;
-  category?: string;
-  quantity?: number;
-  notes?: string;
-};
-
-type EquipmentEditVals = {
-  name?: string;
-  category?: string;
-  quantity?: number;
-  notes?: string;
-};
-
-const equipmentActions: ClaimableActions<
-  EquipmentWithOwner,
-  EquipmentBulkRow,
-  EquipmentEditVals
-> = {
-  fetchItems: (eventId) =>
-    fetch(`/api/events/${eventId}/equipment`).then((r) => r.json()),
-  claim: claimEquipment,
-  unclaim: unclaimEquipment,
-  delete: deleteEquipment,
-  addVolunteer: addEquipmentVolunteer,
-  removeVolunteer: removeEquipmentVolunteer,
-  update: updateEquipment,
-  bulkCreate: bulkCreateEquipment,
-  reorder: reorderEquipment,
-  renameCategory: renameEquipmentCategory,
-  clearCategory: clearEquipmentCategory,
-};
-
-const equipmentOwnership: ClaimableOwnership<EquipmentWithOwner> = {
-  getOwnerFamilyId: (i) => i.ownerFamilyId,
-  getOwnerLabel: (i) => i.ownerLabel,
-  getOwner: (i) => i.owner,
-};
-
-/* ─── per-domain render slots ─── */
-
-function EquipmentItemBody({ item }: { item: EquipmentWithOwner }) {
-  return (
-    <>
-      <span className="text-sm font-medium">{item.name}</span>
-      {item.quantity > 1 && (
-        <span className="text-xs text-muted-foreground">×{item.quantity}</span>
-      )}
-      {item.notes && (
-        <span className="text-xs text-muted-foreground italic">
-          {item.notes}
-        </span>
-      )}
-    </>
-  );
-}
-
-function EquipmentItemEditor({
-  item,
-  onSave,
-  onCancel,
-}: {
-  item: EquipmentWithOwner;
-  onSave: (vals: EquipmentEditVals) => Promise<void>;
-  onCancel: () => void;
-}) {
-  const [name, setName] = useState(item.name);
-  const [category, setCategory] = useState(item.category || "");
-  const [qty, setQty] = useState(String(item.quantity));
-  const [notes, setNotes] = useState(item.notes || "");
-  const [busy, setBusy] = useState(false);
-
-  async function handleSave() {
-    if (!name.trim()) return;
-    setBusy(true);
-    await onSave({
-      name: name.trim(),
-      category: category.trim() || undefined,
-      quantity: parseInt(qty) || 1,
-      notes: notes.trim() || undefined,
-    });
-    setBusy(false);
-  }
-
-  return (
-    <ItemEditCard
-      onSave={handleSave}
-      onCancel={onCancel}
-      canSave={!!name.trim()}
-      busy={busy}
-    >
-      <Input
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        placeholder="Name"
-        className="h-8 text-sm col-span-2"
-        autoFocus
-      />
-      <Input
-        list={DATALIST_ID}
-        value={category}
-        onChange={(e) => setCategory(e.target.value)}
-        placeholder="Category"
-        className="h-8 text-sm"
-      />
-      <Input
-        type="number"
-        min={1}
-        value={qty}
-        onChange={(e) => setQty(e.target.value)}
-        placeholder="Qty"
-        className="h-8 text-sm"
-      />
-      <Input
-        value={notes}
-        onChange={(e) => setNotes(e.target.value)}
-        placeholder="Notes"
-        className="h-8 text-sm col-span-2 sm:col-span-4"
-      />
-    </ItemEditCard>
-  );
-}
-
+/** Standalone-page inline quick-add row (name + qty int + notes). */
 function EquipmentQuickAddRow({
   category,
   displayName,
@@ -253,7 +122,12 @@ export default function EquipmentPage() {
       unvolunteerDialogDescription="This will remove you as a volunteer for this equipment item."
       renderBody={(item) => <EquipmentItemBody item={item} />}
       renderEditor={(item, onSave, onCancel) => (
-        <EquipmentItemEditor item={item} onSave={onSave} onCancel={onCancel} />
+        <EquipmentItemEditor
+          item={item}
+          datalistId={DATALIST_ID}
+          onSave={onSave}
+          onCancel={onCancel}
+        />
       )}
       renderQuickAdd={({ category, displayName, onAdd }) => (
         <EquipmentQuickAddRow

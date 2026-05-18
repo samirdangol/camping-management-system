@@ -1,29 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import {
-  bulkCreateGroceryItems,
-  updateGroceryItem,
-  deleteGroceryItem,
-  claimGroceryItem,
-  unclaimGroceryItem,
-  toggleGroceryPurchased,
-  addGroceryVolunteer,
-  removeGroceryVolunteer,
-  renameGroceryCategory,
-  clearGroceryCategory,
-  reorderGroceryItem,
-  bulkCreateEquipment,
-  updateEquipment,
-  deleteEquipment,
-  claimEquipment,
-  unclaimEquipment,
-  addEquipmentVolunteer,
-  removeEquipmentVolunteer,
-  renameEquipmentCategory,
-  clearEquipmentCategory,
-  reorderEquipment,
-} from "@/app/actions";
+import { toggleGroceryPurchased } from "@/app/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -54,49 +32,30 @@ import {
   X,
 } from "lucide-react";
 import { ItemCardShell } from "./item-card-shell";
-import { ItemEditCard } from "./item-edit-card";
 import {
   useClaimableItems,
-  type ClaimableActions,
-  type ClaimableOwnership,
   type ClaimableFilter,
 } from "./use-claimable-items";
+import {
+  groceryActions,
+  groceryOwnership,
+  GroceryItemBody,
+  GroceryItemEditor,
+  type GroceryBulkRow,
+  type GroceryEditVals,
+} from "./grocery-domain";
+import {
+  equipmentActions,
+  equipmentOwnership,
+  EquipmentItemBody,
+  EquipmentItemEditor,
+  type EquipmentBulkRow,
+  type EquipmentEditVals,
+} from "./equipment-domain";
 import type { ReactNode } from "react";
 import type { GroceryWithFamily, EquipmentWithOwner } from "@/types";
 
 const DATALIST_ID = "bring-list-cat-suggestions";
-
-/* ─── types ─── */
-
-type GroceryBulkRow = {
-  name: string;
-  category?: string;
-  quantity?: string;
-  estimatedCost?: number;
-  mealTag?: string;
-};
-
-type GroceryEditVals = {
-  name?: string;
-  category?: string;
-  quantity?: string;
-  estimatedCost?: number | null;
-  mealTag?: string | null;
-};
-
-type EquipmentBulkRow = {
-  name: string;
-  category?: string;
-  quantity?: number;
-  notes?: string;
-};
-
-type EquipmentEditVals = {
-  name?: string;
-  category?: string;
-  quantity?: number;
-  notes?: string;
-};
 
 type BringItem =
   | { kind: "food"; item: GroceryWithFamily }
@@ -110,63 +69,11 @@ interface BulkImportRow {
   [key: string]: unknown;
 }
 
-/* ─── domain action / ownership bundles ─── */
-
-const groceryActions: ClaimableActions<
-  GroceryWithFamily,
-  GroceryBulkRow,
-  GroceryEditVals
-> = {
-  fetchItems: (eventId) =>
-    fetch(`/api/events/${eventId}/groceries`).then((r) => r.json()),
-  claim: claimGroceryItem,
-  unclaim: unclaimGroceryItem,
-  delete: deleteGroceryItem,
-  addVolunteer: addGroceryVolunteer,
-  removeVolunteer: removeGroceryVolunteer,
-  update: updateGroceryItem,
-  bulkCreate: bulkCreateGroceryItems,
-  reorder: reorderGroceryItem,
-  renameCategory: renameGroceryCategory,
-  clearCategory: clearGroceryCategory,
-};
-
-const groceryOwnership: ClaimableOwnership<GroceryWithFamily> = {
-  getOwnerFamilyId: (i) => i.assignedFamilyId,
-  getOwnerLabel: (i) => i.assignedLabel,
-  getOwner: (i) => i.assignedTo,
-};
-
-const equipmentActions: ClaimableActions<
-  EquipmentWithOwner,
-  EquipmentBulkRow,
-  EquipmentEditVals
-> = {
-  fetchItems: (eventId) =>
-    fetch(`/api/events/${eventId}/equipment`).then((r) => r.json()),
-  claim: claimEquipment,
-  unclaim: unclaimEquipment,
-  delete: deleteEquipment,
-  addVolunteer: addEquipmentVolunteer,
-  removeVolunteer: removeEquipmentVolunteer,
-  update: updateEquipment,
-  bulkCreate: bulkCreateEquipment,
-  reorder: reorderEquipment,
-  renameCategory: renameEquipmentCategory,
-  clearCategory: clearEquipmentCategory,
-};
-
-const equipmentOwnership: ClaimableOwnership<EquipmentWithOwner> = {
-  getOwnerFamilyId: (i) => i.ownerFamilyId,
-  getOwnerLabel: (i) => i.ownerLabel,
-  getOwner: (i) => i.owner,
-};
-
 function capFirst(s: string) {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-/* ─── small per-kind UI bits ─── */
+/* ─── kind chip (prepended to body in unified view) ─── */
 
 function KindChip({ kind }: { kind: "food" | "gear" }) {
   const isFood = kind === "food";
@@ -180,272 +87,6 @@ function KindChip({ kind }: { kind: "food" | "gear" }) {
     >
       {isFood ? "Food" : "Gear"}
     </Badge>
-  );
-}
-
-function GroceryBody({ item }: { item: GroceryWithFamily }) {
-  return (
-    <>
-      <KindChip kind="food" />
-      <span className="text-sm font-medium">{item.name}</span>
-      {item.quantity && (
-        <span className="text-xs text-muted-foreground">×{item.quantity}</span>
-      )}
-      {item.mealTag && (
-        <Badge className="text-[10px] px-1.5 py-0 bg-purple-900/40 text-purple-300 hover:bg-purple-900/50">
-          {item.mealTag}
-        </Badge>
-      )}
-    </>
-  );
-}
-
-function EquipmentBody({ item }: { item: EquipmentWithOwner }) {
-  return (
-    <>
-      <KindChip kind="gear" />
-      <span className="text-sm font-medium">{item.name}</span>
-      {item.quantity > 1 && (
-        <span className="text-xs text-muted-foreground">×{item.quantity}</span>
-      )}
-      {item.notes && (
-        <span className="text-xs text-muted-foreground italic">
-          {item.notes}
-        </span>
-      )}
-    </>
-  );
-}
-
-function GroceryEditor({
-  item,
-  onSave,
-  onCancel,
-}: {
-  item: GroceryWithFamily;
-  onSave: (vals: GroceryEditVals) => Promise<void>;
-  onCancel: () => void;
-}) {
-  const [name, setName] = useState(item.name);
-  const [category, setCategory] = useState(item.category || "");
-  const [qty, setQty] = useState(item.quantity || "");
-  const [cost, setCost] = useState(
-    item.estimatedCost ? String(item.estimatedCost) : ""
-  );
-  const [mealTag, setMealTag] = useState(item.mealTag || "");
-  const [busy, setBusy] = useState(false);
-
-  async function handleSave() {
-    if (!name.trim()) return;
-    setBusy(true);
-    await onSave({
-      name: name.trim(),
-      category: category.trim() || undefined,
-      quantity: qty.trim() || undefined,
-      estimatedCost: cost ? parseFloat(cost) : null,
-      mealTag: mealTag.trim() || null,
-    });
-    setBusy(false);
-  }
-
-  return (
-    <ItemEditCard
-      onSave={handleSave}
-      onCancel={onCancel}
-      canSave={!!name.trim()}
-      busy={busy}
-    >
-      <Input
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        placeholder="Name"
-        className="h-8 text-sm col-span-2"
-        autoFocus
-      />
-      <Input
-        list={DATALIST_ID}
-        value={category}
-        onChange={(e) => setCategory(e.target.value)}
-        placeholder="Category"
-        className="h-8 text-sm"
-      />
-      <Input
-        value={mealTag}
-        onChange={(e) => setMealTag(e.target.value)}
-        placeholder="Meal tag"
-        className="h-8 text-sm"
-      />
-      <Input
-        value={qty}
-        onChange={(e) => setQty(e.target.value)}
-        placeholder="Qty"
-        className="h-8 text-sm"
-      />
-      <Input
-        type="number"
-        step="0.01"
-        value={cost}
-        onChange={(e) => setCost(e.target.value)}
-        placeholder="Est. cost"
-        className="h-8 text-sm"
-      />
-    </ItemEditCard>
-  );
-}
-
-function EquipmentEditor({
-  item,
-  onSave,
-  onCancel,
-}: {
-  item: EquipmentWithOwner;
-  onSave: (vals: EquipmentEditVals) => Promise<void>;
-  onCancel: () => void;
-}) {
-  const [name, setName] = useState(item.name);
-  const [category, setCategory] = useState(item.category || "");
-  const [qty, setQty] = useState(String(item.quantity));
-  const [notes, setNotes] = useState(item.notes || "");
-  const [busy, setBusy] = useState(false);
-
-  async function handleSave() {
-    if (!name.trim()) return;
-    setBusy(true);
-    await onSave({
-      name: name.trim(),
-      category: category.trim() || undefined,
-      quantity: parseInt(qty) || 1,
-      notes: notes.trim() || undefined,
-    });
-    setBusy(false);
-  }
-
-  return (
-    <ItemEditCard
-      onSave={handleSave}
-      onCancel={onCancel}
-      canSave={!!name.trim()}
-      busy={busy}
-    >
-      <Input
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        placeholder="Name"
-        className="h-8 text-sm col-span-2"
-        autoFocus
-      />
-      <Input
-        list={DATALIST_ID}
-        value={category}
-        onChange={(e) => setCategory(e.target.value)}
-        placeholder="Category"
-        className="h-8 text-sm"
-      />
-      <Input
-        type="number"
-        min={1}
-        value={qty}
-        onChange={(e) => setQty(e.target.value)}
-        placeholder="Qty"
-        className="h-8 text-sm"
-      />
-      <Input
-        value={notes}
-        onChange={(e) => setNotes(e.target.value)}
-        placeholder="Notes"
-        className="h-8 text-sm col-span-2 sm:col-span-4"
-      />
-    </ItemEditCard>
-  );
-}
-
-/* ─── item row ─── */
-
-function BringItemRow({
-  bringItem,
-  isOrganizer,
-  familyId,
-  families,
-  categoryOptions,
-  food,
-  gear,
-}: {
-  bringItem: BringItem;
-  isOrganizer: boolean;
-  familyId: number | null;
-  families: ReturnType<typeof useClaimableItems<GroceryWithFamily, GroceryBulkRow, GroceryEditVals>>["families"];
-  categoryOptions: string[];
-  food: ReturnType<typeof useClaimableItems<GroceryWithFamily, GroceryBulkRow, GroceryEditVals>>;
-  gear: ReturnType<typeof useClaimableItems<EquipmentWithOwner, EquipmentBulkRow, EquipmentEditVals>>;
-}) {
-  if (bringItem.kind === "food") {
-    const item = bringItem.item;
-    return (
-      <ItemCardShell<GroceryWithFamily, GroceryEditVals>
-        item={item}
-        families={families}
-        familyId={familyId}
-        isOrganizer={isOrganizer}
-        isFirst={false}
-        isLast={false}
-        categoryOptions={categoryOptions}
-        ownership={groceryOwnership}
-        onDelete={food.handleDelete}
-        onClaim={food.handleClaim}
-        onUnclaim={food.handleUnclaim}
-        onOrganizerAssign={food.handleOrganizerAssign}
-        onUnvolunteer={food.handleUnvolunteer}
-        onSaveEdit={food.handleSaveEdit}
-        onReorder={async () => {
-          /* reorder hidden in unified view */
-        }}
-        onMoveCategory={food.handleMoveCategory}
-        showReorder={false}
-        renderLeading={(it) => (
-          <Checkbox
-            checked={it.isPurchased}
-            onCheckedChange={async () => {
-              await toggleGroceryPurchased(it.id, it.eventId, !it.isPurchased);
-              await food.refetch();
-            }}
-            className="shrink-0"
-          />
-        )}
-        renderBody={(it) => <GroceryBody item={it} />}
-        renderEditor={(it, onSave, onCancel) => (
-          <GroceryEditor item={it} onSave={onSave} onCancel={onCancel} />
-        )}
-      />
-    );
-  }
-
-  const item = bringItem.item;
-  return (
-    <ItemCardShell<EquipmentWithOwner, EquipmentEditVals>
-      item={item}
-      families={families}
-      familyId={familyId}
-      isOrganizer={isOrganizer}
-      isFirst={false}
-      isLast={false}
-      categoryOptions={categoryOptions}
-      ownership={equipmentOwnership}
-      onDelete={gear.handleDelete}
-      onClaim={gear.handleClaim}
-      onUnclaim={gear.handleUnclaim}
-      onOrganizerAssign={gear.handleOrganizerAssign}
-      onUnvolunteer={gear.handleUnvolunteer}
-      onSaveEdit={gear.handleSaveEdit}
-      onReorder={async () => {
-        /* reorder hidden in unified view */
-      }}
-      onMoveCategory={gear.handleMoveCategory}
-      showReorder={false}
-      renderBody={(it) => <EquipmentBody item={it} />}
-      renderEditor={(it, onSave, onCancel) => (
-        <EquipmentEditor item={it} onSave={onSave} onCancel={onCancel} />
-      )}
-    />
   );
 }
 
@@ -543,6 +184,126 @@ function BringListQuickAdd({
   );
 }
 
+/* ─── item row (routes per kind) ─── */
+
+function BringItemRow({
+  bringItem,
+  isOrganizer,
+  familyId,
+  families,
+  categoryOptions,
+  food,
+  gear,
+}: {
+  bringItem: BringItem;
+  isOrganizer: boolean;
+  familyId: number | null;
+  families: ReturnType<
+    typeof useClaimableItems<GroceryWithFamily, GroceryBulkRow, GroceryEditVals>
+  >["families"];
+  categoryOptions: string[];
+  food: ReturnType<
+    typeof useClaimableItems<GroceryWithFamily, GroceryBulkRow, GroceryEditVals>
+  >;
+  gear: ReturnType<
+    typeof useClaimableItems<
+      EquipmentWithOwner,
+      EquipmentBulkRow,
+      EquipmentEditVals
+    >
+  >;
+}) {
+  if (bringItem.kind === "food") {
+    const item = bringItem.item;
+    return (
+      <ItemCardShell<GroceryWithFamily, GroceryEditVals>
+        item={item}
+        families={families}
+        familyId={familyId}
+        isOrganizer={isOrganizer}
+        isFirst={false}
+        isLast={false}
+        categoryOptions={categoryOptions}
+        ownership={groceryOwnership}
+        onDelete={food.handleDelete}
+        onClaim={food.handleClaim}
+        onUnclaim={food.handleUnclaim}
+        onOrganizerAssign={food.handleOrganizerAssign}
+        onUnvolunteer={food.handleUnvolunteer}
+        onSaveEdit={food.handleSaveEdit}
+        onReorder={async () => {
+          /* reorder hidden in unified view */
+        }}
+        onMoveCategory={food.handleMoveCategory}
+        showReorder={false}
+        renderLeading={(it) => (
+          <Checkbox
+            checked={it.isPurchased}
+            onCheckedChange={async () => {
+              await toggleGroceryPurchased(it.id, it.eventId, !it.isPurchased);
+              await food.refetch();
+            }}
+            className="shrink-0"
+          />
+        )}
+        renderBody={(it) => (
+          <>
+            <KindChip kind="food" />
+            <GroceryItemBody item={it} />
+          </>
+        )}
+        renderEditor={(it, onSave, onCancel) => (
+          <GroceryItemEditor
+            item={it}
+            datalistId={DATALIST_ID}
+            onSave={onSave}
+            onCancel={onCancel}
+          />
+        )}
+      />
+    );
+  }
+
+  const item = bringItem.item;
+  return (
+    <ItemCardShell<EquipmentWithOwner, EquipmentEditVals>
+      item={item}
+      families={families}
+      familyId={familyId}
+      isOrganizer={isOrganizer}
+      isFirst={false}
+      isLast={false}
+      categoryOptions={categoryOptions}
+      ownership={equipmentOwnership}
+      onDelete={gear.handleDelete}
+      onClaim={gear.handleClaim}
+      onUnclaim={gear.handleUnclaim}
+      onOrganizerAssign={gear.handleOrganizerAssign}
+      onUnvolunteer={gear.handleUnvolunteer}
+      onSaveEdit={gear.handleSaveEdit}
+      onReorder={async () => {
+        /* reorder hidden in unified view */
+      }}
+      onMoveCategory={gear.handleMoveCategory}
+      showReorder={false}
+      renderBody={(it) => (
+        <>
+          <KindChip kind="gear" />
+          <EquipmentItemBody item={it} />
+        </>
+      )}
+      renderEditor={(it, onSave, onCancel) => (
+        <EquipmentItemEditor
+          item={it}
+          datalistId={DATALIST_ID}
+          onSave={onSave}
+          onCancel={onCancel}
+        />
+      )}
+    />
+  );
+}
+
 /* ─── category section ─── */
 
 function BringCategorySection({
@@ -561,10 +322,20 @@ function BringCategorySection({
   items: BringItem[];
   isOrganizer: boolean;
   familyId: number | null;
-  families: ReturnType<typeof useClaimableItems<GroceryWithFamily, GroceryBulkRow, GroceryEditVals>>["families"];
+  families: ReturnType<
+    typeof useClaimableItems<GroceryWithFamily, GroceryBulkRow, GroceryEditVals>
+  >["families"];
   categoryOptions: string[];
-  food: ReturnType<typeof useClaimableItems<GroceryWithFamily, GroceryBulkRow, GroceryEditVals>>;
-  gear: ReturnType<typeof useClaimableItems<EquipmentWithOwner, EquipmentBulkRow, EquipmentEditVals>>;
+  food: ReturnType<
+    typeof useClaimableItems<GroceryWithFamily, GroceryBulkRow, GroceryEditVals>
+  >;
+  gear: ReturnType<
+    typeof useClaimableItems<
+      EquipmentWithOwner,
+      EquipmentBulkRow,
+      EquipmentEditVals
+    >
+  >;
   onRename?: (newName: string) => void;
   onClear?: () => void;
 }) {
@@ -576,8 +347,7 @@ function BringCategorySection({
   const isUncategorized = !category;
 
   const claimed = items.filter(({ kind, item }) => {
-    // Branch on kind so TS can narrow `item` to the right concrete shape and
-    // each domain's ownership accessor receives the type it expects.
+    // Branch on kind so TS narrows `item` to the right concrete shape.
     if (kind === "food") {
       return (
         groceryOwnership.getOwnerFamilyId(item) ||
@@ -732,7 +502,12 @@ export function BringListPage({
     GroceryWithFamily,
     GroceryBulkRow,
     GroceryEditVals
-  >({ eventId, familyId, actions: groceryActions, ownership: groceryOwnership });
+  >({
+    eventId,
+    familyId,
+    actions: groceryActions,
+    ownership: groceryOwnership,
+  });
 
   const gear = useClaimableItems<
     EquipmentWithOwner,
@@ -767,28 +542,28 @@ export function BringListPage({
       if (filter === "gear") return kind === "gear";
       if (filter === "needs-help") {
         if (kind === "food") {
-          const i = item as GroceryWithFamily;
           return (
-            !i.assignedFamilyId &&
-            !i.assignedLabel &&
-            i.volunteers.length === 0
+            !item.assignedFamilyId &&
+            !item.assignedLabel &&
+            item.volunteers.length === 0
           );
         }
-        const i = item as EquipmentWithOwner;
-        return !i.ownerFamilyId && !i.ownerLabel && i.volunteers.length === 0;
+        return (
+          !item.ownerFamilyId &&
+          !item.ownerLabel &&
+          item.volunteers.length === 0
+        );
       }
       if (filter === "mine") {
         if (kind === "food") {
-          const i = item as GroceryWithFamily;
           return (
-            i.assignedFamilyId === familyId ||
-            i.volunteers.some((v) => v.familyId === familyId)
+            item.assignedFamilyId === familyId ||
+            item.volunteers.some((v) => v.familyId === familyId)
           );
         }
-        const i = item as EquipmentWithOwner;
         return (
-          i.ownerFamilyId === familyId ||
-          i.volunteers.some((v) => v.familyId === familyId)
+          item.ownerFamilyId === familyId ||
+          item.volunteers.some((v) => v.familyId === familyId)
         );
       }
       return true;
@@ -809,17 +584,15 @@ export function BringListPage({
         uncat.push(bi);
       }
     }
-    // Within a category, sort food before gear, then by sortOrder
-    for (const cat of Object.keys(map)) {
-      map[cat].sort((a, b) => {
-        if (a.kind !== b.kind) return a.kind === "food" ? -1 : 1;
-        return a.item.sortOrder - b.item.sortOrder;
-      });
-    }
-    uncat.sort((a, b) => {
+    // Within a category, food first then gear, then by sortOrder.
+    const sorter = (a: BringItem, b: BringItem) => {
       if (a.kind !== b.kind) return a.kind === "food" ? -1 : 1;
       return a.item.sortOrder - b.item.sortOrder;
-    });
+    };
+    for (const cat of Object.keys(map)) {
+      map[cat].sort(sorter);
+    }
+    uncat.sort(sorter);
     const order = Object.keys(map).sort((a, b) =>
       a.toLowerCase().localeCompare(b.toLowerCase())
     );
@@ -848,16 +621,14 @@ export function BringListPage({
 
   const allSuggestions = useMemo(() => {
     const set = new Set(existingCategories.map((c) => c.toLowerCase()));
-    const extras = [
-      ...GROCERY_CATEGORY_SUGGESTIONS,
-      ...EQUIPMENT_CATEGORY_SUGGESTIONS,
-    ].filter((s) => !set.has(s.toLowerCase()));
-    // De-duplicate the extras (since both lists may share names)
     const extraSet = new Set<string>();
     const dedupedExtras: string[] = [];
-    for (const s of extras) {
+    for (const s of [
+      ...GROCERY_CATEGORY_SUGGESTIONS,
+      ...EQUIPMENT_CATEGORY_SUGGESTIONS,
+    ]) {
       const lower = s.toLowerCase();
-      if (!extraSet.has(lower)) {
+      if (!set.has(lower) && !extraSet.has(lower)) {
         extraSet.add(lower);
         dedupedExtras.push(capFirst(s));
       }
@@ -915,23 +686,20 @@ export function BringListPage({
   const needsHelpCount = food.needsHelpCount + gear.needsHelpCount;
   const myCount = food.myCount + gear.myCount;
 
-  /* ── loading ── */
-
   if (food.loading || gear.loading) {
     return (
       <div className="text-center py-8 text-muted-foreground">Loading...</div>
     );
   }
 
-  /* ── bulk-import callbacks (cast for shape compatibility) ── */
+  // BulkRow shapes are structurally compatible with bulk-import's row type
+  // but TS's strict callback variance won't accept the direct assignment.
   const foodBulkAdd = food.handleBulkAdd as unknown as (
     rows: BulkImportRow[]
   ) => Promise<void>;
   const gearBulkAdd = gear.handleBulkAdd as unknown as (
     rows: BulkImportRow[]
   ) => Promise<void>;
-
-  /* ── render ── */
 
   const filterLabel = (f: Filter, count: number): ReactNode => {
     switch (f) {
