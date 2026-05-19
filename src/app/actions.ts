@@ -166,10 +166,19 @@ export async function deleteEvent(eventId: number) {
   revalidatePath("/events");
 }
 
-export async function updateEventStatus(eventId: number, status: string) {
+export async function cancelEvent(eventId: number) {
   await prisma.campingEvent.update({
     where: { id: eventId },
-    data: { status },
+    data: { status: "cancelled" },
+  });
+  revalidatePath(`/events/${eventId}`);
+  revalidatePath("/events");
+}
+
+export async function restoreEvent(eventId: number) {
+  await prisma.campingEvent.update({
+    where: { id: eventId },
+    data: { status: "upcoming" },
   });
   revalidatePath(`/events/${eventId}`);
   revalidatePath("/events");

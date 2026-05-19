@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams } from "next/navigation";
 import {
   bulkCreateExpenses,
@@ -103,8 +103,8 @@ export default function ExpensesPage() {
   const { eventId } = useParams<{ eventId: string }>();
   const { familyId } = useCurrentFamily();
   const isOrganizer = useIsOrganizer(eventId);
-  const [families, setFamilies] = useState<Family[]>([]);
   const [signups, setSignups] = useState<SignupInfo[]>([]);
+  const families = useMemo<Family[]>(() => signups.map((s) => s.family), [signups]);
   const [expenses, setExpenses] = useState<ExpenseWithFamily[]>([]);
   const [summary, setSummary] = useState<ExpenseSummary | null>(null);
   const [settlementPayments, setSettlementPayments] = useState<SettlementPaymentInfo[]>([]);
@@ -161,21 +161,17 @@ export default function ExpensesPage() {
   }, [familyId]);
 
   const fetchData = useCallback(async () => {
-    const [signupsRes, exps, sum, settlements] = await Promise.all([
-      fetch(`/api/events/${eventId}/signups`).then((r) => r.json()),
-      fetch(`/api/events/${eventId}/expenses`).then((r) => r.json()),
-      fetch(`/api/events/${eventId}/expenses/summary`).then((r) => r.json()),
-      fetch(`/api/events/${eventId}/settlements`).then((r) => r.json()),
-    ]);
-    setSignups(signupsRes.map((s: SignupInfo) => ({
-      familyId: s.familyId,
-      family: s.family,
-      noExpenses: s.noExpenses,
-    })));
-    setFamilies(signupsRes.map((s: { family: Family }) => s.family));
-    setExpenses(exps);
-    setSummary(sum);
-    setSettlementPayments(settlements);
+    const res = await fetch(`/api/events/${eventId}/expense-overview`).then((r) => r.json());
+    setSignups(
+      res.signups.map((s: SignupInfo) => ({
+        familyId: s.familyId,
+        family: s.family,
+        noExpenses: s.noExpenses,
+      })),
+    );
+    setExpenses(res.expenses);
+    setSummary(res.summary);
+    setSettlementPayments(res.settlementPayments);
     setLoading(false);
   }, [eventId]);
 
@@ -284,17 +280,9 @@ export default function ExpensesPage() {
     setSavingPaypal(true);
     try {
       await fetch("/api/families", {
-        method: "PUT",
+        method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id: paypalEditFamily.id,
-          name: paypalEditFamily.name,
-          contactName: paypalEditFamily.contactName,
-          contactName2: paypalEditFamily.contactName2,
-          phone: paypalEditFamily.phone,
-          email: paypalEditFamily.email,
-          paypalMe: trimmed,
-        }),
+        body: JSON.stringify({ id: paypalEditFamily.id, paypalMe: trimmed }),
       });
       setPaypalEditFamily(null);
       await fetchData();
@@ -315,17 +303,9 @@ export default function ExpensesPage() {
     setSavingZelle(true);
     try {
       await fetch("/api/families", {
-        method: "PUT",
+        method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id: zelleEditFamily.id,
-          name: zelleEditFamily.name,
-          contactName: zelleEditFamily.contactName,
-          contactName2: zelleEditFamily.contactName2,
-          phone: trimmed,
-          email: zelleEditFamily.email,
-          paypalMe: zelleEditFamily.paypalMe,
-        }),
+        body: JSON.stringify({ id: zelleEditFamily.id, phone: trimmed }),
       });
       setZelleEditFamily(null);
       await fetchData();
@@ -363,7 +343,13 @@ export default function ExpensesPage() {
     const validRows = newRows.filter(
       (r) => r.description.trim() && r.amount && r.paidByFamilyId
     );
-    if (validRows.length === 0) return;
+    const invalidRows = newRows.filter(
+      (r) => !(r.description.trim() && r.amount && r.paidByFamilyId)
+    );
+    if (validRows.length === 0) {
+      toast.error("No complete rows — fill in description, amount, and payer.");
+      return;
+    }
 
     setSaving(true);
     await bulkCreateExpenses(
@@ -375,9 +361,18 @@ export default function ExpensesPage() {
         category: r.category || undefined,
       }))
     );
-    setNewRows([]);
+    // Keep incomplete rows in the form so they aren't lost.
+    setNewRows(invalidRows);
     await fetchData();
     setSaving(false);
+    if (invalidRows.length > 0) {
+      toast.success(
+        `Saved ${validRows.length} expense${validRows.length === 1 ? "" : "s"}. ` +
+        `Kept ${invalidRows.length} incomplete row${invalidRows.length === 1 ? "" : "s"} for editing.`
+      );
+    } else {
+      toast.success(`Saved ${validRows.length} expense${validRows.length === 1 ? "" : "s"}.`);
+    }
   }
 
   const hasNewData = newRows.some(
@@ -652,18 +647,18 @@ export default function ExpensesPage() {
                       </div>
                     </div>
                     <div className="text-sm font-bold tabular-nums text-right shrink-0 w-20">{formatCurrency(Number(exp.amount))}</div>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0">
-                          <MoreVertical className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => startEdit(exp)}>
-                          <Pencil className="h-3.5 w-3.5 mr-2" />
-                          Edit
-                        </DropdownMenuItem>
-                        {isOrganizer && (
+                    {isOrganizer ? (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0">
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => startEdit(exp)}>
+                            <Pencil className="h-3.5 w-3.5 mr-2" />
+                            Edit
+                          </DropdownMenuItem>
                           <DropdownMenuItem
                             onClick={() => handleDelete(exp.id)}
                             className="text-destructive focus:text-destructive"
@@ -671,9 +666,19 @@ export default function ExpensesPage() {
                             <Trash2 className="h-3.5 w-3.5 mr-2" />
                             Delete
                           </DropdownMenuItem>
-                        )}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    ) : (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 shrink-0"
+                        onClick={() => startEdit(exp)}
+                        title="Edit"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
                   </div>
                 );
               })}

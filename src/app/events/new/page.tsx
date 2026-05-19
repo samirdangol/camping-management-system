@@ -11,7 +11,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Users, Upload, X } from "lucide-react";
+import Image from "next/image";
 import { blobUrl } from "@/lib/utils";
+import { compressImage } from "@/lib/image-compress";
 
 export default function NewEventPage() {
   const [loading, setLoading] = useState(false);
@@ -40,8 +42,9 @@ export default function NewEventPage() {
     setUploading(true);
     setUploadError("");
     try {
+      const prepared = await compressImage(file);
       const form = new FormData();
-      form.append("file", file);
+      form.append("file", prepared);
       const res = await fetch("/api/upload", { method: "POST", body: form });
       if (res.ok) {
         const data = await res.json();
@@ -194,7 +197,14 @@ export default function NewEventPage() {
               <Label>Campsite Screenshot / Info (optional)</Label>
               {imageUrl ? (
                 <div className="relative inline-block">
-                  <img src={blobUrl(imageUrl)} alt="Campsite" className="rounded-lg border max-h-40 object-cover" />
+                  <Image
+                    src={blobUrl(imageUrl)}
+                    alt="Campsite"
+                    width={400}
+                    height={160}
+                    unoptimized={blobUrl(imageUrl).startsWith("/api/blob")}
+                    className="rounded-lg border max-h-40 w-auto object-cover"
+                  />
                   <Button
                     type="button"
                     variant="destructive"

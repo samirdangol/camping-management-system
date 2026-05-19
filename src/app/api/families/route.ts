@@ -67,6 +67,59 @@ export async function PUT(request: NextRequest) {
   });
 }
 
+/**
+ * Partial update — only fields present in the body are touched.
+ * Used by the PayPal/Zelle inline dialogs so they don't have to echo every field.
+ */
+export async function PATCH(request: NextRequest) {
+  const body = await request.json();
+  const { id, name, contactName, contactName2, phone, email, pin, paypalMe } = body;
+
+  if (!id) {
+    return NextResponse.json({ error: "Family ID is required" }, { status: 400 });
+  }
+
+  if (pin !== undefined && pin !== null && pin !== "") {
+    if (!/^\d{4}$/.test(String(pin))) {
+      return NextResponse.json(
+        { error: "PIN must be exactly 4 digits" },
+        { status: 400 }
+      );
+    }
+  }
+
+  const data: Record<string, string | null> = {};
+  if (name !== undefined) {
+    if (!name?.trim()) {
+      return NextResponse.json({ error: "Name cannot be blank" }, { status: 400 });
+    }
+    data.name = name.trim();
+  }
+  if (contactName !== undefined) {
+    if (!contactName?.trim()) {
+      return NextResponse.json({ error: "Contact name cannot be blank" }, { status: 400 });
+    }
+    data.contactName = contactName.trim();
+  }
+  if (contactName2 !== undefined) data.contactName2 = contactName2?.trim() || null;
+  if (phone !== undefined) data.phone = phone?.trim() || null;
+  if (email !== undefined) data.email = email?.trim() || null;
+  if (paypalMe !== undefined) data.paypalMe = paypalMe?.trim() || null;
+  if (pin !== undefined) data.pin = pin || null;
+
+  const family = await prisma.family.update({
+    where: { id: Number(id) },
+    data,
+    omit: { pin: false },
+  });
+
+  const { pin: familyPin, ...safeFamily } = family;
+  return NextResponse.json({
+    ...safeFamily,
+    hasPin: familyPin !== null && familyPin !== "",
+  });
+}
+
 export async function POST(request: NextRequest) {
   const body = await request.json();
   const { name, contactName, contactName2, pin } = body;

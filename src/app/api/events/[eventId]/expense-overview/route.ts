@@ -3,6 +3,10 @@ import { prisma } from "@/lib/prisma";
 import { computeSettlementPlan } from "@/lib/settlement";
 import type { ExpenseSummary, Family, FamilyBalance, SettlementTransaction } from "@/types";
 
+/**
+ * Bundles everything the Expenses page needs into one round-trip:
+ * signups, expenses, settlement summary, and recorded settlement payments.
+ */
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ eventId: string }> }
@@ -10,9 +14,20 @@ export async function GET(
   const { eventId } = await params;
   const eid = parseInt(eventId, 10);
 
-  const [expenses, signups] = await Promise.all([
-    prisma.expense.findMany({ where: { eventId: eid }, include: { paidBy: true } }),
-    prisma.eventSignup.findMany({ where: { eventId: eid }, include: { family: true } }),
+  const [signups, expenses, settlementPayments] = await Promise.all([
+    prisma.eventSignup.findMany({
+      where: { eventId: eid },
+      include: { family: true },
+      orderBy: { createdAt: "asc" },
+    }),
+    prisma.expense.findMany({
+      where: { eventId: eid },
+      include: { paidBy: true },
+      orderBy: { date: "desc" },
+    }),
+    prisma.settlementPayment.findMany({
+      where: { eventId: eid },
+    }),
   ]);
 
   const familyById = new Map<number, Family>();
@@ -54,5 +69,5 @@ export async function GET(
     collector,
   };
 
-  return NextResponse.json(summary);
+  return NextResponse.json({ signups, expenses, summary, settlementPayments });
 }

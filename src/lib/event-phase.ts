@@ -46,19 +46,34 @@ export type PhaseInput = {
   allSettled?: boolean;
 };
 
-function dayKey(d: Date | string): string {
+// Event date fields are stored as UTC midnight of the wall-clock date the user typed,
+// so read them back via getUTC*. "Today" needs the viewer's local calendar date so the
+// phase reflects what the user perceives — using toISOString() flips the day after
+// ~5pm Pacific.
+function utcDayKey(d: Date | string): string {
   const date = typeof d === "string" ? new Date(d) : d;
-  return date.toISOString().slice(0, 10);
+  const y = date.getUTCFullYear();
+  const m = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(date.getUTCDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function localTodayKey(): string {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 }
 
 export function getEventPhase(input: PhaseInput): Phase {
   if (input.status === "cancelled") return "cancelled";
 
-  const today = dayKey(new Date());
-  const start = dayKey(input.startDate);
-  const end = dayKey(input.endDate);
+  const today = localTodayKey();
+  const start = utcDayKey(input.startDate);
+  const end = utcDayKey(input.endDate);
   // If no explicit deadline, signup closes when the trip starts
-  const signupEnd = input.signupDeadline ? dayKey(input.signupDeadline) : start;
+  const signupEnd = input.signupDeadline ? utcDayKey(input.signupDeadline) : start;
 
   if (today < signupEnd) return "signup";
   if (today < start) return "planning";

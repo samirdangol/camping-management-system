@@ -6,18 +6,25 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { toast } from "sonner";
 import { useCurrentGroup } from "@/hooks/use-current-group";
-import { Settings, ArrowLeft, Trash2, AlertTriangle, MessageSquare } from "lucide-react";
+import { useCurrentFamily } from "@/hooks/use-current-family";
+import { Settings, ArrowLeft, Trash2, AlertTriangle, MessageSquare, DollarSign, Smartphone } from "lucide-react";
 
 export default function GroupSettingsPage() {
   const router = useRouter();
   const { groupId, groupName, isLoaded } = useCurrentGroup();
+  const { familyId, familyName } = useCurrentFamily();
   const [name, setName] = useState("");
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [paypalMe, setPaypalMe] = useState("");
+  const [zellePhone, setZellePhone] = useState("");
+  const [paymentLoaded, setPaymentLoaded] = useState(false);
+  const [savingPayment, setSavingPayment] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deletePassword, setDeletePassword] = useState("");
   const [deleting, setDeleting] = useState(false);
@@ -37,6 +44,53 @@ export default function GroupSettingsPage() {
       setName(groupName);
     }
   }, [isLoaded, groupName]);
+
+  // Load the current family's payment methods so the form pre-fills.
+  useEffect(() => {
+    if (!familyId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/families");
+        if (!res.ok) return;
+        const families = await res.json();
+        const me = families.find((f: { id: number }) => f.id === familyId);
+        if (cancelled || !me) return;
+        setPaypalMe(me.paypalMe || "");
+        setZellePhone(me.phone || "");
+      } finally {
+        if (!cancelled) setPaymentLoaded(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [familyId]);
+
+  async function handleSavePayment(e: React.FormEvent) {
+    e.preventDefault();
+    if (!familyId) return;
+    setSavingPayment(true);
+    try {
+      const res = await fetch("/api/families", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: familyId,
+          paypalMe: paypalMe.trim(),
+          phone: zellePhone.trim(),
+        }),
+      });
+      if (res.ok) {
+        toast.success("Payment methods saved");
+      } else {
+        const data = await res.json().catch(() => null);
+        toast.error(data?.error || "Could not save payment methods");
+      }
+    } finally {
+      setSavingPayment(false);
+    }
+  }
 
   if (!isLoaded) {
     return <div className="text-center py-8 text-muted-foreground">Loading...</div>;
@@ -163,6 +217,60 @@ export default function GroupSettingsPage() {
           </form>
         </CardContent>
       </Card>
+
+      {/* Payment methods — proactive setup so settlement isn't the first time families add this */}
+      {familyId && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <DollarSign className="h-4 w-4" />
+              Payment Methods
+            </CardTitle>
+            <CardDescription>
+              Set up how other families can pay {familyName ?? "you"}. Used by the
+              settlement screen to offer one-tap PayPal links and copyable Zelle numbers.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSavePayment} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="paypalMe" className="flex items-center gap-1.5">
+                  <DollarSign className="h-3.5 w-3.5 text-blue-400" />
+                  PayPal.me username
+                </Label>
+                <div className="flex items-center gap-1">
+                  <span className="text-sm text-muted-foreground shrink-0">paypal.me/</span>
+                  <Input
+                    id="paypalMe"
+                    value={paypalMe}
+                    onChange={(e) => setPaypalMe(e.target.value)}
+                    placeholder="yourusername"
+                    disabled={!paymentLoaded}
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="zellePhone" className="flex items-center gap-1.5">
+                  <Smartphone className="h-3.5 w-3.5 text-purple-400" />
+                  Zelle phone number
+                </Label>
+                <Input
+                  id="zellePhone"
+                  type="tel"
+                  inputMode="tel"
+                  value={zellePhone}
+                  onChange={(e) => setZellePhone(e.target.value)}
+                  placeholder="e.g. 555-123-4567"
+                  disabled={!paymentLoaded}
+                />
+              </div>
+              <Button type="submit" disabled={savingPayment || !paymentLoaded}>
+                {savingPayment ? "Saving..." : "Save Payment Methods"}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Feedback */}
       <Card>

@@ -60,8 +60,6 @@ Families can publish a `paypalMe` handle that the settlement UI deep-links to.
 
 All event-child models cascade-delete with the event. `FamilyGroup` deletion cascades to its families and events.
 
-**Legacy models — `GroceryItem` / `GroceryVolunteer` / `Equipment` / `EquipmentVolunteer`:** still present in the schema, marked `// === LEGACY MODELS ===`, and will be dropped once `prisma/migrate-supplies.ts` has been run in every environment. Don't add features against them. Their Family relations (`assignedGroceries`, `ownedEquipment`, etc.) are similarly transitional.
-
 ### Server Actions vs API Routes
 
 - `src/app/actions.ts` (~600 lines) holds all mutation server actions used by RSC pages and form handlers. Actions use Prisma transactions where multi-step and call `revalidatePath` on the relevant event path.
@@ -72,7 +70,7 @@ When adding a mutation, prefer a server action unless a client component needs t
 ### UI Stack
 
 - **shadcn/ui** (new-york style) + Tailwind CSS v4 + Radix primitives in `src/components/ui/`
-- **lucide-react** icons, **sonner** toasts, **next-themes** wired up but currently light-only (`bg-gray-50` on body)
+- **lucide-react** icons, **sonner** toasts. Dark-only theme (deep forest oklch palette in `globals.css`) — no light mode, no theme toggle. Style new UI with dark-mode tokens (`bg-card`, `text-muted-foreground`) or color-shade accents like `bg-emerald-950/30 border-emerald-800/50` + `text-emerald-400` (see `event-dashboard-client.tsx` for the established palette).
 - **@dnd-kit** for drag-and-drop reordering (used in Supplies)
 - **@vercel/blob** for event-image uploads (`/api/blob`, `/api/upload`)
 

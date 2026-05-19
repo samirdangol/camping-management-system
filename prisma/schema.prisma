@@ -41,12 +41,6 @@ model Family {
   activityVolunteers   ActivityVolunteer[]
   assignedSupplies     Supply[]
   supplyVolunteers     SupplyVolunteer[]
-  // Legacy relations — kept until the supplies data migration has been run
-  // and the old GroceryItem/Equipment tables are dropped.
-  assignedGroceries    GroceryItem[]
-  groceryVolunteers    GroceryVolunteer[]
-  ownedEquipment       Equipment[]
-  equipmentVolunteers  EquipmentVolunteer[]
   paidExpenses         Expense[]
   settlementsSent      SettlementPayment[]   @relation("SettlementFrom")
   settlementsReceived  SettlementPayment[]   @relation("SettlementTo")
@@ -82,10 +76,6 @@ model CampingEvent {
   meals        Meal[]
   activities   Activity[]
   supplies     Supply[]
-  // Legacy relations — kept until the supplies data migration has been run
-  // and the old GroceryItem/Equipment tables are dropped.
-  groceryItems GroceryItem[]
-  equipment    Equipment[]
   expenses            Expense[]
   settlementPayments  SettlementPayment[]
 }
@@ -217,66 +207,6 @@ model SupplyVolunteer {
   family Family @relation(fields: [familyId], references: [id])
 
   @@unique([supplyId, familyId])
-}
-
-// === LEGACY MODELS — to be removed after migrate-supplies.ts runs ===
-
-model GroceryItem {
-  id               Int      @id @default(autoincrement())
-  eventId          Int
-  name             String
-  category         String?
-  assignedFamilyId Int?
-  assignedLabel    String?
-  sortOrder        Int      @default(0)
-  notes            String?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-
-  event      CampingEvent       @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  assignedTo Family?            @relation(fields: [assignedFamilyId], references: [id])
-  volunteers GroceryVolunteer[]
-}
-
-model GroceryVolunteer {
-  id            Int      @id @default(autoincrement())
-  groceryItemId Int
-  familyId      Int
-  createdAt     DateTime @default(now())
-
-  groceryItem GroceryItem @relation(fields: [groceryItemId], references: [id], onDelete: Cascade)
-  family      Family      @relation(fields: [familyId], references: [id])
-
-  @@unique([groceryItemId, familyId])
-}
-
-model Equipment {
-  id            Int      @id @default(autoincrement())
-  eventId       Int
-  name          String
-  category      String?
-  ownerFamilyId Int?
-  ownerLabel    String?
-  sortOrder     Int      @default(0)
-  notes         String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  event      CampingEvent         @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  owner      Family?              @relation(fields: [ownerFamilyId], references: [id])
-  volunteers EquipmentVolunteer[]
-}
-
-model EquipmentVolunteer {
-  id          Int      @id @default(autoincrement())
-  equipmentId Int
-  familyId    Int
-  createdAt   DateTime @default(now())
-
-  equipment Equipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
-  family    Family    @relation(fields: [familyId], references: [id])
-
-  @@unique([equipmentId, familyId])
 }
 
 model Expense {

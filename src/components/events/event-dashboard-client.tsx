@@ -2,8 +2,9 @@
 
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { useCurrentFamily } from "@/hooks/use-current-family";
-import { updateEvent, deleteEvent, updateEventStatus } from "@/app/actions";
+import { updateEvent, deleteEvent, cancelEvent, restoreEvent } from "@/app/actions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,6 +22,7 @@ import {
 } from "@/components/ui/dialog";
 import { Users, UtensilsCrossed, DollarSign, Pencil, Trash2, ExternalLink, Upload, X, ClipboardList, ChevronRight, Ban, RotateCcw } from "lucide-react";
 import { formatCurrency, blobUrl } from "@/lib/utils";
+import { compressImage } from "@/lib/image-compress";
 import { getEventPhase, PHASE_BADGE_CLASSES, PHASE_LABELS, PHASE_DESCRIPTIONS } from "@/lib/event-phase";
 import type { Family } from "@/types";
 
@@ -88,8 +90,9 @@ export function EventDashboardClient({ event }: { event: EventDashboardData }) {
     setUploading(true);
     setUploadError("");
     try {
+      const prepared = await compressImage(file);
       const form = new FormData();
-      form.append("file", file);
+      form.append("file", prepared);
       const res = await fetch("/api/upload", { method: "POST", body: form });
       if (res.ok) {
         const data = await res.json();
@@ -123,7 +126,8 @@ export function EventDashboardClient({ event }: { event: EventDashboardData }) {
   }
 
   async function toggleCancelled() {
-    await updateEventStatus(event.id, isCancelled ? "" : "cancelled");
+    if (isCancelled) await restoreEvent(event.id);
+    else await cancelEvent(event.id);
     router.refresh();
   }
 
@@ -133,7 +137,14 @@ export function EventDashboardClient({ event }: { event: EventDashboardData }) {
     setEditing(true);
   }
 
-  const fmtDate = (d: string) => new Date(d).toISOString().split("T")[0];
+  // Stored as UTC midnight; read via getUTC* so the form pre-fills the day the user typed.
+  const fmtDate = (d: string) => {
+    const date = new Date(d);
+    const y = date.getUTCFullYear();
+    const m = String(date.getUTCMonth() + 1).padStart(2, "0");
+    const day = String(date.getUTCDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  };
   const fmtTime = (t: string) => {
     const [h, m] = t.split(":");
     const hour = parseInt(h, 10);
@@ -221,7 +232,14 @@ export function EventDashboardClient({ event }: { event: EventDashboardData }) {
                 )}
                 {event.imageUrl && (
                   <button type="button" onClick={() => setImagePreview(true)} className="block cursor-zoom-in ml-auto">
-                    <img src={blobUrl(event.imageUrl)} alt="Campsite info" className="rounded-lg border h-16 w-auto object-cover shadow-sm" />
+                    <Image
+                      src={blobUrl(event.imageUrl)}
+                      alt="Campsite info"
+                      width={160}
+                      height={64}
+                      unoptimized={blobUrl(event.imageUrl).startsWith("/api/blob")}
+                      className="rounded-lg border h-16 w-auto object-cover shadow-sm"
+                    />
                   </button>
                 )}
               </div>
@@ -400,7 +418,14 @@ export function EventDashboardClient({ event }: { event: EventDashboardData }) {
               <Label>Campsite Screenshot / Info</Label>
               {editImageUrl ? (
                 <div className="relative inline-block">
-                  <img src={blobUrl(editImageUrl)} alt="Campsite" className="rounded-lg border max-h-40 object-cover" />
+                  <Image
+                    src={blobUrl(editImageUrl)}
+                    alt="Campsite"
+                    width={400}
+                    height={160}
+                    unoptimized={blobUrl(editImageUrl).startsWith("/api/blob")}
+                    className="rounded-lg border max-h-40 w-auto object-cover"
+                  />
                   <Button
                     type="button"
                     variant="destructive"
@@ -474,7 +499,15 @@ export function EventDashboardClient({ event }: { event: EventDashboardData }) {
               <DialogTitle>Campsite Image</DialogTitle>
               <DialogDescription>Full size campsite screenshot</DialogDescription>
             </DialogHeader>
-            <img src={blobUrl(event.imageUrl)} alt="Campsite info" className="rounded-lg w-full h-auto" />
+            <Image
+              src={blobUrl(event.imageUrl)}
+              alt="Campsite info"
+              width={1600}
+              height={900}
+              sizes="(max-width: 768px) 100vw, 768px"
+              unoptimized={blobUrl(event.imageUrl).startsWith("/api/blob")}
+              className="rounded-lg w-full h-auto"
+            />
           </DialogContent>
         </Dialog>
       )}
