@@ -20,6 +20,8 @@ export default async function EventLayout({
 
   if (!event) notFound();
 
+  const showReport = event.endDate < new Date();
+
   return (
     <div className="space-y-3">
       <div>
@@ -37,7 +39,7 @@ export default async function EventLayout({
           </span>
         </div>
       </div>
-      <EventTabs eventId={eventId} />
+      <EventTabs eventId={eventId} showReport={showReport} />
       <EventAccessGuard eventId={eventId}>{children}</EventAccessGuard>
     </div>
   );

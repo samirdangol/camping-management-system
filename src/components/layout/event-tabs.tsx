@@ -11,11 +11,12 @@ import {
   Package,
   TreePine,
   DollarSign,
+  ScrollText,
   Menu,
   type LucideIcon,
 } from "lucide-react";
 
-const tabs: { label: string; href: string; icon: LucideIcon }[] = [
+const BASE_TABS: { label: string; href: string; icon: LucideIcon }[] = [
   { label: "Overview", href: "", icon: LayoutDashboard },
   { label: "Signup", href: "/signup", icon: Users },
   { label: "Meals", href: "/meals", icon: UtensilsCrossed },
@@ -24,7 +25,10 @@ const tabs: { label: string; href: string; icon: LucideIcon }[] = [
   { label: "Expenses", href: "/expenses", icon: DollarSign },
 ];
 
-export function EventTabs({ eventId }: { eventId: string }) {
+const REPORT_TAB = { label: "Report", href: "/report", icon: ScrollText };
+
+export function EventTabs({ eventId, showReport }: { eventId: string; showReport?: boolean }) {
+  const tabs = showReport ? [...BASE_TABS, REPORT_TAB] : BASE_TABS;
   const pathname = usePathname();
   const basePath = `/events/${eventId}`;
   const [open, setOpen] = useState(false);
