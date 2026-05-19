@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Users, Trash2, Pencil } from "lucide-react";
+import { Users, Trash2, Pencil, Plus } from "lucide-react";
 import { useIsOrganizer } from "@/hooks/use-is-organizer";
 import { useCurrentFamily } from "@/hooks/use-current-family";
 import { emojiMembers } from "@/lib/utils";
@@ -37,6 +37,7 @@ export default function SignupPage() {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [editingFamilyId, setEditingFamilyId] = useState<number | null>(null);
   const [pendingDeleteId, setPendingDeleteId] = useState<number | null>(null);
+  const [showForm, setShowForm] = useState(false);
   const suggestionsRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(null);
 
@@ -111,7 +112,8 @@ export default function SignupPage() {
     setVegetarians(signup.vegetarians);
     setNotes(signup.notes || "");
     setEditingFamilyId(signup.familyId);
-    window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
+    setShowForm(true);
+    setTimeout(() => window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" }), 0);
   }
 
   function resetForm() {
@@ -127,6 +129,7 @@ export default function SignupPage() {
     setVegetarians(0);
     setNotes("");
     setEditingFamilyId(null);
+    setShowForm(false);
   }
 
   const isEditing = editingFamilyId !== null || signups.some((s) => s.family.name === familyName);
@@ -234,7 +237,16 @@ export default function SignupPage() {
         </div>
       )}
 
+      {/* Signup Form trigger */}
+      {!showForm && (
+        <Button onClick={() => setShowForm(true)} className="w-full sm:w-auto">
+          <Plus className="h-4 w-4" />
+          Sign Up a Family
+        </Button>
+      )}
+
       {/* Signup Form */}
+      {showForm && (
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">{isEditing ? "Update Signup" : "Sign Up a Family"}</CardTitle>
@@ -354,15 +366,14 @@ export default function SignupPage() {
               <Button type="submit" disabled={loading || !familyName.trim() || !contactName.trim()}>
                 {loading ? "Saving..." : isEditing ? "Update" : "Register"}
               </Button>
-              {isEditing && (
-                <Button type="button" variant="outline" onClick={resetForm}>
-                  Cancel
-                </Button>
-              )}
+              <Button type="button" variant="outline" onClick={resetForm}>
+                Cancel
+              </Button>
             </div>
           </form>
         </CardContent>
       </Card>
+      )}
 
       <ConfirmDeleteDialog
         open={pendingDeleteId !== null}

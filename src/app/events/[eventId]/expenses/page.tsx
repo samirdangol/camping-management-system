@@ -121,6 +121,18 @@ export default function ExpensesPage() {
   });
 
   const [pendingDeleteId, setPendingDeleteId] = useState<number | null>(null);
+  const [pendingMarkPaid, setPendingMarkPaid] = useState<{
+    from: SettlementTransaction["from"];
+    to: SettlementTransaction["to"];
+    amount: number;
+  } | null>(null);
+  const [pendingUnmark, setPendingUnmark] = useState<{
+    from: SettlementTransaction["from"];
+    to: SettlementTransaction["to"];
+    amount: number;
+  } | null>(null);
+  const [pendingConfirmNoExpenses, setPendingConfirmNoExpenses] = useState(false);
+  const [pendingUndoNoExpenses, setPendingUndoNoExpenses] = useState(false);
 
   // PayPal inline-edit state (settlement tab)
   const [paypalEditFamily, setPaypalEditFamily] = useState<Family | null>(null);
@@ -134,11 +146,7 @@ export default function ExpensesPage() {
 
   // New rows for bulk add
   const defaultFamilyId = familyId ? familyId.toString() : "";
-  const [newRows, setNewRows] = useState<NewRow[]>([
-    createEmptyRow(defaultFamilyId),
-    createEmptyRow(defaultFamilyId),
-    createEmptyRow(defaultFamilyId),
-  ]);
+  const [newRows, setNewRows] = useState<NewRow[]>([]);
 
   // Update default paidBy when familyId changes
   useEffect(() => {
@@ -215,23 +223,52 @@ export default function ExpensesPage() {
 
   async function handleConfirmNoExpenses() {
     if (!familyId) return;
-    await confirmNoExpenses(parseInt(eventId, 10), familyId, true);
+    setPendingConfirmNoExpenses(false);
+    const fid = familyId;
+    await confirmNoExpenses(parseInt(eventId, 10), fid, true);
     await fetchData();
+    toast("Confirmed: no expenses for this trip", {
+      action: {
+        label: "Undo",
+        onClick: async () => {
+          await confirmNoExpenses(parseInt(eventId, 10), fid, false);
+          await fetchData();
+        },
+      },
+      duration: 8000,
+    });
   }
 
   async function handleUndoNoExpenses() {
     if (!familyId) return;
+    setPendingUndoNoExpenses(false);
     await confirmNoExpenses(parseInt(eventId, 10), familyId, false);
     await fetchData();
   }
 
-  async function handleMarkSettled(fromFamilyId: number, toFamilyId: number, amount: number) {
-    await markSettlementPaid(parseInt(eventId, 10), fromFamilyId, toFamilyId, amount);
+  async function confirmMarkPaid() {
+    if (!pendingMarkPaid) return;
+    const { from, to, amount } = pendingMarkPaid;
+    setPendingMarkPaid(null);
+    await markSettlementPaid(parseInt(eventId, 10), from.id, to.id, amount);
     await fetchData();
+    toast(`Marked ${formatCurrency(amount)} from ${from.name} to ${to.name} as paid`, {
+      action: {
+        label: "Undo",
+        onClick: async () => {
+          await unmarkSettlementPaid(parseInt(eventId, 10), from.id, to.id);
+          await fetchData();
+        },
+      },
+      duration: 8000,
+    });
   }
 
-  async function handleUnmarkSettled(fromFamilyId: number, toFamilyId: number) {
-    await unmarkSettlementPaid(parseInt(eventId, 10), fromFamilyId, toFamilyId);
+  async function confirmUnmark() {
+    if (!pendingUnmark) return;
+    const { from, to } = pendingUnmark;
+    setPendingUnmark(null);
+    await unmarkSettlementPaid(parseInt(eventId, 10), from.id, to.id);
     await fetchData();
   }
 
@@ -338,11 +375,7 @@ export default function ExpensesPage() {
         category: r.category || undefined,
       }))
     );
-    setNewRows([
-      createEmptyRow(defaultFamilyId),
-      createEmptyRow(defaultFamilyId),
-      createEmptyRow(defaultFamilyId),
-    ]);
+    setNewRows([]);
     await fetchData();
     setSaving(false);
   }
@@ -412,7 +445,7 @@ export default function ExpensesPage() {
                     variant="ghost"
                     size="sm"
                     className="h-6 text-[10px] text-muted-foreground"
-                    onClick={() => handleUnmarkSettled(s.from.id, s.to.id)}
+                    onClick={() => setPendingUnmark({ from: s.from, to: s.to, amount: s.amount })}
                   >
                     Undo
                   </Button>
@@ -476,7 +509,7 @@ export default function ExpensesPage() {
                   variant="outline"
                   size="sm"
                   className="h-6 text-[10px] gap-1"
-                  onClick={() => handleMarkSettled(s.from.id, s.to.id, s.amount)}
+                  onClick={() => setPendingMarkPaid({ from: s.from, to: s.to, amount: s.amount })}
                 >
                   <Check className="h-2.5 w-2.5" />
                   Mark as Paid
@@ -564,14 +597,14 @@ export default function ExpensesPage() {
                     <Ban className="h-4 w-4 shrink-0" />
                     <span>You confirmed no expenses for this trip</span>
                   </div>
-                  <Button variant="ghost" size="sm" className="text-xs shrink-0" onClick={handleUndoNoExpenses}>
+                  <Button variant="ghost" size="sm" className="text-xs shrink-0" onClick={() => setPendingUndoNoExpenses(true)}>
                     Undo
                   </Button>
                 </>
               ) : (
                 <>
                   <span className="text-sm text-muted-foreground">No expenses to add?</span>
-                  <Button variant="outline" size="sm" className="text-xs shrink-0" onClick={handleConfirmNoExpenses}>
+                  <Button variant="outline" size="sm" className="text-xs shrink-0" onClick={() => setPendingConfirmNoExpenses(true)}>
                     <Check className="h-3 w-3 mr-1" />
                     Confirm No Expenses
                   </Button>
@@ -677,7 +710,7 @@ export default function ExpensesPage() {
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" onClick={addNewRow}>
               <Plus className="mr-2 h-4 w-4" />
-              Add Row
+              {newRows.length === 0 ? "Add Expense" : "Add Row"}
             </Button>
             {hasNewData && (
               <Button size="sm" onClick={handleBulkSave} disabled={saving}>
@@ -826,6 +859,52 @@ export default function ExpensesPage() {
         description="This will permanently remove the expense and may affect settlement calculations."
         onConfirm={confirmDelete}
         onCancel={() => setPendingDeleteId(null)}
+      />
+
+      <ConfirmDeleteDialog
+        open={pendingMarkPaid !== null}
+        title="Mark as paid?"
+        description={
+          pendingMarkPaid
+            ? `Confirm that ${pendingMarkPaid.from.name} has paid ${formatCurrency(pendingMarkPaid.amount)} to ${pendingMarkPaid.to.name}.`
+            : ""
+        }
+        confirmLabel="Mark as Paid"
+        confirmVariant="default"
+        onConfirm={confirmMarkPaid}
+        onCancel={() => setPendingMarkPaid(null)}
+      />
+
+      <ConfirmDeleteDialog
+        open={pendingUnmark !== null}
+        title="Undo settlement?"
+        description={
+          pendingUnmark
+            ? `This will mark the ${formatCurrency(pendingUnmark.amount)} payment from ${pendingUnmark.from.name} to ${pendingUnmark.to.name} as unpaid.`
+            : ""
+        }
+        confirmLabel="Undo"
+        onConfirm={confirmUnmark}
+        onCancel={() => setPendingUnmark(null)}
+      />
+
+      <ConfirmDeleteDialog
+        open={pendingConfirmNoExpenses}
+        title="Confirm no expenses?"
+        description="This tells the group your family has no expenses to add for this trip, so settlement can proceed without waiting on you."
+        confirmLabel="Confirm No Expenses"
+        confirmVariant="default"
+        onConfirm={handleConfirmNoExpenses}
+        onCancel={() => setPendingConfirmNoExpenses(false)}
+      />
+
+      <ConfirmDeleteDialog
+        open={pendingUndoNoExpenses}
+        title="Undo confirmation?"
+        description="This will reopen your family's expense entry for this trip and the group will wait on you again before settling."
+        confirmLabel="Undo"
+        onConfirm={handleUndoNoExpenses}
+        onCancel={() => setPendingUndoNoExpenses(false)}
       />
 
       <Dialog open={paypalEditFamily !== null} onOpenChange={(open) => !open && setPaypalEditFamily(null)}>

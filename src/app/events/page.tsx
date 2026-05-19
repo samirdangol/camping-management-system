@@ -120,42 +120,6 @@ export default function EventsPage() {
         </EmptyState>
       ) : (
         <>
-          {upcoming.length > 0 && (
-            <section className="space-y-2">
-              <h2 className="text-base font-semibold">Upcoming Trips</h2>
-              <div className="grid gap-2">
-                {upcoming.map((event) => (
-                  <Card key={event.id} className="hover:border-primary/40 transition-colors cursor-pointer" onClick={() => router.push(`/events/${event.id}`)}>
-                    <CardHeader className="pb-1.5 px-3 pt-3">
-                      <div className="flex items-start justify-between">
-                        <CardTitle className="text-base">{event.title}</CardTitle>
-                        <Badge className={PHASE_BADGE_CLASSES[event.phase]} variant="secondary">
-                          {PHASE_LABELS[event.phase]}
-                        </Badge>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="space-y-1 text-sm text-muted-foreground px-3 pb-3">
-                      <div className="flex items-center gap-2">
-                        <MapPin className="h-3.5 w-3.5 shrink-0" />
-                        {event.location}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Calendar className="h-3.5 w-3.5 shrink-0" />
-                        {formatDateRange(new Date(event.startDate), new Date(event.endDate))}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Users className="h-3.5 w-3.5 shrink-0" />
-                        {event._count.signups} {event._count.signups === 1 ? "family" : "families"}
-                      </div>
-                      {event.description && <p className="text-xs">{event.description}</p>}
-                      <div className="text-xs inline-flex items-center">Organized by <FamilyAvatar familyId={event.organizer.id} className="w-4 h-4 text-[10px] ml-1 mr-0.5" />{event.organizer.name}</div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </section>
-          )}
-
           {active.length > 0 && (
             <section className="space-y-2">
               <h2 className="text-base font-semibold">Active Trips</h2>
@@ -184,6 +148,42 @@ export default function EventsPage() {
                         <Users className="h-3.5 w-3.5 shrink-0" />
                         {event._count.signups} {event._count.signups === 1 ? "family" : "families"}
                       </div>
+                      <div className="text-xs inline-flex items-center">Organized by <FamilyAvatar familyId={event.organizer.id} className="w-4 h-4 text-[10px] ml-1 mr-0.5" />{event.organizer.name}</div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {upcoming.length > 0 && (
+            <section className="space-y-2">
+              <h2 className="text-base font-semibold">Upcoming Trips</h2>
+              <div className="grid gap-2">
+                {upcoming.map((event) => (
+                  <Card key={event.id} className="hover:border-primary/40 transition-colors cursor-pointer" onClick={() => router.push(`/events/${event.id}`)}>
+                    <CardHeader className="pb-1.5 px-3 pt-3">
+                      <div className="flex items-start justify-between">
+                        <CardTitle className="text-base">{event.title}</CardTitle>
+                        <Badge className={PHASE_BADGE_CLASSES[event.phase]} variant="secondary">
+                          {PHASE_LABELS[event.phase]}
+                        </Badge>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-1 text-sm text-muted-foreground px-3 pb-3">
+                      <div className="flex items-center gap-2">
+                        <MapPin className="h-3.5 w-3.5 shrink-0" />
+                        {event.location}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Calendar className="h-3.5 w-3.5 shrink-0" />
+                        {formatDateRange(new Date(event.startDate), new Date(event.endDate))}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Users className="h-3.5 w-3.5 shrink-0" />
+                        {event._count.signups} {event._count.signups === 1 ? "family" : "families"}
+                      </div>
+                      {event.description && <p className="text-xs">{event.description}</p>}
                       <div className="text-xs inline-flex items-center">Organized by <FamilyAvatar familyId={event.organizer.id} className="w-4 h-4 text-[10px] ml-1 mr-0.5" />{event.organizer.name}</div>
                     </CardContent>
                   </Card>

@@ -16,6 +16,7 @@ interface ConfirmDeleteDialogProps {
   title?: string;
   description?: React.ReactNode;
   confirmLabel?: string;
+  confirmVariant?: "destructive" | "default";
   onConfirm: () => void;
   onCancel: () => void;
 }
@@ -25,6 +26,7 @@ export function ConfirmDeleteDialog({
   title = "Delete item?",
   description = "This action cannot be undone.",
   confirmLabel = "Delete",
+  confirmVariant = "destructive",
   onConfirm,
   onCancel,
 }: ConfirmDeleteDialogProps) {
@@ -39,7 +41,7 @@ export function ConfirmDeleteDialog({
           <Button variant="outline" onClick={onCancel}>
             Cancel
           </Button>
-          <Button variant="destructive" onClick={onConfirm}>
+          <Button variant={confirmVariant} onClick={onConfirm}>
             {confirmLabel}
           </Button>
         </DialogFooter>
