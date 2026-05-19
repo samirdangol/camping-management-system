@@ -233,7 +233,7 @@ export function EventDashboardClient({ event }: { event: EventDashboardData }) {
       <div className="grid grid-cols-2 gap-3">
         {/* Families + Headcount Card — links to signup page */}
         <Card
-          className="col-span-2 bg-emerald-950/30 border-emerald-800/50 cursor-pointer hover:border-emerald-600/60 transition-colors"
+          className="col-span-2 bg-rose-950/30 border-rose-800/50 cursor-pointer hover:border-rose-600/60 transition-colors"
           onClick={() => router.push(`/events/${event.id}/signup`)}
         >
           <CardHeader className="pb-2">

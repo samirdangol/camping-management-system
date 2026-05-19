@@ -52,10 +52,10 @@ export function FeedbackButton() {
       {!open && (
         <button
           onClick={() => setOpen(true)}
-          className="fixed bottom-4 right-4 z-50 flex h-11 w-11 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg hover:bg-primary/90 transition-colors"
+          className="fixed bottom-4 right-4 z-50 flex h-8 w-8 items-center justify-center rounded-full bg-primary/80 text-primary-foreground shadow-md hover:bg-primary transition-colors"
           title="Send feedback"
         >
-          <MessageSquarePlus className="h-5 w-5" />
+          <MessageSquarePlus className="h-3.5 w-3.5" />
         </button>
       )}
 
